@@ -21,7 +21,7 @@ export default function WomenShopPage() {
 
 
                 {/* Women's perfume video banner */}
-                <section className="group relative mb-8 h-[300px] w-full overflow-hidden bg-[#79401f] sm:h-[360px] lg:h-[420px]">
+                <section className="group relative mb-8 h-[300px] w-full overflow-hidden sm:h-[360px] lg:h-[420px]">
                     <video
                         autoPlay
                         muted
