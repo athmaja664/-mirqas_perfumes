@@ -203,7 +203,7 @@ export default function Footer() {
         {/* Copyright */}
         <div className="flex flex-col gap-4 pt-6 text-sm text-neutral-400 lg:flex-row lg:items-center lg:justify-between">
           <p className="text-center lg:text-left">
-            © {new Date().getFullYear()} Mirqas Perfumes. All rights reserved.
+            © 2026 Mirqas Perfumes. All rights reserved.
           </p>
 
           <nav
