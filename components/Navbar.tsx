@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, MouseEvent, useEffect, useRef, useState } from "react";
 
-// Solid copper is used ONLY for the Collections mega menu (and its mobile list).
+// Solid copper is used ONLY for the Collections mega menu (and its mobile list)
+// and for the Search button.
 const COPPER = "#9C5A2B"; // proper copper, solid (no transparency)
 const COPPER_SOLID = "#9C5A2B"; // mobile drawer uses the same copper
 const PASTEL = "#F3E7D5"; // ivory text inside copper surfaces
@@ -44,7 +45,7 @@ const familyHref = (slug: string) => `/?category=${slug}#perfume-categories`;
 
 // Black nav label with a full-width underline that grows left to right
 const navItem =
-  "group relative whitespace-nowrap py-2 text-[12px] font-medium uppercase tracking-[0.12em] xl:tracking-[0.18em] text-[#111111] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#111111]";
+  "group relative whitespace-nowrap py-2 text-[11px] font-medium uppercase tracking-[0.1em] xl:text-[12px] xl:tracking-[0.18em] text-[#111111] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#111111]";
 const navLine =
   "pointer-events-none absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-[#111111] transition-transform duration-300 ease-out group-hover:scale-x-100 group-focus-visible:scale-x-100";
 const creamLine =
@@ -65,7 +66,7 @@ export default function Navbar() {
   const [drawer, setDrawer] = useState(false);
   const [mega, setMega] = useState(false);
   const [mobileColl, setMobileColl] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false); // phones/tablets only (dropdown panel)
   const [query, setQuery] = useState("");
   const [hidden, setHidden] = useState(false); // navbar hidden while scrolling down
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -143,8 +144,16 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Spacer: keeps the page content below the fixed navbar (same heights as the header) */}
-      <div aria-hidden className="h-[76px] w-full md:h-[88px] lg:h-[144px]" />
+      {/*
+        Spacer: keeps the page content below the fixed navbar. It must equal the header height:
+        row 1 = logo box height + 16px padding,  row 2 (desktop only) = 44px.
+          phones  76 + 16            = 92px
+          tablets 96 + 16            = 112px
+          desktop 112 + 16 + 44      = 172px
+        If you change a logo BOX height below (the h-[..px] on the logo link),
+        change the matching number here by the same amount.
+      */}
+      <div aria-hidden className="h-[92px] w-full md:h-[112px] lg:h-[172px]" />
 
       {/*
         The navbar is FIXED to the top of the screen (works even when the page CSS
@@ -163,15 +172,20 @@ export default function Navbar() {
         }}
       >
         <header style={{ background: IVORY }}>
-          {/* Row 1: search (left) | logo (true centre) | icons (right) */}
-          <div className="mx-auto grid h-[76px] max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center px-4 md:h-[88px] md:px-8 lg:h-24 lg:px-12">
-            <div className="flex items-center justify-self-start" style={{ color: INK }}>
+          {/*
+            Row 1
+            - phones/tablets: menu + search icon (left) | logo (centre) | bag (right)
+            - desktop (lg+):  logo (left) | wide search bar (middle) | account, wishlist, bag (right)
+          */}
+          <div className="mx-auto grid max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-x-2 px-4 py-2 md:px-8 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:px-12">
+            {/* phones/tablets only */}
+            <div className="flex items-center justify-self-start lg:hidden" style={{ color: INK }}>
               <button
                 type="button"
                 aria-label="Open menu"
                 aria-expanded={drawer}
                 onClick={() => setDrawer(true)}
-                className="flex h-11 w-11 items-center justify-center transition-opacity hover:opacity-60 lg:hidden"
+                className="flex h-11 w-11 items-center justify-center transition-opacity hover:opacity-60"
               >
                 <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4">
                   <path d="M3 7h18M3 12h18M3 17h18" />
@@ -192,16 +206,68 @@ export default function Navbar() {
               </button>
             </div>
 
-            <Link href="/" aria-label="Mirqas Perfumes home" className="justify-self-center">
+            <Link
+              href="/"
+              aria-label="Mirqas Perfumes home"
+              className="flex h-[76px] items-center justify-self-center overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#111111] md:h-[96px] lg:h-[112px] lg:justify-self-start"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/images/logoo.png"
                 alt="Mirqas Perfumes"
-                className="h-[95px] w-auto mix-blend-multiply md:h-[108px] lg:h-[125px]"
+                className="block h-[150px] w-auto max-w-none shrink-0 mix-blend-multiply md:h-[170px] lg:h-[200px]"
               />
             </Link>
 
+            {/* Desktop search bar: input with icon inside + solid copper Search button */}
+            <form
+              onSubmit={submitSearch}
+              role="search"
+              className="hidden w-full max-w-[680px] items-center gap-3 justify-self-center px-6 lg:flex xl:px-10"
+            >
+              <div className="relative flex-1">
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onFocus={() => setMega(false)}
+                  placeholder="Search for perfumes"
+                  aria-label="Search perfumes"
+                  className="h-12 w-full border border-black/20 bg-white pl-4 pr-12 text-[14px] tracking-wide text-[#111111] outline-none transition-colors placeholder:text-black/45 focus:border-[#111111]"
+                />
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#111111]">
+                  <SearchIcon size={20} />
+                </span>
+              </div>
+              <button
+                type="submit"
+                className="h-12 shrink-0 px-8 text-[14px] font-semibold tracking-wide text-white transition-colors hover:bg-[#7d4720] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+                style={{ background: COPPER }}
+              >
+                Search
+              </button>
+            </form>
+
             <div className="flex items-center justify-self-end" style={{ color: INK }}>
+              <Link
+                href="/account"
+                aria-label="My account"
+                className="hidden h-11 w-11 items-center justify-center transition-opacity hover:opacity-60 md:flex"
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4" aria-hidden>
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+                </svg>
+              </Link>
+              <Link
+                href="/wishlist"
+                aria-label="Wishlist"
+                className="hidden h-11 w-11 items-center justify-center transition-opacity hover:opacity-60 md:flex"
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4" aria-hidden>
+                  <path d="M12 20.5s-7.5-4.6-9-9.3C2 7.9 4 5 7 5c1.9 0 3.5 1 5 3 1.5-2 3.1-3 5-3 3 0 5 2.9 4 6.2-1.5 4.7-9 9.3-9 9.3z" />
+                </svg>
+              </Link>
               <Link
                 href="/cart"
                 aria-label="Shopping bag"
@@ -216,8 +282,8 @@ export default function Navbar() {
           </div>
 
           {/* Row 2: centred navigation (desktop) */}
-          <nav aria-label="Primary" className="hidden h-12 items-start justify-center lg:flex">
-            <ul className="flex items-center gap-6 xl:gap-10">
+          <nav aria-label="Primary" className="hidden h-11 items-center justify-center px-4 lg:flex">
+            <ul className="flex items-center gap-4 xl:gap-8 2xl:gap-10">
               {mainLinks.map((l) => (
                 <li key={l.label} onMouseEnter={() => setMega(false)}>
                   <Link href={l.href} className={navItem}>
@@ -302,10 +368,10 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Search panel: ivory, black text, subtle border */}
+        {/* Search panel for phones/tablets (desktop uses the search bar in the header) */}
         <div
           id="search-panel"
-          className={`absolute inset-x-0 top-full border-b border-black/10 transition-all duration-300 motion-reduce:transition-none ${
+          className={`absolute inset-x-0 top-full border-b border-black/10 transition-all duration-300 motion-reduce:transition-none lg:hidden ${
             searchOpen
               ? "visible translate-y-0 opacity-100"
               : "pointer-events-none invisible -translate-y-2 opacity-0"
@@ -318,15 +384,16 @@ export default function Navbar() {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search perfumes..."
+              placeholder="Search for perfumes"
               aria-label="Search perfumes"
               tabIndex={searchOpen ? 0 : -1}
-              className="h-11 w-full border border-black/20 bg-transparent px-4 text-[14px] tracking-wide text-[#111111] outline-none transition-colors placeholder:text-black/45 focus:border-[#111111]"
+              className="h-11 w-full border border-black/20 bg-white px-4 text-[14px] tracking-wide text-[#111111] outline-none transition-colors placeholder:text-black/45 focus:border-[#111111]"
             />
             <button
               type="submit"
               tabIndex={searchOpen ? 0 : -1}
-              className="h-11 shrink-0 border border-[#111111] bg-[#111111] px-6 text-[12px] uppercase tracking-[0.18em] text-white transition-colors hover:bg-transparent hover:text-[#111111]"
+              className="h-11 shrink-0 px-6 text-[14px] font-semibold tracking-wide text-white transition-colors hover:bg-[#7d4720]"
+              style={{ background: COPPER }}
             >
               Search
             </button>
