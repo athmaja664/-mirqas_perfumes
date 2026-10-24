@@ -144,7 +144,7 @@ export default function PerfumeSection() {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [hover, setHover] = useState<number | null>(null);
-  const toastTimer = useRef<number>();
+  const toastTimer = useRef<number | undefined>(undefined);
   const bottleRef = useRef<HTMLDivElement>(null);
   const cartBtnRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
