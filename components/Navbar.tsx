@@ -17,15 +17,15 @@ const glass = {
 } as const;
 
 const mainLinks = [
-  { label: "Shop All Perfumes", href: "/shop" },
+  { label: "Shop All Perfumes", href: "/shopallperfume" },
   { label: "Men", href: "/men" },
-  { label: "Women", href: "/shop?category=women" },
-  { label: "Unisex", href: "/shop?category=unisex" },
-  { label: "Luxury Collection", href: "/shop?category=luxury" },
-  { label: "Oud & Arabian", href: "/shop?category=oud-arabian" },
+  { label: "Women", href: "/women" },
+  { label: "Unisex", href: "/unisexual" },
+  { label: "Luxury Collection", href: "/luxuary" },
+  { label: "Oud & Arabian", href: "/oud" },
 ];
 const afterLinks = [
-  { label: "Gift Sets", href: "/shop?category=gifts" },
+  { label: "Gift Sets", href: "/gifts" },
   { label: "New Arrivals", href: "/shop/new-arrivals" },
 ];
 
