@@ -132,7 +132,7 @@ function Hero({ onShop }: { onShop: () => void }) {
   const items: { art: ReactNode; text: string }[] = [
     {
       art: (
-        <div className="grid h-full w-full grid-cols-2 gap-2 bg-[#F6EEE0] p-4">
+        <div className="grid h-full w-full grid-cols-2 gap-2 bg-[#F6EEE0] p-2 sm:p-4">
           {PRODUCTS.slice(0, 2).map((p) => (
             <PerfumeImage key={p.id} id={p.id} name={p.name} color={p.color} />
           ))}
@@ -144,7 +144,7 @@ function Hero({ onShop }: { onShop: () => void }) {
   ];
   return (
     <section className={`border-b ${LINE}`}>
-      <div className="mx-auto max-w-7xl px-4 py-14 text-center sm:px-6 lg:py-20">
+      <div className="mx-auto max-w-7xl px-4 py-10 text-center sm:px-6 sm:py-14 lg:py-20">
         <h1 className={`${HEAD} mx-auto max-w-3xl leading-tight`} style={{ fontSize: "clamp(2.2rem, 5vw, 3.75rem)" }}>
           You Know Their Taste. Build Their Gift
         </h1>
@@ -154,11 +154,11 @@ function Hero({ onShop }: { onShop: () => void }) {
         <button type="button" onClick={onShop} className={`${BTN} ${CAPS} mt-7 w-full px-10 py-3.5 text-[13px] sm:w-auto`}>
           Shop now
         </button>
-        <ol className="mx-auto mt-14 grid max-w-3xl gap-8 md:grid-cols-2 md:gap-0">
+        <ol className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-3 sm:mt-14 sm:gap-6 md:gap-0">
           {items.map((it, i) => (
-            <li key={it.text} className={`flex flex-col items-center gap-4 md:px-6 ${i > 0 ? `md:border-l ${LINE}` : ""}`}>
-              <div className="h-56 w-56 overflow-hidden sm:h-64 sm:w-64">{it.art}</div>
-              <p className="mq-serif text-2xl text-[#9C5A2B]">{i + 1}. {it.text}</p>
+            <li key={it.text} className={`flex flex-col items-center gap-3 sm:gap-4 md:px-6 ${i > 0 ? `md:border-l ${LINE}` : ""}`}>
+              <div className="aspect-square w-full max-w-[16rem] overflow-hidden">{it.art}</div>
+              <p className="mq-serif text-lg leading-snug text-[#9C5A2B] sm:text-2xl">{i + 1}. {it.text}</p>
             </li>
           ))}
         </ol>
@@ -200,10 +200,10 @@ interface CardProps {
 function SelectCard({ name, subtitle, price, art, qty, canAdd, multi, onAdd, onRemove }: CardProps) {
   const selected = qty > 0;
   return (
-    <article className={`flex flex-col border p-3 transition ${selected ? "border-[#9C5A2B] bg-white shadow-sm" : `${LINE} bg-white/60 hover:border-[#9C5A2B]/60`}`} aria-label={name}>
+    <article className={`flex flex-col border p-2 transition sm:p-3 ${selected ? "border-[#9C5A2B] bg-white shadow-sm" : `${LINE} bg-white/60 hover:border-[#9C5A2B]/60`}`} aria-label={name}>
       <div className="aspect-square overflow-hidden bg-[#F6EEE0]">{art}</div>
-      <h3 className="mq-serif mt-3 text-2xl font-medium leading-snug text-[#9C5A2B]">{name}</h3>
-      <p className={`text-sm ${MUTED}`}>{subtitle}</p>
+      <h3 className="mq-serif mt-2 text-lg font-medium leading-snug sm:mt-3 sm:text-2xl text-[#9C5A2B]">{name}</h3>
+      <p className={`text-xs sm:text-sm ${MUTED}`}>{subtitle}</p>
       <p className="mt-1 text-sm font-medium">{money(price)}</p>
       <div className="mt-3">
         {multi && selected ? (
@@ -213,11 +213,11 @@ function SelectCard({ name, subtitle, price, art, qty, canAdd, multi, onAdd, onR
             <button type="button" aria-label={`Add one more ${name}`} onClick={onAdd} disabled={!canAdd} className="p-3 disabled:opacity-30"><Icon d={ICONS.plus} size={16} /></button>
           </div>
         ) : !multi && selected ? (
-          <button type="button" onClick={onRemove} aria-pressed className={`${BTN} ${CAPS} flex w-full items-center justify-center gap-2 py-3 text-[13px]`}>
+          <button type="button" onClick={onRemove} aria-pressed className={`${BTN} ${CAPS} flex w-full items-center justify-center gap-2 py-3 text-[11px] sm:text-[13px]`}>
             <Icon d={ICONS.check} size={16} /> Selected
           </button>
         ) : (
-          <button type="button" onClick={onAdd} disabled={!canAdd} className={`${BTN_LINE} ${CAPS} w-full py-3 text-[13px] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:text-[#111111]/30 disabled:hover:bg-transparent disabled:hover:text-[#111111]/30`}>
+          <button type="button" onClick={onAdd} disabled={!canAdd} className={`${BTN_LINE} ${CAPS} w-full py-3 text-[11px] sm:text-[13px] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:text-[#111111]/30 disabled:hover:bg-transparent disabled:hover:text-[#111111]/30`}>
             Add to Box
           </button>
         )}
@@ -230,8 +230,8 @@ function GiftCardEditor({ message, onChange }: { message: string | null; onChang
   const enabled = message !== null;
   const text = message ?? "";
   return (
-    <section aria-labelledby="card-title" className={`mt-8 border bg-white/60 p-5 ${LINE}`}>
-      <div className="flex items-start justify-between gap-4">
+    <section aria-labelledby="card-title" className={`mt-6 border bg-white/60 p-4 sm:mt-8 sm:p-5 ${LINE}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <h3 id="card-title" className={`${HEAD} text-2xl`}>Add a gift card</h3>
           <p className={`text-sm ${MUTED}`}>Write a personal note. It is printed on a card inside the box. Free.</p>
@@ -249,7 +249,7 @@ function GiftCardEditor({ message, onChange }: { message: string | null; onChang
               id="card-text" value={text} maxLength={MAX_MESSAGE} rows={6}
               onChange={(e) => onChange(e.target.value)}
               placeholder="Dear Aanya, happy birthday. I chose these because they remind me of you."
-              className="w-full resize-none border border-[#9C5A2B]/40 bg-white p-3 text-sm outline-none focus:border-[#9C5A2B]"
+              className="w-full resize-none border border-[#9C5A2B]/40 bg-white p-3 text-base outline-none focus:border-[#9C5A2B] sm:text-sm"
             />
             <p className={`mt-1 text-right text-xs ${MUTED}`} aria-live="polite">{text.length}/{MAX_MESSAGE}</p>
           </div>
@@ -331,7 +331,7 @@ function CartDrawer({ open, items, onClose, onQty, onRemove }: { open: boolean; 
   return (
     <div className={`fixed inset-0 z-50 ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
       <div onClick={onClose} className={`absolute inset-0 bg-black/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} />
-      <aside role="dialog" aria-modal="true" aria-label="Shopping cart" className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-[#FCF8F0] shadow-xl transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}>
+      <aside role="dialog" aria-modal="true" aria-label="Shopping cart" className={`absolute right-0 top-0 flex h-[100dvh] w-full max-w-md flex-col bg-[#FCF8F0] shadow-xl transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}>
         <div className={`flex items-center justify-between border-b p-4 ${LINE}`}>
           <h2 className={`${HEAD} text-2xl`}>Your Cart</h2>
           <button type="button" aria-label="Close cart" onClick={onClose} tabIndex={open ? 0 : -1} className="p-1 text-[#9C5A2B]"><Icon d={ICONS.x} /></button>
@@ -365,7 +365,7 @@ function CartDrawer({ open, items, onClose, onQty, onRemove }: { open: boolean; 
           )}
         </div>
         {items.length > 0 && (
-          <div className={`border-t p-4 ${LINE}`}>
+          <div className={`border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))] ${LINE}`}>
             <div className="flex justify-between text-base font-semibold text-[#9C5A2B]"><span>Total</span><span>{money(total)}</span></div>
             <button type="button" onClick={onClose} className={`${BTN_LINE} ${CAPS} mt-3 w-full py-3.5 text-[13px]`}>Continue Shopping</button>
             <p className={`mt-2 text-center text-xs ${MUTED}`}>Demo cart only. Checkout is not connected.</p>
@@ -396,6 +396,7 @@ export default function GiftPage() {
     return perfumes + box;
   }, [sel]);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+  const bundleCount = perfumeCount + (sel.box ? 1 : 0) + (sel.message?.trim() ? 1 : 0);
 
   const scrollToBuilder = () => builderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -406,7 +407,7 @@ export default function GiftPage() {
     return null;
   };
 
-  const goTo = (s: StepId) => { setError(null); setStep(s); scrollToBuilder(); };
+  const goTo = (s: StepId) => { setError(null); setStep(s); setSummaryOpen(false); scrollToBuilder(); };
   const next = () => {
     const err = validate(step);
     if (err) return setError(err);
@@ -456,6 +457,7 @@ export default function GiftPage() {
     setToast("Your gift bundle was added to the cart.");
     setTimeout(() => setToast(null), 3500);
     setSel(EMPTY); setStep(1); setMaxReached(1); setError(null);
+    setSummaryOpen(false);
     setCartOpen(true);
   };
 
@@ -484,7 +486,7 @@ export default function GiftPage() {
       <main>
         <Hero onShop={scrollToBuilder} />
 
-        <section ref={builderRef} id="builder" aria-labelledby="builder-title" className="mx-auto max-w-7xl scroll-mt-4 px-4 py-12 sm:px-6">
+        <section ref={builderRef} id="builder" aria-labelledby="builder-title" className="mx-auto max-w-7xl scroll-mt-4 px-4 py-8 pb-28 sm:px-6 sm:py-12 sm:pb-32 lg:pb-12">
           <ProgressIndicator step={step} maxReached={maxReached} onGo={goTo} />
           <div className="mt-10 text-center">
             <h2 id="builder-title" className={`${HEAD}`} style={{ fontSize: "clamp(2rem, 4vw, 3rem)" }}>{cur.title}</h2>
@@ -495,7 +497,7 @@ export default function GiftPage() {
           <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
             <div>
               {step === 1 ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
                   {PRODUCTS.map((p) => (
                     <SelectCard
                       key={p.id} id={p.id}
@@ -511,7 +513,7 @@ export default function GiftPage() {
                 </div>
               ) : (
                 <div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
                     {BOXES.map((b) => (
                       <SelectCard
                         key={b.id} id={b.id} name={b.name} subtitle="Fits your whole selection"
@@ -530,27 +532,37 @@ export default function GiftPage() {
             {/* Desktop summary */}
             <div className="hidden lg:block">{summary}</div>
 
-            {/* Mobile / tablet collapsible summary */}
-            <div className="lg:hidden">
-              <button type="button" aria-expanded={summaryOpen} onClick={() => setSummaryOpen((o) => !o)} className={`${BTN_LINE} flex w-full items-center justify-between px-4 py-3 text-sm font-medium`}>
-                <span>Your Bundle · {money(subtotal)}</span>
-                <Icon d={summaryOpen ? ICONS.minus : ICONS.plus} size={16} />
-              </button>
-              {summaryOpen ? <div className="mt-3">{summary}</div> : (
-                <div className="mt-3 flex flex-col gap-2">
-                  {error && <p role="alert" className="border-l-2 border-red-600 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-                  {step < 2
-                    ? <button type="button" onClick={next} className={`${BTN} ${CAPS} w-full py-3.5 text-[13px]`}>Next</button>
-                    : <button type="button" onClick={addToCart} className={`${BTN} ${CAPS} w-full py-3.5 text-[13px]`}>Add to cart</button>}
-                </div>
-              )}
-            </div>
           </div>
         </section>
       </main>
 
+      {/* Phones / tablets: sticky bottom bar + bundle sheet */}
+      <div className="lg:hidden">
+        {summaryOpen && (
+          <div className="fixed inset-0 z-40">
+            <div onClick={() => setSummaryOpen(false)} className="absolute inset-0 bg-black/40" />
+            <div role="dialog" aria-modal="true" aria-label="Your bundle" className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto bg-[#FCF8F0] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl">
+              <button type="button" onClick={() => setSummaryOpen(false)} aria-label="Close bundle" className="mb-2 ml-auto flex p-1 text-[#9C5A2B]"><Icon d={ICONS.x} /></button>
+              {summary}
+            </div>
+          </div>
+        )}
+        <div className={`fixed inset-x-0 bottom-0 z-30 border-t bg-[#FCF8F0] px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${LINE}`}>
+          {error && !summaryOpen && <p role="alert" className="mb-2 border-l-2 border-red-600 bg-red-50 px-3 py-1.5 text-xs text-red-700">{error}</p>}
+          <div className="flex items-stretch gap-2">
+            <button type="button" aria-expanded={summaryOpen} onClick={() => setSummaryOpen(true)} className={`${BTN_LINE} flex min-h-[48px] flex-1 flex-col items-center justify-center px-2 text-xs leading-tight`}>
+              <span className="font-semibold">Your Bundle ({bundleCount})</span>
+              <span>{money(subtotal)}</span>
+            </button>
+            {step < 2
+              ? <button type="button" onClick={next} className={`${BTN} ${CAPS} min-h-[48px] flex-1 text-xs`}>Next</button>
+              : <button type="button" onClick={addToCart} className={`${BTN} ${CAPS} min-h-[48px] flex-1 text-xs`}>Add to cart</button>}
+          </div>
+        </div>
+      </div>
+
       {cartCount > 0 && !cartOpen && (
-        <button type="button" aria-label={`Open cart, ${cartCount} items`} onClick={() => setCartOpen(true)} className={`${BTN} fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-3 text-sm shadow-lg`}>
+        <button type="button" aria-label={`Open cart, ${cartCount} items`} onClick={() => setCartOpen(true)} className={`${BTN} fixed bottom-24 right-4 z-40 flex items-center gap-2 px-4 py-3 text-sm shadow-lg lg:bottom-4`}>
           <Icon d={ICONS.bag} size={18} /> Cart ({cartCount})
         </button>
       )}
@@ -558,7 +570,7 @@ export default function GiftPage() {
       <CartDrawer open={cartOpen} items={cart} onClose={() => setCartOpen(false)} onQty={cartQty} onRemove={cartRemove} />
 
       {toast && (
-        <div role="status" className="fixed bottom-4 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 bg-[#9C5A2B] px-4 py-3 text-center text-sm text-white shadow-lg">{toast}</div>
+        <div role="status" className="fixed bottom-24 left-1/2 z-[60] lg:bottom-4 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 bg-[#9C5A2B] px-4 py-3 text-center text-sm text-white shadow-lg">{toast}</div>
       )}
     </div>
   );

@@ -183,9 +183,9 @@ function ProductCard({
     };
 
     return (
-        <div className="group relative">
+        <div className="group relative flex h-full flex-col">
             {p.badge && (
-                <span className="pointer-events-none absolute left-0 top-0 z-10 max-w-[140px] bg-[#9C5A2B] px-3 py-2 text-xs font-semibold leading-tight text-white">
+                <span className="pointer-events-none absolute left-0 top-0 z-10 max-w-[120px] bg-[#9C5A2B] px-2 py-1.5 text-[10px] font-semibold leading-tight text-white sm:max-w-[140px] sm:px-3 sm:py-2 sm:text-xs">
                     {p.badge}
                 </span>
             )}
@@ -226,9 +226,9 @@ function ProductCard({
             </a>
 
             {/* Product details */}
-            <div className="mt-4 text-center">
-                <a href={`/product/${p.slug}`} className="block">
-                    <h3 className="mq-serif text-xl font-medium leading-snug text-[#9C5A2B]">{p.name}</h3>
+            <div className="mt-3 flex flex-1 flex-col text-center sm:mt-4">
+                <a href={`/product/${p.slug}`} className="block flex-1">
+                    <h3 className="mq-serif text-base font-medium leading-snug sm:text-xl text-[#9C5A2B]">{p.name}</h3>
                     <p className="mt-2 text-sm font-semibold">
                         ₹ {p.price}
                         <span className="ml-2 text-xs font-normal text-[#111111]/45 line-through">₹ {p.mrp}</span>
@@ -241,7 +241,7 @@ function ProductCard({
                     onClick={addToCart}
                     disabled={!p.inStock}
                     aria-live="polite"
-                    className="mt-3 flex w-full items-center justify-center gap-2 border border-[#9C5A2B] bg-[#9C5A2B] px-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-[#7d4720] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:bg-transparent disabled:text-[#111111]/30 disabled:hover:bg-transparent sm:text-xs"
+                    className="mt-3 flex min-h-[44px] w-full shrink-0 items-center justify-center gap-1.5 border border-[#9C5A2B] bg-[#9C5A2B] px-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-white transition-colors sm:tracking-[0.15em] hover:bg-[#7d4720] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:bg-[#F6EEE0] disabled:text-[#111111]/30 disabled:hover:bg-[#F6EEE0] sm:text-xs"
                 >
                     {!p.inStock ? (
                         "Sold out"
@@ -304,7 +304,7 @@ export default function WomenShopPage() {
     const rightPct = (maxPrice / PRICE_MAX) * 100;
 
     return (
-        <main className="min-h-screen px-6 py-12 lg:px-16" style={{ background: IVORY, color: INK, fontFamily: sans }}>
+        <main className="min-h-screen px-4 py-8 sm:px-6 sm:py-12 lg:px-16" style={{ background: IVORY, color: INK, fontFamily: sans }}>
             {/* Fonts, serif helper and the two-handle price slider */}
             <style>{`
                 @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600&family=Inter:wght@400;500;600&display=swap");
@@ -318,7 +318,7 @@ export default function WomenShopPage() {
 
             <div className="mx-auto max-w-[1400px]">
                 {/* Women's perfume video banner */}
-                <section className="group relative mb-8 h-[300px] w-full overflow-hidden bg-[#111111] sm:h-[360px] lg:h-[420px]">
+                <section className="group relative mb-6 h-[260px] w-full overflow-hidden bg-[#111111] sm:mb-8 sm:h-[360px] lg:h-[420px]">
                     <video
                         autoPlay
                         muted
@@ -345,9 +345,9 @@ export default function WomenShopPage() {
                                 Discover your signature scent
                             </p>
 
-                            <h1 className="mq-serif text-4xl font-medium leading-tight sm:text-5xl lg:text-7xl">
+                            <h1 className="mq-serif text-3xl font-medium leading-tight sm:text-5xl lg:text-7xl">
                                 Make every moment
-                                <span className="block text-5xl sm:text-6xl lg:text-8xl">
+                                <span className="block text-4xl sm:text-6xl lg:text-8xl">
                                     Special
                                 </span>
                             </h1>
