@@ -3,15 +3,16 @@
 // components/VideoShowcase.tsx
 // Three portrait videos with a "Buy now" button under each.
 //
-// 1. Put your own videos in  public/videos/  (showcase-1.mp4, showcase-2.mp4, showcase-3.mp4)
-//    and optional preview pictures in  public/images/  (shown until the video loads).
+// 1. Put your own videos in  public/videos/  and optional preview pictures in  public/images/.
 // 2. Change `href` to send each button to the right product page.
 //
-// Videos play silently on a loop while they are on screen and pause when you scroll away.
+// Phones: horizontal swipe row. The centered video is zoomed in and plays,
+//         the side videos are smaller and paused, and the next one peeks in.
+// Tablet/desktop: three in a row, all play while on screen.
 // Each video has a small pause/play button (and stays paused if the visitor prefers reduced motion).
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const COPPER = "#9C5A2B";
 const IVORY = "#FCF8F0";
@@ -38,35 +39,44 @@ function CartIcon() {
   );
 }
 
-function VideoCard({ item }: { item: Item }) {
+function VideoCard({ item, centered }: { item: Item; centered: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   const pausedByUser = useRef(false);
   const [playing, setPlaying] = useState(false);
   const [reduced, setReduced] = useState(false);
+  const [onScreen, setOnScreen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
     setReduced(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
   }, []);
 
-  // play only while the card is on screen (saves data and battery)
+  // track whether the card is on screen
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
     v.muted = true;
-    if (reduced) {
-      v.pause();
-      return;
-    }
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !pausedByUser.current) v.play().catch(() => {});
-        else v.pause();
-      },
-      { threshold: 0.35 }
-    );
+    const io = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), {
+      threshold: 0.35,
+    });
     io.observe(v);
     return () => io.disconnect();
-  }, [reduced]);
+  }, []);
+
+  // Phones: only the centered video plays. Desktop: every video on screen plays.
+  const shouldPlay = !reduced && onScreen && (isDesktop || centered);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (shouldPlay && !pausedByUser.current) v.play().catch(() => {});
+    else v.pause();
+  }, [shouldPlay]);
 
   const toggle = () => {
     const v = ref.current;
@@ -81,7 +91,11 @@ function VideoCard({ item }: { item: Item }) {
   };
 
   return (
-    <li className="min-w-[78%] snap-center sm:min-w-[46%] md:min-w-0">
+    <li
+      className={`w-[78vw] shrink-0 snap-center transition-all duration-500 ease-out motion-reduce:transition-none md:w-auto md:shrink md:scale-100 md:opacity-100 ${
+        centered ? "scale-100 opacity-100" : "scale-90 opacity-70"
+      }`}
+    >
       <div className="overflow-hidden rounded-2xl border bg-white" style={{ borderColor: "rgba(156,90,43,0.28)" }}>
         <div className="relative aspect-[4/5] bg-black">
           <video
@@ -132,14 +146,70 @@ function VideoCard({ item }: { item: Item }) {
 }
 
 export default function VideoShowcase() {
+  const listRef = useRef<HTMLUListElement>(null);
+  const [active, setActive] = useState(0);
+
+  // find which card is closest to the center of the scroll row
+  const handleScroll = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const center = list.scrollLeft + list.clientWidth / 2;
+    let closest = 0;
+    let min = Infinity;
+    Array.from(list.children).forEach((child, i) => {
+      const el = child as HTMLElement;
+      const dist = Math.abs(el.offsetLeft + el.offsetWidth / 2 - center);
+      if (dist < min) {
+        min = dist;
+        closest = i;
+      }
+    });
+    setActive(closest);
+  }, []);
+
+  const goTo = (i: number) => {
+    const list = listRef.current;
+    const el = list?.children[i] as HTMLElement | undefined;
+    if (!list || !el) return;
+    list.scrollTo({
+      left: el.offsetLeft + el.offsetWidth / 2 - list.clientWidth / 2,
+      behavior: "smooth",
+    });
+  };
+
   return (
-    <section aria-label="Perfume videos" className="py-12 md:py-20" style={{ background: IVORY, fontFamily: sans }}>
-      {/* phones: swipe sideways, one card and a peek of the next. tablets and desktop: three in a row */}
-      <ul className="mx-auto flex max-w-[1400px] scroll-px-4 snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:px-10 [&::-webkit-scrollbar]:hidden">
-        {ITEMS.map((item) => (
-          <VideoCard key={item.src} item={item} />
+    <section
+      aria-label="Perfume videos"
+      className="overflow-hidden py-12 md:py-20"
+      style={{ background: IVORY, fontFamily: sans }}
+    >
+      {/* phones: swipe row, centered card zoomed in, next one peeks. md+: three in a row */}
+      <ul
+        ref={listRef}
+        onScroll={handleScroll}
+        className="mx-auto flex max-w-[1400px] list-none snap-x snap-mandatory gap-3 overflow-x-auto px-[11vw] py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:px-10 md:py-0"
+      >
+        {ITEMS.map((item, i) => (
+          <VideoCard key={item.src} item={item} centered={active === i} />
         ))}
       </ul>
+
+      {/* dots: phones only */}
+      <div className="mt-5 flex justify-center gap-2 md:hidden">
+        {ITEMS.map((item, i) => (
+          <button
+            key={item.src}
+            type="button"
+            aria-label={`Show video ${i + 1}`}
+            onClick={() => goTo(i)}
+            className="h-2 rounded-full border-0 p-0 transition-all duration-300"
+            style={{
+              width: active === i ? 22 : 8,
+              background: active === i ? COPPER : "#E3D2BF",
+            }}
+          />
+        ))}
+      </div>
     </section>
   );
 }

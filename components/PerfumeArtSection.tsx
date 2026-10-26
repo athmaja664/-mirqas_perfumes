@@ -10,6 +10,9 @@ const CREAM = "#FFF9F3";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
+// Every button in this section opens the shop-all page. Change it here if the route changes.
+const SHOP_ALL = "/shopallperfume";
+
 // ---------- EDIT HERE: image ----------
 const perfumeArtConfig = {
   image: "https://images.pexels.com/photos/14490634/pexels-photo-14490634.jpeg", // save the file in public/images/story/
@@ -26,7 +29,7 @@ const perfumeStories = [
     description:
       "A fragrance is more than the way you smell. It is an expression of your personality, a reflection of your mood, and a memory that stays long after you leave.",
     ctaLabel: "EXPLORE OUR FRAGRANCES",
-    href: "/shop",
+    href: SHOP_ALL,
   },
   {
     id: "notes",
@@ -35,7 +38,7 @@ const perfumeStories = [
     description:
       "From bright citrus and delicate florals to warm woods and sensual amber, every fragrance unfolds in layers. Explore the notes that make a scent unforgettable.",
     ctaLabel: "DISCOVER FRAGRANCES",
-    href: "/shop",
+    href: SHOP_ALL,
   },
   {
     id: "essence",
@@ -44,7 +47,7 @@ const perfumeStories = [
     description:
       "Your signature fragrance should feel natural, distinctive, and unforgettable. Discover the scent that reflects your character and accompanies every meaningful moment.",
     ctaLabel: "FIND YOUR SCENT",
-    href: "/shop",
+    href: SHOP_ALL,
   },
 ];
 

@@ -174,10 +174,10 @@ export default function Navbar() {
         <header style={{ background: IVORY }}>
           {/*
             Row 1
-            - phones/tablets: menu + search icon (left) | logo (centre) | bag (right)
+            - phones/tablets: menu + search icon (left) | logo (centre) | account, wishlist, bag (right)
             - desktop (lg+):  logo (left) | wide search bar (middle) | account, wishlist, bag (right)
           */}
-          <div className="mx-auto grid max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-x-2 px-4 py-2 md:px-8 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:px-12">
+          <div className="mx-auto grid max-w-[1600px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 px-4 py-2 md:px-8 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:px-12">
             {/* phones/tablets only */}
             <div className="flex items-center justify-self-start lg:hidden" style={{ color: INK }}>
               <button
@@ -185,7 +185,7 @@ export default function Navbar() {
                 aria-label="Open menu"
                 aria-expanded={drawer}
                 onClick={() => setDrawer(true)}
-                className="flex h-11 w-11 items-center justify-center transition-opacity hover:opacity-60"
+                className="flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
               >
                 <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4">
                   <path d="M3 7h18M3 12h18M3 17h18" />
@@ -200,7 +200,7 @@ export default function Navbar() {
                   setMega(false);
                   setSearchOpen((v) => !v);
                 }}
-                className="flex h-11 w-11 items-center justify-center transition-opacity hover:opacity-60"
+                className="flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
               >
                 <SearchIcon />
               </button>
@@ -248,11 +248,12 @@ export default function Navbar() {
               </button>
             </form>
 
+            {/* Account, wishlist and bag: now visible on every screen size */}
             <div className="flex items-center justify-self-end" style={{ color: INK }}>
               <Link
                 href="/account"
                 aria-label="My account"
-                className="hidden h-11 w-11 items-center justify-center transition-opacity hover:opacity-60 md:flex"
+                className="flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
               >
                 <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4" aria-hidden>
                   <circle cx="12" cy="8" r="4" />
@@ -262,7 +263,7 @@ export default function Navbar() {
               <Link
                 href="/wishlist"
                 aria-label="Wishlist"
-                className="hidden h-11 w-11 items-center justify-center transition-opacity hover:opacity-60 md:flex"
+                className="flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
               >
                 <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4" aria-hidden>
                   <path d="M12 20.5s-7.5-4.6-9-9.3C2 7.9 4 5 7 5c1.9 0 3.5 1 5 3 1.5-2 3.1-3 5-3 3 0 5 2.9 4 6.2-1.5 4.7-9 9.3-9 9.3z" />
@@ -271,7 +272,7 @@ export default function Navbar() {
               <Link
                 href="/cart"
                 aria-label="Shopping bag"
-                className="flex h-11 w-11 items-center justify-center transition-opacity hover:opacity-60"
+                className="flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
               >
                 <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4">
                   <path d="M5 8h14l-1 13H6L5 8z" />
@@ -425,6 +426,16 @@ export default function Navbar() {
             <path d="M5 5l14 14M19 5L5 19" />
           </svg>
         </button>
+
+        {/* Home: mobile/tablet menu only (the desktop navbar has no Home link) */}
+        <Link
+          href="/"
+          onClick={closeAll}
+          className="pb-3 text-[13px] uppercase tracking-[0.16em]"
+          style={{ borderBottom: "1px solid rgba(243,231,213,0.3)" }}
+        >
+          Home
+        </Link>
 
         {mainLinks.map((l) => (
           <Link

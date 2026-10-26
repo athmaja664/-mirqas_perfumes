@@ -1,3 +1,6 @@
+"use client";
+
+import { useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -9,10 +12,6 @@ const BURGUNDY = "#754747";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
-// ---------- EDIT HERE: image, text and link for each collection ----------
-// image: a full link (https://...) or a local file like "/images/collections/men.jpg"
-//        Leave "" until you have the image: the card shows a neutral block.
-// href:  "/shop" works today. Change it when /shop/women etc. exist.
 const collections = [
   {
     id: "women",
@@ -28,7 +27,7 @@ const collections = [
     id: "men",
     title: "Men's Collection",
     subtitle: "A statement of character.",
-    image: "https://images.pexels.com/photos/28557815/pexels-photo-28557815.jpeg", 
+    image: "https://images.pexels.com/photos/28557815/pexels-photo-28557815.jpeg",
     alt: "Man wearing a signature Mirqas fragrance",
     position: "center",
     href: "/shop",
@@ -37,36 +36,64 @@ const collections = [
     id: "unisex",
     title: "Unisex Collection",
     subtitle: "Fragrance without boundaries.",
-    image: "https://images.unsplash.com/photo-1622618991746-fe6004db3a47?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D", 
+    image:
+      "https://images.unsplash.com/photo-1622618991746-fe6004db3a47?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
     alt: "Mirqas unisex fragrance collection",
     position: "center",
     href: "/shop",
   },
 ];
 
-// An image is usable only if it is a full link or starts with "/"
 const isValidSrc = (src: string) =>
   src.startsWith("/") || src.startsWith("http://") || src.startsWith("https://");
 
 export default function CollectionShowcase() {
+  const listRef = useRef<HTMLUListElement>(null);
+  const [active, setActive] = useState(0);
+
+  const handleScroll = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const center = list.scrollLeft + list.clientWidth / 2;
+    let closest = 0;
+    let min = Infinity;
+    Array.from(list.children).forEach((child, i) => {
+      const el = child as HTMLElement;
+      const dist = Math.abs(el.offsetLeft + el.offsetWidth / 2 - center);
+      if (dist < min) {
+        min = dist;
+        closest = i;
+      }
+    });
+    setActive(closest);
+  }, []);
+
+  const goTo = (i: number) => {
+    const list = listRef.current;
+    const el = list?.children[i] as HTMLElement | undefined;
+    if (!list || !el) return;
+    list.scrollTo({
+      left: el.offsetLeft + el.offsetWidth / 2 - list.clientWidth / 2,
+      behavior: "smooth",
+    });
+  };
+
   return (
     <section
       aria-labelledby="collection-showcase-heading"
-      className="w-full"
+      className="w-full overflow-hidden"
       style={{ background: CREAM, fontFamily: sans }}
     >
       <style>{`
         .cs-img { transition: transform 700ms cubic-bezier(0.22, 0.61, 0.36, 1); }
         .cs-card:focus-visible { outline: 2px solid ${BURGUNDY}; outline-offset: 4px; }
-
         @media (hover: hover) {
           .cs-card:hover .cs-img,
           .cs-card:focus-visible .cs-img { transform: scale(1.05); }
         }
-
         @media (prefers-reduced-motion: reduce) {
           .cs-img { transition: none; }
-          .cs-card:hover .cs-img, .cs-card:focus-visible .cs-img { transform: none; }
+          .cs-card:hover .cs-img { transform: none; }
         }
       `}</style>
 
@@ -91,9 +118,20 @@ export default function CollectionShowcase() {
           </p>
         </div>
 
-        <ul className="mt-10 grid grid-cols-1 gap-6 md:mt-14 md:grid-cols-3 md:gap-4 lg:gap-8">
-          {collections.map((c) => (
-            <li key={c.id}>
+        {/* Mobile: horizontal flex row that scrolls. md+: 3-column grid. */}
+        <ul
+          ref={listRef}
+          onScroll={handleScroll}
+          className="-mx-4 mt-8 flex list-none snap-x snap-mandatory gap-3 overflow-x-auto px-[11vw] py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:mt-14 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:py-0 lg:gap-8"
+        >
+          {collections.map((c, i) => (
+            <li
+              key={c.id}
+              data-active={active === i}
+              className={`w-[78vw] shrink-0 snap-center transition-all duration-500 ease-out md:w-auto md:shrink md:scale-100 md:opacity-100 ${
+                active === i ? "scale-100 opacity-100" : "scale-90 opacity-70"
+              }`}
+            >
               <Link
                 href={c.href}
                 className="cs-card relative block aspect-[4/5] w-full overflow-hidden"
@@ -104,19 +142,17 @@ export default function CollectionShowcase() {
                     src={c.image}
                     alt={c.alt}
                     fill
-                    sizes="(min-width: 768px) 33vw, 100vw"
+                    sizes="(min-width: 768px) 33vw, 80vw"
                     className="cs-img object-cover"
                     style={{ objectPosition: c.position }}
                   />
                 )}
 
-                {/* Dark gradient so the text is always readable */}
                 <div
                   aria-hidden
                   className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent"
                 />
 
-                {/* Text is always visible, over the image */}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center px-4 pb-8 text-center md:pb-10">
                   <h3
                     className="m-0 font-medium leading-tight"
@@ -143,6 +179,23 @@ export default function CollectionShowcase() {
             </li>
           ))}
         </ul>
+
+        {/* Dots: mobile only */}
+        <div className="mt-5 flex justify-center gap-2 md:hidden">
+          {collections.map((c, i) => (
+            <button
+              key={c.id}
+              type="button"
+              aria-label={`Show ${c.title}`}
+              onClick={() => goTo(i)}
+              className="h-2 rounded-full border-0 p-0 transition-all duration-300"
+              style={{
+                width: active === i ? 22 : 8,
+                background: active === i ? BURGUNDY : "#D9C9B3",
+              }}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );

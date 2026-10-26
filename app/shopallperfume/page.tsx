@@ -11,6 +11,13 @@ const GOLD = "#D4A017";
 const COPPER = "#B87333";
 const LINE = "#3a2a12";
 
+// Where the "View All Collections" button goes
+const COLLECTIONS_HREF = "/collections";
+
+// Bottle sizes the customer can choose from on every card
+const SIZES = ["6 ml", "12 ml"] as const;
+type Size = (typeof SIZES)[number];
+
 // ---------------------------------------------------------------------------
 // 1. IMAGE URLS: paste yours here (https://... direct image link, or /perfumes/x.jpg
 //    for a file inside /public). Leave "" to show the placeholder.
@@ -22,6 +29,7 @@ type Perfume = {
   name: string;
   size: string;
   price: number; // plain number so price sorting/filtering works
+  prices?: Partial<Record<Size, number>>; // optional price per bottle size, e.g. { "6 ml": 899, "12 ml": 1499 }
   image?: string; // <- product image URL goes here
   hoverImage?: string; // <- second image URL, shown when the card is hovered
   badge?: string; // e.g. "#1 Best Seller", "Best Seller", "New"
@@ -36,6 +44,8 @@ type Perfume = {
 
 // ---------------------------------------------------------------------------
 // 2. PRODUCTS: replace with your real data (or map data/products.tsx to this shape)
+//    Add `prices: { "6 ml": ..., "12 ml": ... }` to a product if the two sizes cost different.
+//    Without it, both sizes show the normal `price`.
 // ---------------------------------------------------------------------------
 const perfumes: Perfume[] = [
   { slug: "nadeem", name: "Nadeem", size: "100ML", price: 6290, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", badge: "#1 Best Seller", featured: true, sales: 980, added: "2026-03-10", gender: "Unisex", occasion: ["Evening", "Gifting"], family: "Oud" },
@@ -86,6 +96,8 @@ const PAGE_SIZE = 6;
 const formatPrice = (n: number) =>
   "₹ " + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const priceFor = (p: Perfume, size: Size) => p.prices?.[size] ?? p.price;
+
 function Placeholder({ label, className = "" }: { label: string; className?: string }) {
   return (
     <div className={`relative flex items-center justify-center bg-gradient-to-br from-neutral-900 via-black to-neutral-900 ${className}`}>
@@ -112,6 +124,67 @@ function Chevron({ open }: { open: boolean }) {
     <svg viewBox="0 0 24 24" className={`h-5 w-5 transition ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M6 9l6 6 6-6" />
     </svg>
+  );
+}
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill={filled ? GOLD : "none"} stroke={filled ? GOLD : "currentColor"} strokeWidth="1.5" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20.5s-7.5-4.6-9-9.3C2 7.9 4 5 7 5c1.9 0 3.5 1 5 3 1.5-2 3.1-3 5-3 3 0 5 2.9 4 6.2-1.5 4.7-9 9.3-9 9.3z" />
+    </svg>
+  );
+}
+
+function CartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 4h2l2.2 11h10.6L20 7H6.2" />
+      <circle cx="9" cy="19" r="1.3" />
+      <circle cx="17" cy="19" r="1.3" />
+    </svg>
+  );
+}
+
+// Round selector (instead of the square checkbox). Works as a checkbox or a radio.
+function CircleOption({
+  type,
+  name,
+  checked,
+  onChange,
+  label,
+  className = "",
+  disabled,
+}: {
+  type: "checkbox" | "radio";
+  name?: string;
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+  className?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label className={`flex cursor-pointer items-center gap-3 ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className}`}>
+      <input
+        type={type}
+        name={name}
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#D4A017]/70 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-black"
+        style={{ borderColor: checked ? GOLD : COPPER }}
+      >
+        <span
+          className={`h-2 w-2 rounded-full transition-transform duration-200 ${checked ? "scale-100" : "scale-0"}`}
+          style={{ background: GOLD }}
+        />
+      </span>
+      <span>{label}</span>
+    </label>
   );
 }
 
@@ -191,6 +264,135 @@ function SortDropdown({
   );
 }
 
+function ProductCard({
+  p,
+  wished,
+  onToggleWish,
+}: {
+  p: Perfume;
+  wished: boolean;
+  onToggleWish: (slug: string) => void;
+}) {
+  const [size, setSize] = useState<Size>(SIZES[0]);
+  const [added, setAdded] = useState(false);
+
+  // "Added" confirmation goes back to normal after 1.8 seconds
+  useEffect(() => {
+    if (!added) return;
+    const t = setTimeout(() => setAdded(false), 1800);
+    return () => clearTimeout(t);
+  }, [added]);
+
+  const addToCart = () => {
+    if (p.soldOut) return;
+    // TODO: connect your cart here, e.g. addItem({ slug: p.slug, size, price: priceFor(p, size) })
+    setAdded(true);
+  };
+
+  return (
+    <div className="text-center">
+      {/* image + wishlist heart */}
+      <div className="group relative overflow-hidden">
+        <a href={`/perfumes/${p.slug}`} className="block" aria-label={p.name}>
+          {p.image ? (
+            <>
+              {/* main image (fades out on hover when a hover image exists) */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.image}
+                alt={p.name}
+                className={`aspect-square w-full object-cover transition duration-700 ${
+                  p.hoverImage ? "group-hover:opacity-0" : "group-hover:scale-105"
+                }`}
+              />
+              {/* hover image (fades in on top) */}
+              {p.hoverImage && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={p.hoverImage}
+                  alt={`${p.name} alternate view`}
+                  className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-700 group-hover:scale-105 group-hover:opacity-100"
+                />
+              )}
+            </>
+          ) : (
+            <Placeholder label={p.name} className="aspect-square w-full" />
+          )}
+        </a>
+
+        {p.badge && (
+          <span
+            className="pointer-events-none absolute left-0 top-3 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-black sm:px-3 sm:py-1.5 sm:text-[10px] sm:tracking-[0.2em]"
+            style={{ background: COPPER }}
+          >
+            {p.badge}
+          </span>
+        )}
+        {p.soldOut && (
+          <span
+            className="pointer-events-none absolute bottom-2 left-2 bg-black/85 px-2 py-1 text-[9px] uppercase tracking-[0.25em] sm:text-[10px]"
+            style={{ color: COPPER }}
+          >
+            Sold out
+          </span>
+        )}
+
+        {/* Wishlist */}
+        <button
+          type="button"
+          onClick={() => onToggleWish(p.slug)}
+          aria-pressed={wished}
+          aria-label={wished ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
+          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-[#D4A017] transition hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D4A017]"
+        >
+          <HeartIcon filled={wished} />
+        </button>
+      </div>
+
+      {/* name + price */}
+      <a href={`/perfumes/${p.slug}`} className="block">
+        <h3 className="mt-4 text-[11px] uppercase tracking-[0.15em] sm:mt-5 sm:text-sm sm:tracking-[0.3em]">{p.name}</h3>
+        <p className="mt-2 text-xs text-white sm:text-sm">{formatPrice(priceFor(p, size))}</p>
+      </a>
+
+      {/* size choice: 6 ml / 12 ml */}
+      <div role="radiogroup" aria-label={`${p.name} bottle size`} className="mt-3 flex items-center justify-center gap-4">
+        {SIZES.map((s) => (
+          <CircleOption
+            key={s}
+            type="radio"
+            name={`size-${p.slug}`}
+            checked={size === s}
+            onChange={() => setSize(s)}
+            label={s}
+            className="gap-1.5 text-[11px] text-[#C9A24B] hover:text-[#D4A017] sm:text-xs"
+          />
+        ))}
+      </div>
+
+      {/* add to cart */}
+      <button
+        type="button"
+        onClick={addToCart}
+        disabled={p.soldOut}
+        aria-live="polite"
+        className="mt-3 flex w-full items-center justify-center gap-2 border px-2 py-2.5 text-[10px] uppercase tracking-[0.15em] transition-colors hover:bg-[#D4A017] hover:text-black disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#D4A017] sm:text-xs sm:tracking-[0.2em]"
+        style={{ borderColor: GOLD }}
+      >
+        {p.soldOut ? (
+          "Sold out"
+        ) : added ? (
+          "Added ✓"
+        ) : (
+          <>
+            Add to cart <CartIcon />
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
 export default function ShopAllPerfumesPage() {
   const [sort, setSort] = useState("featured");
   const [selected, setSelected] = useState<Record<FilterKey, string[]>>({ gender: [], occasion: [], family: [] });
@@ -200,6 +402,10 @@ export default function ShopAllPerfumesPage() {
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ gender: true, occasion: true, family: true, price: true });
   const [mobileFilters, setMobileFilters] = useState(false);
+  const [wishlist, setWishlist] = useState<string[]>([]);
+
+  const toggleWish = (slug: string) =>
+    setWishlist((w) => (w.includes(slug) ? w.filter((s) => s !== slug) : [...w, slug]));
 
   const toggleOption = (key: FilterKey, value: string) => {
     setSelected((s) => ({ ...s, [key]: s[key].includes(value) ? s[key].filter((v) => v !== value) : [...s[key], value] }));
@@ -262,10 +468,13 @@ export default function ShopAllPerfumesPage() {
             <ul className="mt-4 space-y-3">
               {g.options.map((opt) => (
                 <li key={opt}>
-                  <label className="flex cursor-pointer items-center gap-3 text-sm text-[#C9A24B] hover:text-[#D4A017]">
-                    <input type="checkbox" checked={selected[g.key].includes(opt)} onChange={() => toggleOption(g.key, opt)} className="h-4 w-4 accent-[#D4A017]" />
-                    {opt}
-                  </label>
+                  <CircleOption
+                    type="checkbox"
+                    checked={selected[g.key].includes(opt)}
+                    onChange={() => toggleOption(g.key, opt)}
+                    label={opt}
+                    className="text-sm text-[#C9A24B] hover:text-[#D4A017]"
+                  />
                 </li>
               ))}
             </ul>
@@ -288,10 +497,13 @@ export default function ShopAllPerfumesPage() {
       </div>
 
       <div className="py-5">
-        <label className="flex cursor-pointer items-center gap-3 uppercase tracking-[0.25em]">
-          <input type="checkbox" checked={inStockOnly} onChange={(e) => { setInStockOnly(e.target.checked); setVisible(PAGE_SIZE); }} className="h-4 w-4 accent-[#D4A017]" />
-          In stock only
-        </label>
+        <CircleOption
+          type="checkbox"
+          checked={inStockOnly}
+          onChange={() => { setInStockOnly((v) => !v); setVisible(PAGE_SIZE); }}
+          label="In stock only"
+          className="uppercase tracking-[0.25em]"
+        />
       </div>
     </div>
   );
@@ -346,50 +558,11 @@ export default function ShopAllPerfumesPage() {
             {FiltersPanel}
           </aside>
 
-          {/* grid */}
-          <div className="flex-1">
-            <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 xl:grid-cols-3">
+          {/* grid: 2 columns on phones, 2 on tablets, 3 on large screens */}
+          <div className="min-w-0 flex-1">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-7 xl:grid-cols-3">
               {shown.map((p) => (
-                <a key={p.slug} href={`/perfumes/${p.slug}`} className="group block text-center">
-                  <div className="relative overflow-hidden">
-                    {p.image ? (
-                      <>
-                        {/* main image (fades out on hover when a hover image exists) */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={p.image}
-                          alt={p.name}
-                          className={`aspect-square w-full object-cover transition duration-700 ${
-                            p.hoverImage ? "group-hover:opacity-0" : "group-hover:scale-105"
-                          }`}
-                        />
-                        {/* hover image (fades in on top) */}
-                        {p.hoverImage && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={p.hoverImage}
-                            alt={`${p.name} alternate view`}
-                            className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-700 group-hover:scale-105 group-hover:opacity-100"
-                          />
-                        )}
-                      </>
-                    ) : (
-                      <Placeholder label={p.name} className="aspect-square w-full" />
-                    )}
-                    {p.badge && (
-                      <span className="absolute left-0 top-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-black" style={{ background: COPPER }}>
-                        {p.badge}
-                      </span>
-                    )}
-                    {p.soldOut && (
-                      <span className="absolute right-3 top-3 bg-black px-3 py-1 text-[10px] uppercase tracking-[0.3em]" style={{ color: COPPER }}>
-                        Sold out
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="mt-5 text-sm uppercase tracking-[0.3em]">{p.name} ({p.size})</h3>
-                  <p className="mt-2 text-sm text-white">{formatPrice(p.price)}</p>
-                </a>
+                <ProductCard key={p.slug} p={p} wished={wishlist.includes(p.slug)} onToggleWish={toggleWish} />
               ))}
             </div>
 
@@ -409,6 +582,20 @@ export default function ShopAllPerfumesPage() {
                 </button>
               </div>
             )}
+
+            {/* View All Collections */}
+            <div className="mt-12 text-center">
+              {/* <a
+                href={COLLECTIONS_HREF}
+                className="inline-flex items-center justify-center gap-3 px-8 py-3.5 text-xs font-semibold uppercase tracking-[0.2em] text-black transition-colors hover:bg-[#D4A017] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#D4A017]"
+                style={{ background: COPPER }}
+              >
+                View All Collections
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </a> */}
+            </div>
           </div>
         </div>
       </section>

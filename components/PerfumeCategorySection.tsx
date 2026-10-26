@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { CATEGORIES, Category, Product, products as allProducts } from "@/data/products";
 
 const CREAM = "#FFF9F3";
@@ -37,7 +36,7 @@ function ProductMedia({
 
   const hasVideo = !!video && !videoFailed;
 
-  // Play on hover/focus, pause + reset when not active
+  // Play when active (hover, focus, or scrolled into view), pause + reset when not
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -46,7 +45,7 @@ function ProductMedia({
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       v.currentTime = 0;
       v.play().catch(() => {
-        // Interrupted by a quick mouse-leave or blocked: image stays visible
+        // Interrupted or blocked: image stays visible
       });
     } else {
       v.pause();
@@ -76,7 +75,7 @@ function ProductMedia({
           muted
           loop
           playsInline
-          preload="none"
+          preload="metadata"
           onPlaying={() => setPlaying(true)}
           onError={() => {
             setVideoFailed(true);
@@ -101,9 +100,31 @@ function ProductMedia({
 }
 
 function ProductCard({ p }: { p: Product }) {
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(false); // hover / keyboard focus (desktop)
+  const [inView, setInView] = useState(false); // scrolled into view (phones)
+  const mediaRef = useRef<HTMLDivElement>(null);
+
   const discounted = p.originalPrice !== undefined && p.originalPrice > p.price;
   const pct = discounted ? Math.round(((p.originalPrice! - p.price) / p.originalPrice!) * 100) : 0;
+
+  // Touch devices have no hover, so play the video when the card scrolls into view.
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el || !p.video) return;
+    if (!window.matchMedia("(hover: none)").matches) return; // desktop keeps hover behaviour
+
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      {
+        // Only the middle ~50% of the screen counts, so videos
+        // start when the card is properly in view, not at the edge.
+        rootMargin: "-25% 0px -25% 0px",
+        threshold: 0.5,
+      }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [p.video]);
 
   return (
     <li>
@@ -119,9 +140,13 @@ function ProductCard({ p }: { p: Product }) {
         onBlur={() => setActive(false)}
         className="group flex h-full flex-col items-center text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#754747]"
       >
-        {/* No white background, no padding: the media fills the whole box */}
-        <div className="aspect-[4/5] w-full overflow-hidden">
-          <ProductMedia src={p.image} video={p.video} alt={p.name} active={active} />
+        <div ref={mediaRef} className="aspect-[4/5] w-full overflow-hidden">
+          <ProductMedia
+            src={p.image}
+            video={p.video}
+            alt={p.name}
+            active={active || inView}
+          />
         </div>
 
         <div className="mt-4 flex w-full flex-1 flex-col items-center px-1">
@@ -176,7 +201,6 @@ export default function PerfumeCategorySection({ products = allProducts }: Props
   const btnRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
 
-  // Derived directly from state: no effect needed
   const visible = useMemo(() => {
     const list =
       selected === "Best Sellers"

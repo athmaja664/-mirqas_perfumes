@@ -1,9 +1,13 @@
 "use client";
 
 // Save as: app/shop/men/page.tsx
-// Images go in: public/perfumes/<slug>/main.jpg  and  public/perfumes/<slug>/hover.jpg
 
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
+
+const BANNER_IMAGE =
+    "https://images.unsplash.com/photo-1663276710785-7f1f50a587e7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D";
+
+const PAGE_SIZE = 8; // how many products show first, and how many each "Show more" adds
 
 type Perfume = {
     slug: string;
@@ -56,6 +60,41 @@ function Chevron({ open }: { open: boolean }) {
     );
 }
 
+function HeartIcon({ filled }: { filled: boolean }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            className={filled ? "fill-neutral-900 stroke-neutral-900" : "fill-none stroke-current"}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+            aria-hidden
+        >
+            <path d="M12 20.5s-7.5-4.6-9-9.3C2 7.9 4 5 7 5c1.9 0 3.5 1 5 3 1.5-2 3.1-3 5-3 3 0 5 2.9 4 6.2-1.5 4.7-9 9.3-9 9.3z" />
+        </svg>
+    );
+}
+
+function CartIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            className="fill-none stroke-current"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+        >
+            <path d="M3 4h2l2.2 11h10.6L20 7H6.2" />
+            <circle cx="9" cy="19" r="1.3" />
+            <circle cx="17" cy="19" r="1.3" />
+        </svg>
+    );
+}
+
 function FilterSection({ title, children }: { title: string; children: ReactNode }) {
     const [open, setOpen] = useState(true);
 
@@ -76,7 +115,8 @@ function FilterSection({ title, children }: { title: string; children: ReactNode
     );
 }
 
-function Checkbox({
+// Round selector instead of the square checkbox
+function CircleOption({
     label,
     count,
     checked,
@@ -89,16 +129,127 @@ function Checkbox({
 }) {
     return (
         <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700 hover:text-neutral-900">
-            <input
-                type="checkbox"
-                checked={checked}
-                onChange={onChange}
-                className="h-4 w-4 cursor-pointer accent-neutral-900"
-            />
+            <input type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" />
+            <span
+                aria-hidden
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-neutral-900 peer-focus-visible:ring-offset-2 ${
+                    checked ? "border-neutral-900" : "border-neutral-400"
+                }`}
+            >
+                <span
+                    className={`h-2 w-2 rounded-full bg-neutral-900 transition-transform duration-200 ${
+                        checked ? "scale-100" : "scale-0"
+                    }`}
+                />
+            </span>
             <span>
                 {label} <span className="text-neutral-500">({count})</span>
             </span>
         </label>
+    );
+}
+
+function ProductCard({
+    p,
+    wished,
+    onToggleWish,
+}: {
+    p: Perfume;
+    wished: boolean;
+    onToggleWish: (slug: string) => void;
+}) {
+    const [added, setAdded] = useState(false);
+
+    // "Added" message goes back to normal after about 2 seconds
+    useEffect(() => {
+        if (!added) return;
+        const t = setTimeout(() => setAdded(false), 1800);
+        return () => clearTimeout(t);
+    }, [added]);
+
+    const addToCart = () => {
+        if (!p.inStock) return;
+        // TODO: connect your cart here, e.g. addItem({ slug: p.slug, price: p.price })
+        setAdded(true);
+    };
+
+    return (
+        <div className="group relative">
+            {p.badge && (
+                <span className="pointer-events-none absolute left-0 top-0 z-10 max-w-[140px] bg-[#b1e549] px-3 py-2 text-xs font-semibold leading-tight text-white">
+                    {p.badge}
+                </span>
+            )}
+
+            {/* Wishlist heart */}
+            <button
+                type="button"
+                onClick={() => onToggleWish(p.slug)}
+                aria-pressed={wished}
+                aria-label={wished ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
+                className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-sm transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-neutral-900"
+            >
+                <HeartIcon filled={wished} />
+            </button>
+
+            {!p.inStock && (
+                <span className="pointer-events-none absolute bottom-[calc(100%-theme(spacing.0))] left-0 hidden" />
+            )}
+
+            {/* Product images */}
+            <a href={`/product/${p.slug}`} className="block" aria-label={p.name}>
+                <div className="relative aspect-[3/4] overflow-hidden bg-white">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src="https://images.unsplash.com/photo-1582211594533-268f4f1edcb9?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
+                        alt={p.name}
+                        className="absolute inset-0 h-full w-full object-contain transition-opacity duration-500 group-hover:opacity-0"
+                    />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src="https://images.unsplash.com/photo-1541643600914-78b084683601?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
+                        alt={`${p.name} alternate view`}
+                        className="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                    />
+
+                    {!p.inStock && (
+                        <span className="absolute bottom-2 left-2 rounded-full bg-neutral-200 px-2.5 py-1 text-[10px] font-bold uppercase text-neutral-600">
+                            Sold out
+                        </span>
+                    )}
+                </div>
+            </a>
+
+            {/* Product details */}
+            <div className="mt-4 text-center">
+                <a href={`/product/${p.slug}`} className="block">
+                    <h3 className="text-sm font-medium">{p.name}</h3>
+                    <p className="mt-2 text-sm font-semibold">
+                        ₹ {p.price}
+                        <span className="ml-2 text-xs font-normal text-neutral-400 line-through">₹ {p.mrp}</span>
+                    </p>
+                </a>
+
+                {/* Add to cart */}
+                <button
+                    type="button"
+                    onClick={addToCart}
+                    disabled={!p.inStock}
+                    aria-live="polite"
+                    className="mt-3 flex w-full items-center justify-center gap-2 border border-neutral-900 px-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400 disabled:hover:bg-transparent disabled:hover:text-neutral-400 sm:text-xs"
+                >
+                    {!p.inStock ? (
+                        "Sold out"
+                    ) : added ? (
+                        "Added ✓"
+                    ) : (
+                        <>
+                            Add to cart <CartIcon />
+                        </>
+                    )}
+                </button>
+            </div>
+        </div>
     );
 }
 
@@ -109,9 +260,14 @@ export default function MenShopPage() {
     const [showInStock, setShowInStock] = useState(false);
     const [showOutOfStock, setShowOutOfStock] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false); // mobile only
+    const [visible, setVisible] = useState(PAGE_SIZE);
+    const [wishlist, setWishlist] = useState<string[]>([]);
 
     const toggleCat = (slug: string) =>
         setSelectedCats((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
+
+    const toggleWish = (slug: string) =>
+        setWishlist((w) => (w.includes(slug) ? w.filter((s) => s !== slug) : [...w, slug]));
 
     const filtersActive =
         selectedCats.length > 0 || minPrice > 0 || maxPrice < PRICE_MAX || showInStock || showOutOfStock;
@@ -137,6 +293,14 @@ export default function MenShopPage() {
         });
     }, [selectedCats, minPrice, maxPrice, showInStock, showOutOfStock]);
 
+    // Go back to the first page of products whenever a filter changes
+    useEffect(() => {
+        setVisible(PAGE_SIZE);
+    }, [selectedCats, minPrice, maxPrice, showInStock, showOutOfStock]);
+
+    const shown = filtered.slice(0, visible);
+    const remaining = filtered.length - shown.length;
+
     const inStockCount = perfumes.filter((p) => p.inStock).length;
     const outOfStockCount = perfumes.length - inStockCount;
 
@@ -144,7 +308,7 @@ export default function MenShopPage() {
     const rightPct = (maxPrice / PRICE_MAX) * 100;
 
     return (
-        <main className="min-h-screen bg-white px-6 py-12 text-neutral-900 lg:px-16">
+        <main className="min-h-screen bg-white px-4 py-8 text-neutral-900 sm:px-6 sm:py-12 lg:px-16">
             {/* Styles for the two-handle price slider */}
             <style>{`
                 .dual-range{-webkit-appearance:none;appearance:none;background:transparent;pointer-events:none;height:24px;margin:0;position:absolute;inset:0;width:100%}
@@ -155,28 +319,17 @@ export default function MenShopPage() {
             `}</style>
 
             <div className="mx-auto max-w-[1400px]">
-
-
-                {/* Men's perfume video banner */}
-                <section className="group relative mb-8 h-[300px] w-full overflow-hidden sm:h-[360px] lg:h-[420px]">
-                    <video
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        preload="metadata"
-                        poster="/perfumes/men-banner-poster.jpg"
+                {/* Men's perfume banner (image) */}
+                <section className="relative mb-8 h-[300px] w-full overflow-hidden sm:h-[360px] lg:h-[420px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={BANNER_IMAGE}
+                        alt="Men's perfume campaign"
                         className="absolute inset-0 h-full w-full object-cover object-center"
-                        aria-label="Men's perfume campaign video"
-                    >
-                        <source
-                            src="/videos/w_video.mp4"
-                            type="video/mp4"
-                        />
-                    </video>
+                    />
 
-                    {/* Warm overlay for readable text */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/15 via-transparent to-black/25" />
+                    {/* Overlay for readable text */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-black/10 to-black/35" />
 
                     {/* Campaign text */}
                     <div className="absolute inset-0 flex items-center justify-center px-5 text-center sm:justify-end sm:pr-[8%] sm:text-left lg:pr-[10%]">
@@ -187,9 +340,7 @@ export default function MenShopPage() {
 
                             <h1 className="font-['Inter'] text-4xl font-normal leading-tight sm:text-5xl lg:text-7xl">
                                 Make every moment
-                                <span className="block text-5xl sm:text-6xl lg:text-8xl">
-                                    Special
-                                </span>
+                                <span className="block text-5xl sm:text-6xl lg:text-8xl">Special</span>
                             </h1>
 
                             <a
@@ -201,7 +352,6 @@ export default function MenShopPage() {
                         </div>
                     </div>
                 </section>
-
 
                 <div className="mb-8 flex items-center justify-between">
                     <p className="text-sm text-neutral-500">
@@ -219,11 +369,7 @@ export default function MenShopPage() {
                     </button>
                 </div>
 
-
-                <div
-                    id="men-perfumes"
-                    className="grid grid-cols-1 gap-10 lg:grid-cols-[260px_1fr] lg:gap-12"
-                >
+                <div id="men-perfumes" className="grid grid-cols-1 gap-10 lg:grid-cols-[260px_1fr] lg:gap-12">
                     {/* ---------- Filter sidebar ---------- */}
                     <aside
                         aria-label="Filters"
@@ -246,7 +392,7 @@ export default function MenShopPage() {
                         <FilterSection title="Category">
                             <div className="flex flex-col gap-3">
                                 {categories.map((c) => (
-                                    <Checkbox
+                                    <CircleOption
                                         key={c.slug}
                                         label={c.label}
                                         count={perfumes.filter((p) => p.category === c.slug).length}
@@ -327,13 +473,13 @@ export default function MenShopPage() {
                         {/* Availability */}
                         <FilterSection title="Availability">
                             <div className="flex flex-col gap-3">
-                                <Checkbox
+                                <CircleOption
                                     label="In stock"
                                     count={inStockCount}
                                     checked={showInStock}
                                     onChange={() => setShowInStock((v) => !v)}
                                 />
-                                <Checkbox
+                                <CircleOption
                                     label="Out of stock"
                                     count={outOfStockCount}
                                     checked={showOutOfStock}
@@ -344,7 +490,7 @@ export default function MenShopPage() {
                     </aside>
 
                     {/* ---------- Product grid ---------- */}
-                    <div>
+                    <div className="min-w-0">
                         {filtered.length === 0 ? (
                             <div className="py-20 text-center">
                                 <p className="text-neutral-500">No perfumes match these filters.</p>
@@ -357,58 +503,33 @@ export default function MenShopPage() {
                                 </button>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-14 md:grid-cols-3 xl:grid-cols-4">
-                                {filtered.map((p) => (
-                                    <a
-                                        key={p.slug}
-                                        href={`/product/${p.slug}`}
-                                        className="group relative block"
-                                    >
-                                        {p.badge && (
-                                            <span className="absolute left-0 top-0 z-10 max-w-[140px] bg-[#b1e549] px-3 py-2 text-xs font-semibold leading-tight text-white">
-                                                {p.badge}
-                                            </span>
-                                        )}
+                            <>
+                                <div className="grid grid-cols-2 gap-x-3 gap-y-10 sm:gap-x-6 sm:gap-y-14 md:grid-cols-3 xl:grid-cols-4">
+                                    {shown.map((p) => (
+                                        <ProductCard
+                                            key={p.slug}
+                                            p={p}
+                                            wished={wishlist.includes(p.slug)}
+                                            onToggleWish={toggleWish}
+                                        />
+                                    ))}
+                                </div>
 
-                                        {!p.inStock && (
-                                            <span className="absolute right-2 top-2 z-10 rounded-full bg-neutral-200 px-2.5 py-1 text-[10px] font-bold uppercase text-neutral-600">
-                                                Sold out
-                                            </span>
-                                        )}
-
-                                        {/* Product images */}
-                                        <div className="relative aspect-[3/4] overflow-hidden bg-white">
-                                            <img
-                                                src="https://images.unsplash.com/photo-1582211594533-268f4f1edcb9?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
-                                                alt={p.name}
-                                                className="absolute inset-0 h-full w-full object-contain transition-opacity duration-500 group-hover:opacity-0"
-                                            />
-
-                                            <img
-                                                src="https://images.unsplash.com/photo-1541643600914-78b084683601?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
-                                                alt={`${p.name} alternate view`}
-                                                className="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-                                            />
-                                        </div>
-
-                                        {/* Product details */}
-                                        <div className="mt-4 text-center">
-                                            <h3 className="text-sm font-medium">{p.name}</h3>
-
-                                            <p className="mt-2 text-sm font-semibold">
-                                                ₹ {p.price}
-                                                <span className="ml-2 text-xs font-normal text-neutral-400 line-through">
-                                                    ₹ {p.mrp}
-                                                </span>
-                                            </p>
-                                        </div>
-                                    </a>
-                                ))}
-                            </div>
+                                {remaining > 0 && (
+                                    <div className="mt-12 text-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => setVisible((v) => v + PAGE_SIZE)}
+                                            className="border border-neutral-900 px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-neutral-900 hover:text-white"
+                                        >
+                                            Show more ({remaining})
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
-
             </div>
         </main>
     );
