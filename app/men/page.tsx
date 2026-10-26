@@ -1,13 +1,22 @@
 "use client";
 
 // Save as: app/shop/men/page.tsx
+// Images go in: public/perfumes/<slug>/main.jpg  and  public/perfumes/<slug>/hover.jpg
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 
-const BANNER_IMAGE =
-    "https://images.unsplash.com/photo-1663276710785-7f1f50a587e7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D";
+// Brand (same as the other pages)
+const COPPER = "#9C5A2B";
+const COPPER_DARK = "#7d4720";
+const IVORY = "#FCF8F0";
+const SAND = "#F6EEE0";
+const INK = "#111111";
+const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
+const sans = "Inter, system-ui, sans-serif";
 
-const PAGE_SIZE = 8; // how many products show first, and how many each "Show more" adds
+// Product photos (shared placeholders, replace per product)
+const IMG = "https://images.unsplash.com/photo-1582211594533-268f4f1edcb9?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D";
+const IMG_HOVER = "https://images.unsplash.com/photo-1541643600914-78b084683601?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D";
 
 type Perfume = {
     slug: string;
@@ -66,7 +75,7 @@ function HeartIcon({ filled }: { filled: boolean }) {
             viewBox="0 0 24 24"
             width="20"
             height="20"
-            className={filled ? "fill-neutral-900 stroke-neutral-900" : "fill-none stroke-current"}
+            className={filled ? "fill-[#9C5A2B] stroke-[#9C5A2B]" : "fill-none stroke-current"}
             strokeWidth="1.5"
             strokeLinejoin="round"
             aria-hidden
@@ -99,12 +108,12 @@ function FilterSection({ title, children }: { title: string; children: ReactNode
     const [open, setOpen] = useState(true);
 
     return (
-        <div className="border-b border-neutral-200 py-5">
+        <div className="border-b border-[#9C5A2B]/25 py-5">
             <button
                 type="button"
                 aria-expanded={open}
                 onClick={() => setOpen((v) => !v)}
-                className="flex w-full items-center justify-between text-left text-base font-medium"
+                className="mq-serif flex w-full items-center justify-between text-left text-xl font-medium text-[#9C5A2B]"
             >
                 {title}
                 <Chevron open={open} />
@@ -128,22 +137,22 @@ function CircleOption({
     onChange: () => void;
 }) {
     return (
-        <label className="flex cursor-pointer items-center gap-3 text-sm text-neutral-700 hover:text-neutral-900">
+        <label className="flex cursor-pointer items-center gap-3 text-sm text-[#111111]/80 hover:text-[#111111]">
             <input type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" />
             <span
                 aria-hidden
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-neutral-900 peer-focus-visible:ring-offset-2 ${
-                    checked ? "border-neutral-900" : "border-neutral-400"
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#9C5A2B] peer-focus-visible:ring-offset-2 ${
+                    checked ? "border-[#9C5A2B]" : "border-[#9C5A2B]/50"
                 }`}
             >
                 <span
-                    className={`h-2 w-2 rounded-full bg-neutral-900 transition-transform duration-200 ${
+                    className={`h-2 w-2 rounded-full bg-[#9C5A2B] transition-transform duration-200 ${
                         checked ? "scale-100" : "scale-0"
                     }`}
                 />
             </span>
             <span>
-                {label} <span className="text-neutral-500">({count})</span>
+                {label} <span className="text-[#111111]/50">({count})</span>
             </span>
         </label>
     );
@@ -176,7 +185,7 @@ function ProductCard({
     return (
         <div className="group relative">
             {p.badge && (
-                <span className="pointer-events-none absolute left-0 top-0 z-10 max-w-[140px] bg-[#b1e549] px-3 py-2 text-xs font-semibold leading-tight text-white">
+                <span className="pointer-events-none absolute left-0 top-0 z-10 max-w-[140px] bg-[#9C5A2B] px-3 py-2 text-xs font-semibold leading-tight text-white">
                     {p.badge}
                 </span>
             )}
@@ -187,33 +196,29 @@ function ProductCard({
                 onClick={() => onToggleWish(p.slug)}
                 aria-pressed={wished}
                 aria-label={wished ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
-                className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-sm transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-neutral-900"
+                className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#9C5A2B] shadow-sm transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#9C5A2B]"
             >
                 <HeartIcon filled={wished} />
             </button>
 
-            {!p.inStock && (
-                <span className="pointer-events-none absolute bottom-[calc(100%-theme(spacing.0))] left-0 hidden" />
-            )}
-
-            {/* Product images */}
+            {/* Product images (image only, no box behind it) */}
             <a href={`/product/${p.slug}`} className="block" aria-label={p.name}>
-                <div className="relative aspect-[3/4] overflow-hidden bg-white">
+                <div className="relative aspect-[3/4] overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                        src="https://images.unsplash.com/photo-1582211594533-268f4f1edcb9?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
+                        src={IMG}
                         alt={p.name}
                         className="absolute inset-0 h-full w-full object-contain transition-opacity duration-500 group-hover:opacity-0"
                     />
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                        src="https://images.unsplash.com/photo-1541643600914-78b084683601?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
+                        src={IMG_HOVER}
                         alt={`${p.name} alternate view`}
                         className="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
                     />
 
                     {!p.inStock && (
-                        <span className="absolute bottom-2 left-2 rounded-full bg-neutral-200 px-2.5 py-1 text-[10px] font-bold uppercase text-neutral-600">
+                        <span className="absolute bottom-2 left-2 rounded-full bg-[#F6EEE0] px-2.5 py-1 text-[10px] font-bold uppercase text-[#111111]/60">
                             Sold out
                         </span>
                     )}
@@ -223,10 +228,10 @@ function ProductCard({
             {/* Product details */}
             <div className="mt-4 text-center">
                 <a href={`/product/${p.slug}`} className="block">
-                    <h3 className="text-sm font-medium">{p.name}</h3>
+                    <h3 className="mq-serif text-xl font-medium leading-snug text-[#9C5A2B]">{p.name}</h3>
                     <p className="mt-2 text-sm font-semibold">
                         ₹ {p.price}
-                        <span className="ml-2 text-xs font-normal text-neutral-400 line-through">₹ {p.mrp}</span>
+                        <span className="ml-2 text-xs font-normal text-[#111111]/45 line-through">₹ {p.mrp}</span>
                     </p>
                 </a>
 
@@ -236,7 +241,7 @@ function ProductCard({
                     onClick={addToCart}
                     disabled={!p.inStock}
                     aria-live="polite"
-                    className="mt-3 flex w-full items-center justify-center gap-2 border border-neutral-900 px-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400 disabled:hover:bg-transparent disabled:hover:text-neutral-400 sm:text-xs"
+                    className="mt-3 flex w-full items-center justify-center gap-2 border border-[#9C5A2B] bg-[#9C5A2B] px-2 py-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-[#7d4720] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:bg-transparent disabled:text-[#111111]/30 disabled:hover:bg-transparent sm:text-xs"
                 >
                     {!p.inStock ? (
                         "Sold out"
@@ -260,7 +265,6 @@ export default function MenShopPage() {
     const [showInStock, setShowInStock] = useState(false);
     const [showOutOfStock, setShowOutOfStock] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false); // mobile only
-    const [visible, setVisible] = useState(PAGE_SIZE);
     const [wishlist, setWishlist] = useState<string[]>([]);
 
     const toggleCat = (slug: string) =>
@@ -293,14 +297,6 @@ export default function MenShopPage() {
         });
     }, [selectedCats, minPrice, maxPrice, showInStock, showOutOfStock]);
 
-    // Go back to the first page of products whenever a filter changes
-    useEffect(() => {
-        setVisible(PAGE_SIZE);
-    }, [selectedCats, minPrice, maxPrice, showInStock, showOutOfStock]);
-
-    const shown = filtered.slice(0, visible);
-    const remaining = filtered.length - shown.length;
-
     const inStockCount = perfumes.filter((p) => p.inStock).length;
     const outOfStockCount = perfumes.length - inStockCount;
 
@@ -308,28 +304,39 @@ export default function MenShopPage() {
     const rightPct = (maxPrice / PRICE_MAX) * 100;
 
     return (
-        <main className="min-h-screen bg-white px-4 py-8 text-neutral-900 sm:px-6 sm:py-12 lg:px-16">
-            {/* Styles for the two-handle price slider */}
+        <main className="min-h-screen px-6 py-12 lg:px-16" style={{ background: IVORY, color: INK, fontFamily: sans }}>
+            {/* Fonts, serif helper and the two-handle price slider */}
             <style>{`
+                @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600&family=Inter:wght@400;500;600&display=swap");
+                .mq-serif{font-family:${serif}}
                 .dual-range{-webkit-appearance:none;appearance:none;background:transparent;pointer-events:none;height:24px;margin:0;position:absolute;inset:0;width:100%}
                 .dual-range::-webkit-slider-runnable-track{background:transparent;height:24px}
                 .dual-range::-moz-range-track{background:transparent;height:24px}
-                .dual-range::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:18px;height:18px;border-radius:9999px;background:#111;border:0;cursor:pointer;margin-top:3px}
-                .dual-range::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:9999px;background:#111;border:0;cursor:pointer}
+                .dual-range::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:18px;height:18px;border-radius:9999px;background:${COPPER};border:0;cursor:pointer;margin-top:3px}
+                .dual-range::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:9999px;background:${COPPER};border:0;cursor:pointer}
             `}</style>
 
             <div className="mx-auto max-w-[1400px]">
-                {/* Men's perfume banner (image) */}
-                <section className="relative mb-8 h-[300px] w-full overflow-hidden sm:h-[360px] lg:h-[420px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                        src={BANNER_IMAGE}
-                        alt="Men's perfume campaign"
+                {/* Men's perfume video banner */}
+                <section className="group relative mb-8 h-[300px] w-full overflow-hidden bg-[#111111] sm:h-[360px] lg:h-[420px]">
+                    <video
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                        poster="/perfumes/men-banner-poster.jpg"
                         className="absolute inset-0 h-full w-full object-cover object-center"
-                    />
+                        aria-label="Men's perfume campaign video"
+                    >
+                        <source
+                            src="/videos/w_video.mp4"
+                            type="video/mp4"
+                        />
+                    </video>
 
-                    {/* Overlay for readable text */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-black/10 to-black/35" />
+                    {/* Warm overlay for readable text */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/15 via-transparent to-black/25" />
 
                     {/* Campaign text */}
                     <div className="absolute inset-0 flex items-center justify-center px-5 text-center sm:justify-end sm:pr-[8%] sm:text-left lg:pr-[10%]">
@@ -338,14 +345,16 @@ export default function MenShopPage() {
                                 Discover your signature scent
                             </p>
 
-                            <h1 className="font-['Inter'] text-4xl font-normal leading-tight sm:text-5xl lg:text-7xl">
+                            <h1 className="mq-serif text-4xl font-medium leading-tight sm:text-5xl lg:text-7xl">
                                 Make every moment
-                                <span className="block text-5xl sm:text-6xl lg:text-8xl">Special</span>
+                                <span className="block text-5xl sm:text-6xl lg:text-8xl">
+                                    Special
+                                </span>
                             </h1>
 
                             <a
                                 href="#men-perfumes"
-                                className="mt-6 inline-flex border border-white px-7 py-3 text-xs font-semibold uppercase tracking-[0.2em] transition-colors duration-300 hover:bg-white hover:text-neutral-900 sm:mt-8"
+                                className="mt-6 inline-flex border border-white px-7 py-3 text-xs font-semibold uppercase tracking-[0.2em] transition-colors duration-300 hover:bg-white hover:text-[#9C5A2B] sm:mt-8"
                             >
                                 Shop Now
                             </a>
@@ -354,7 +363,7 @@ export default function MenShopPage() {
                 </section>
 
                 <div className="mb-8 flex items-center justify-between">
-                    <p className="text-sm text-neutral-500">
+                    <p className="text-sm text-[#111111]/60">
                         MEN &nbsp;|&nbsp; {filtered.length} Products
                     </p>
 
@@ -363,25 +372,28 @@ export default function MenShopPage() {
                         type="button"
                         onClick={() => setFiltersOpen((v) => !v)}
                         aria-expanded={filtersOpen}
-                        className="border border-neutral-900 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] lg:hidden"
+                        className="border border-[#9C5A2B] px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#9C5A2B] lg:hidden"
                     >
                         {filtersOpen ? "Hide Filters" : "Filters"}
                     </button>
                 </div>
 
-                <div id="men-perfumes" className="grid grid-cols-1 gap-10 lg:grid-cols-[260px_1fr] lg:gap-12">
-                    {/* ---------- Filter sidebar ---------- */}
+                <div
+                    id="men-perfumes"
+                    className="grid grid-cols-1 gap-10 lg:grid-cols-[260px_1fr] lg:gap-12"
+                >
+                    {/* ---------- Filter sidebar (stays in place while scrolling) ---------- */}
                     <aside
                         aria-label="Filters"
-                        className={`${filtersOpen ? "block" : "hidden"} lg:sticky lg:top-40 lg:block lg:max-h-[calc(100vh-10rem)] lg:self-start lg:overflow-y-auto lg:pr-2 lg:[scrollbar-width:thin] lg:[scrollbar-color:#a3a3a3_transparent]`}
+                        className={`${filtersOpen ? "block" : "hidden"} lg:sticky lg:top-40 lg:block lg:max-h-[calc(100vh-10rem)] lg:self-start lg:overflow-y-auto lg:pr-2 lg:[scrollbar-width:thin] lg:[scrollbar-color:#9C5A2B66_transparent]`}
                     >
                         <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-medium">Filters</h2>
+                            <h2 className="mq-serif text-3xl font-medium text-[#9C5A2B]">Filters</h2>
                             {filtersActive && (
                                 <button
                                     type="button"
                                     onClick={clearAll}
-                                    className="text-xs uppercase tracking-[0.15em] text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
+                                    className="text-xs uppercase tracking-[0.15em] text-[#9C5A2B] underline underline-offset-4 hover:text-[#7d4720]"
                                 >
                                     Clear all
                                 </button>
@@ -406,9 +418,9 @@ export default function MenShopPage() {
                         {/* Price */}
                         <FilterSection title="Price">
                             <div className="relative mx-1 h-6">
-                                <div className="absolute left-0 right-0 top-1/2 h-[3px] -translate-y-1/2 rounded bg-neutral-200" />
+                                <div className="absolute left-0 right-0 top-1/2 h-[3px] -translate-y-1/2 rounded bg-[#9C5A2B]/20" />
                                 <div
-                                    className="absolute top-1/2 h-[3px] -translate-y-1/2 rounded bg-neutral-900"
+                                    className="absolute top-1/2 h-[3px] -translate-y-1/2 rounded bg-[#9C5A2B]"
                                     style={{ left: `${leftPct}%`, right: `${100 - rightPct}%` }}
                                 />
                                 <input
@@ -434,7 +446,7 @@ export default function MenShopPage() {
                             </div>
 
                             <div className="mt-5 flex items-center gap-3">
-                                <label className="flex h-11 w-full items-center gap-2 border border-neutral-300 px-3 text-sm">
+                                <label className="flex h-11 w-full items-center gap-2 border border-[#9C5A2B]/40 bg-white px-3 text-sm focus-within:border-[#9C5A2B]">
                                     <span>₹</span>
                                     <input
                                         type="number"
@@ -449,9 +461,9 @@ export default function MenShopPage() {
                                     />
                                 </label>
 
-                                <span className="text-sm text-neutral-500">To</span>
+                                <span className="text-sm text-[#111111]/60">To</span>
 
-                                <label className="flex h-11 w-full items-center gap-2 border border-neutral-300 px-3 text-sm">
+                                <label className="flex h-11 w-full items-center gap-2 border border-[#9C5A2B]/40 bg-white px-3 text-sm focus-within:border-[#9C5A2B]">
                                     <span>₹</span>
                                     <input
                                         type="number"
@@ -490,43 +502,29 @@ export default function MenShopPage() {
                     </aside>
 
                     {/* ---------- Product grid ---------- */}
-                    <div className="min-w-0">
+                    <div>
                         {filtered.length === 0 ? (
                             <div className="py-20 text-center">
-                                <p className="text-neutral-500">No perfumes match these filters.</p>
+                                <p className="text-[#111111]/60">No perfumes match these filters.</p>
                                 <button
                                     type="button"
                                     onClick={clearAll}
-                                    className="mt-4 text-sm uppercase tracking-[0.15em] underline underline-offset-4"
+                                    className="mt-4 text-sm uppercase tracking-[0.15em] text-[#9C5A2B] underline underline-offset-4"
                                 >
                                     Clear all filters
                                 </button>
                             </div>
                         ) : (
-                            <>
-                                <div className="grid grid-cols-2 gap-x-3 gap-y-10 sm:gap-x-6 sm:gap-y-14 md:grid-cols-3 xl:grid-cols-4">
-                                    {shown.map((p) => (
-                                        <ProductCard
-                                            key={p.slug}
-                                            p={p}
-                                            wished={wishlist.includes(p.slug)}
-                                            onToggleWish={toggleWish}
-                                        />
-                                    ))}
-                                </div>
-
-                                {remaining > 0 && (
-                                    <div className="mt-12 text-center">
-                                        <button
-                                            type="button"
-                                            onClick={() => setVisible((v) => v + PAGE_SIZE)}
-                                            className="border border-neutral-900 px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-neutral-900 hover:text-white"
-                                        >
-                                            Show more ({remaining})
-                                        </button>
-                                    </div>
-                                )}
-                            </>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-10 sm:gap-x-6 sm:gap-y-14 md:grid-cols-3 xl:grid-cols-4">
+                                {filtered.map((p) => (
+                                    <ProductCard
+                                        key={p.slug}
+                                        p={p}
+                                        wished={wishlist.includes(p.slug)}
+                                        onToggleWish={toggleWish}
+                                    />
+                                ))}
+                            </div>
                         )}
                     </div>
                 </div>

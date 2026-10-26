@@ -1,6 +1,9 @@
+"use client";
+
 // app/oud-arabian/page.tsx  (Next.js App Router + Tailwind)
 // Visit: http://localhost:3000/oud-arabian
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 
 const GOLD = "#D4A017";
@@ -13,14 +16,15 @@ const HERO_IMAGE = "https://images.pexels.com/photos/30618765/pexels-photo-30618
 // Paste your history section image URL here. Leave "" for the placeholder.
 const HISTORY_IMAGE = "/images/history.jpg";
 
-type Item = { name: string; size: string; price: string; image?: string };
+type Item = { name: string; size: string; price: string; image?: string; soldOut?: boolean };
 
 // Put each product photo in /public/oud-arabian/ (or use a direct https image URL)
+// Add `soldOut: true` to any product that is out of stock.
 const collection: Item[] = [
   { name: "Nadeem", size: "100ML", price: "₹ 6,290.00", image: "/images/collection-one.jpg" },
   { name: "Oudh Al Ayal", size: "100ML", price: "₹ 2,490.00", image: "/images/collection-two.jpg" },
   { name: "A Poem", size: "100ML", price: "₹ 5,990.00", image: "/images/collection-three.jpg" },
-  { name: "Rouge Vanilla", size: "100ML", price: "₹ 5,990.00", image: "/images/collection-four.jpg" },
+  { name: "Rouge Vanilla", size: "100ML", price: "₹ 5,990.00", image: "/images/collection-four.jpg", soldOut: true },
   { name: "7 Moons", size: "100ML", price: "₹ 5,990.00", image: "/images/collection-nine.jpg" },
   { name: "Maliki", size: "100ML", price: "₹ 5,990.00", image: "/images/collection-seven.jpg" },
 ];
@@ -67,17 +71,150 @@ function ExampleImage({ label, className = "" }: { label: string; className?: st
   );
 }
 
-function Pic({ src, alt, className = "" }: { src?: string; alt: string; className?: string }) {
-  return src ? (
-    <div className={`relative overflow-hidden ${className}`}>
-      <Image src={src} alt={alt} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px]"
+      fill={filled ? GOLD : "none"}
+      stroke={filled ? GOLD : "currentColor"}
+      strokeWidth="1.6"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20.5s-7.5-4.6-9-9.3C2 7.9 4 5 7 5c1.9 0 3.5 1 5 3 1.5-2 3.1-3 5-3 3 0 5 2.9 4 6.2-1.5 4.7-9 9.3-9 9.3z" />
+    </svg>
+  );
+}
+
+function CartIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 4h2l2.2 11h10.6L20 7H6.2" />
+      <circle cx="9" cy="19" r="1.3" />
+      <circle cx="17" cy="19" r="1.3" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
+const iconBtn =
+  "flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-[#D4A017] backdrop-blur-sm transition hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D4A017]";
+
+function ProductCard({
+  p,
+  wished,
+  onToggleWish,
+}: {
+  p: Item;
+  wished: boolean;
+  onToggleWish: (name: string) => void;
+}) {
+  const [added, setAdded] = useState(false);
+
+  // The check mark goes back to the cart icon after about 2 seconds
+  useEffect(() => {
+    if (!added) return;
+    const t = setTimeout(() => setAdded(false), 1800);
+    return () => clearTimeout(t);
+  }, [added]);
+
+  const addToCart = () => {
+    if (p.soldOut) return;
+    // TODO: connect your cart here, e.g. addItem({ name: p.name, price: p.price })
+    setAdded(true);
+  };
+
+  return (
+    <div className="group block text-center">
+      <div className="relative overflow-hidden">
+        {/* Image (links to the product page) */}
+        <a href="#" className="block" aria-label={p.name}>
+          {p.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={p.image}
+              alt={p.name}
+              className="aspect-square w-full object-cover transition duration-700 group-hover:scale-105"
+            />
+          ) : (
+            <ExampleImage label={p.name} className="aspect-square w-full" />
+          )}
+        </a>
+
+        {/* Wishlist: top right */}
+        <button
+          type="button"
+          onClick={() => onToggleWish(p.name)}
+          aria-pressed={wished}
+          aria-label={wished ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
+          className={`${iconBtn} absolute right-2 top-2`}
+        >
+          <HeartIcon filled={wished} />
+        </button>
+
+        {/* Add to cart (or Sold out): bottom right */}
+        {p.soldOut ? (
+          <span
+            className="pointer-events-none absolute bottom-2 right-2 bg-black/80 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.2em]"
+            style={{ color: COPPER }}
+          >
+            Sold out
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={addToCart}
+            aria-live="polite"
+            aria-label={added ? `${p.name} added to cart` : `Add ${p.name} to cart`}
+            className={`${iconBtn} absolute bottom-2 right-2`}
+          >
+            {added ? <CheckIcon /> : <CartIcon />}
+          </button>
+        )}
+      </div>
+
+      <a href="#" className="block">
+        <h3 className="mt-5 text-sm uppercase tracking-[0.3em]">
+          {p.name} ({p.size})
+        </h3>
+        <p className="mt-2 text-sm text-white">{p.price}</p>
+      </a>
     </div>
-  ) : (
-    <ExampleImage label={alt} className={className} />
   );
 }
 
 export default function OudArabianPage() {
+  const [wishlist, setWishlist] = useState<string[]>([]);
+
+  const toggleWish = (name: string) =>
+    setWishlist((w) => (w.includes(name) ? w.filter((n) => n !== name) : [...w, name]));
+
   return (
     <main className="min-h-screen bg-black text-[#D4A017]">
       {/* HERO */}
@@ -148,24 +285,12 @@ export default function OudArabianPage() {
         <h2 className="mb-14 text-center text-3xl uppercase tracking-[0.3em]">The Collection</h2>
         <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3">
           {collection.map((p) => (
-            <a key={p.name} href="#" className="group block text-center">
-              <div className="overflow-hidden">
-                {p.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    className="aspect-square w-full object-cover transition duration-700 group-hover:scale-105"
-                  />
-                ) : (
-                  <ExampleImage label={p.name} className="aspect-square w-full" />
-                )}
-              </div>
-              <h3 className="mt-5 text-sm uppercase tracking-[0.3em]">
-                {p.name} ({p.size})
-              </h3>
-              <p className="mt-2 text-sm text-white">{p.price}</p>
-            </a>
+            <ProductCard
+              key={p.name}
+              p={p}
+              wished={wishlist.includes(p.name)}
+              onToggleWish={toggleWish}
+            />
           ))}
         </div>
       </section>

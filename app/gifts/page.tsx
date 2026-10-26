@@ -4,37 +4,35 @@ import Image from "next/image";
 import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
+/* ───────────────────────── Brand (same as Choose Your Bottle) ───────────────────────── */
+
+const COPPER = "#9C5A2B";
+const IVORY = "#FCF8F0";
+const SAND = "#F6EEE0"; // image backgrounds / soft panels
+const INK = "#111111";
+
+const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
+const sans = "Inter, system-ui, sans-serif";
+
+/* shared class fragments */
+const BTN = "bg-[#9C5A2B] text-white transition-colors hover:bg-[#7d4720] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]";
+const BTN_LINE = "border border-[#9C5A2B] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white";
+const LINE = "border-[#9C5A2B]/25";
+const MUTED = "text-[#111111]/60";
+const HEAD = "mq-serif font-medium text-[#9C5A2B]";
+const CAPS = "uppercase tracking-[0.12em] font-semibold";
+
 /* ───────────────────────── Types ───────────────────────── */
 
 type StepId = 1 | 2;
 
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  color: string; // bottle liquid color
-}
-
-interface GiftBox {
-  id: string;
-  name: string;
-  price: number;
-  color: string;
-}
-
-interface CartItem {
-  id: string;
-  title: string;
-  lines: string[];
-  unitPrice: number;
-  qty: number;
-}
-
+interface Product { id: string; name: string; category: string; price: number; color: string }
+interface GiftBox { id: string; name: string; price: number; color: string }
+interface CartItem { id: string; title: string; lines: string[]; unitPrice: number; qty: number }
 interface Selection {
-  perfumes: Record<string, number>; // product id -> quantity (max 2 total)
+  perfumes: Record<string, number>;
   box: string | null;
-  message: string | null; // null = no gift card, otherwise the card text
+  message: string | null;
 }
 
 /* ───────────────────────── Data ───────────────────────── */
@@ -60,11 +58,10 @@ const STEPS: { id: StepId; label: string; title: string; hint: string }[] = [
   { id: 2, label: "Choose Your Box", title: "Choose a gift box", hint: "Pick the box your perfumes arrive in." },
 ];
 
-
-const MAX_PERFUME_QTY = 20; // safety cap per bundle
+const MAX_PERFUME_QTY = 20;
 const MAX_CART_QTY = 10;
 const money = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-const IMAGE_EXT = "jpg"; // change to "webp", "png", etc. to switch every image at once
+const IMAGE_EXT = "jpg";
 const perfumeImg = (id: string) => `/images/gift/perfumes/${id}.${IMAGE_EXT}`;
 const boxImg = (id: string) => `/images/gift/boxes/${id}.${IMAGE_EXT}`;
 
@@ -81,9 +78,6 @@ function Icon({ d, size = 20, label }: { d: string; size?: number; label?: strin
   );
 }
 const ICONS = {
-  menu: "M3 6h18M3 12h18M3 18h18",
-  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3",
-  user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
   bag: "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0",
   check: "M20 6L9 17l-5-5",
   plus: "M12 5v14M5 12h14",
@@ -91,14 +85,14 @@ const ICONS = {
   x: "M18 6L6 18M6 6l12 12",
 };
 
-/* ───────────────────────── Visuals (no external assets) ───────────────────────── */
+/* ───────────────────────── Visuals ───────────────────────── */
 
 function Bottle({ color, small = false }: { color: string; small?: boolean }) {
   return (
     <svg viewBox="0 0 120 150" className="h-full w-full" role="img" aria-label="Perfume bottle">
-      <rect width="120" height="150" fill="#f4f1ec" />
+      <rect width="120" height="150" fill={SAND} />
       <ellipse cx="60" cy="136" rx="30" ry="5" fill="#0001" />
-      <rect x="50" y="14" width="20" height={small ? 18 : 22} rx="2" fill="#1a1a1a" />
+      <rect x="50" y="14" width="20" height={small ? 18 : 22} rx="2" fill={COPPER} />
       <rect x="54" y="32" width="12" height="8" fill="#c9c9c9" />
       <rect x="32" y="40" width="56" height="92" rx="8" fill="#ffffffcc" stroke="#d8d4cc" />
       <rect x="35" y="72" width="50" height="57" rx="6" fill={color} opacity={0.85} />
@@ -112,7 +106,7 @@ function Bottle({ color, small = false }: { color: string; small?: boolean }) {
 function BoxArt({ color }: { color: string }) {
   return (
     <svg viewBox="0 0 120 120" className="h-full w-full" role="img" aria-label="Gift box">
-      <rect width="120" height="120" fill="#f4f1ec" />
+      <rect width="120" height="120" fill={SAND} />
       <rect x="18" y="42" width="84" height="58" rx="3" fill={color} stroke="#0002" />
       <rect x="12" y="32" width="96" height="16" rx="3" fill={color} stroke="#0002" />
       <rect x="56" y="32" width="8" height="68" fill="#fff" opacity={0.7} />
@@ -120,7 +114,6 @@ function BoxArt({ color }: { color: string }) {
   );
 }
 
-/** Shows the real photo; falls back to the SVG art if the file is missing. */
 function PerfumeImage({ id, name, color, small = false }: { id: string; name: string; color: string; small?: boolean }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <Bottle color={color} small={small} />;
@@ -139,7 +132,7 @@ function Hero({ onShop }: { onShop: () => void }) {
   const items: { art: ReactNode; text: string }[] = [
     {
       art: (
-        <div className="grid h-full w-full grid-cols-2 gap-2 bg-[#f4f1ec] p-4">
+        <div className="grid h-full w-full grid-cols-2 gap-2 bg-[#F6EEE0] p-4">
           {PRODUCTS.slice(0, 2).map((p) => (
             <PerfumeImage key={p.id} id={p.id} name={p.name} color={p.color} />
           ))}
@@ -150,20 +143,22 @@ function Hero({ onShop }: { onShop: () => void }) {
     { art: <BoxImage id={BOXES[0].id} name={BOXES[0].name} color={BOXES[0].color} />, text: "Choose a gift box" },
   ];
   return (
-    <section className="border-b border-neutral-200">
-      <div className="mx-auto max-w-7xl px-4 py-12 text-center sm:px-6 lg:py-16">
-        <h1 className="mx-auto max-w-3xl font-serif text-3xl leading-tight sm:text-4xl lg:text-5xl">You Know Their Taste. Build Their Gift</h1>
-        <p className="mx-auto mt-4 max-w-xl text-sm text-neutral-600 sm:text-base">
+    <section className={`border-b ${LINE}`}>
+      <div className="mx-auto max-w-7xl px-4 py-14 text-center sm:px-6 lg:py-20">
+        <h1 className={`${HEAD} mx-auto max-w-3xl leading-tight`} style={{ fontSize: "clamp(2.2rem, 5vw, 3.75rem)" }}>
+          You Know Their Taste. Build Their Gift
+        </h1>
+        <p className={`mx-auto mt-4 max-w-xl text-sm sm:text-base ${MUTED}`}>
           Personalise a fragrance gift bundle in two steps: choose as many perfumes as you like, then a box they will keep.
         </p>
-        <button type="button" onClick={onShop} className="mt-6 w-full bg-black px-10 py-3 text-sm tracking-widest text-white transition hover:bg-neutral-800 sm:w-auto">
-          SHOP NOW
+        <button type="button" onClick={onShop} className={`${BTN} ${CAPS} mt-7 w-full px-10 py-3.5 text-[13px] sm:w-auto`}>
+          Shop now
         </button>
-        <ol className="mt-12 mx-auto grid max-w-3xl gap-8 md:grid-cols-2 md:gap-0">
+        <ol className="mx-auto mt-14 grid max-w-3xl gap-8 md:grid-cols-2 md:gap-0">
           {items.map((it, i) => (
-            <li key={it.text} className={`flex flex-col items-center gap-4 md:px-6 ${i > 0 ? "md:border-l md:border-neutral-200" : ""}`}>
+            <li key={it.text} className={`flex flex-col items-center gap-4 md:px-6 ${i > 0 ? `md:border-l ${LINE}` : ""}`}>
               <div className="h-56 w-56 overflow-hidden sm:h-64 sm:w-64">{it.art}</div>
-              <p className="font-serif text-lg">{i + 1}. {it.text}</p>
+              <p className="mq-serif text-2xl text-[#9C5A2B]">{i + 1}. {it.text}</p>
             </li>
           ))}
         </ol>
@@ -183,12 +178,12 @@ function ProgressIndicator({ step, maxReached, onGo }: { step: StepId; maxReache
           return (
             <li key={s.id} className="flex flex-1 items-start last:flex-none">
               <button type="button" disabled={!reachable} onClick={() => onGo(s.id)} aria-current={active ? "step" : undefined} className="flex w-20 flex-col items-center gap-2 text-center disabled:cursor-not-allowed sm:w-28">
-                <span className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm ${active || done ? "border-black bg-black text-white" : "border-neutral-300 text-neutral-400"}`}>
+                <span className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm ${active || done ? "border-[#9C5A2B] bg-[#9C5A2B] text-white" : "border-[#9C5A2B]/40 text-[#9C5A2B]/60"}`}>
                   {done ? <Icon d={ICONS.check} size={16} /> : s.id}
                 </span>
-                <span className={`text-[11px] leading-tight sm:text-xs ${active ? "font-medium text-black" : "text-neutral-500"}`}>{s.label}</span>
+                <span className={`text-[11px] leading-tight sm:text-xs ${active ? "font-semibold text-[#9C5A2B]" : MUTED}`}>{s.label}</span>
               </button>
-              {i < STEPS.length - 1 && <span className={`mt-4 h-px flex-1 ${done ? "bg-black" : "bg-neutral-300"}`} aria-hidden />}
+              {i < STEPS.length - 1 && <span className={`mt-4 h-px flex-1 ${done ? "bg-[#9C5A2B]" : "bg-[#9C5A2B]/30"}`} aria-hidden />}
             </li>
           );
         })}
@@ -198,39 +193,31 @@ function ProgressIndicator({ step, maxReached, onGo }: { step: StepId; maxReache
 }
 
 interface CardProps {
-  id: string;
-  name: string;
-  subtitle: string;
-  price: number;
-  art: ReactNode;
-  qty: number;
-  canAdd: boolean;
-  multi: boolean;
-  onAdd: () => void;
-  onRemove: () => void;
+  id: string; name: string; subtitle: string; price: number; art: ReactNode;
+  qty: number; canAdd: boolean; multi: boolean; onAdd: () => void; onRemove: () => void;
 }
 
 function SelectCard({ name, subtitle, price, art, qty, canAdd, multi, onAdd, onRemove }: CardProps) {
   const selected = qty > 0;
   return (
-    <article className={`flex flex-col border p-3 transition ${selected ? "border-black bg-neutral-50 shadow-sm" : "border-neutral-200 hover:border-neutral-400"}`} aria-label={name}>
-      <div className="aspect-square overflow-hidden">{art}</div>
-      <h3 className="mt-3 font-serif text-lg leading-snug">{name}</h3>
-      <p className="text-sm text-neutral-500">{subtitle}</p>
-      <p className="mt-1 text-sm">{money(price)}</p>
+    <article className={`flex flex-col border p-3 transition ${selected ? "border-[#9C5A2B] bg-white shadow-sm" : `${LINE} bg-white/60 hover:border-[#9C5A2B]/60`}`} aria-label={name}>
+      <div className="aspect-square overflow-hidden bg-[#F6EEE0]">{art}</div>
+      <h3 className="mq-serif mt-3 text-2xl font-medium leading-snug text-[#9C5A2B]">{name}</h3>
+      <p className={`text-sm ${MUTED}`}>{subtitle}</p>
+      <p className="mt-1 text-sm font-medium">{money(price)}</p>
       <div className="mt-3">
         {multi && selected ? (
-          <div className="flex items-center justify-between border border-black">
+          <div className="flex items-center justify-between border border-[#9C5A2B] text-[#9C5A2B]">
             <button type="button" aria-label={`Remove one ${name}`} onClick={onRemove} className="p-3"><Icon d={ICONS.minus} size={16} /></button>
-            <span aria-live="polite" className="text-sm">{qty}</span>
+            <span aria-live="polite" className="text-sm font-semibold">{qty}</span>
             <button type="button" aria-label={`Add one more ${name}`} onClick={onAdd} disabled={!canAdd} className="p-3 disabled:opacity-30"><Icon d={ICONS.plus} size={16} /></button>
           </div>
         ) : !multi && selected ? (
-          <button type="button" onClick={onRemove} aria-pressed className="flex w-full items-center justify-center gap-2 border border-black bg-black py-3 text-sm text-white">
+          <button type="button" onClick={onRemove} aria-pressed className={`${BTN} ${CAPS} flex w-full items-center justify-center gap-2 py-3 text-[13px]`}>
             <Icon d={ICONS.check} size={16} /> Selected
           </button>
         ) : (
-          <button type="button" onClick={onAdd} disabled={!canAdd} className="w-full border border-black py-3 text-sm transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400 disabled:hover:bg-transparent">
+          <button type="button" onClick={onAdd} disabled={!canAdd} className={`${BTN_LINE} ${CAPS} w-full py-3 text-[13px] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:text-[#111111]/30 disabled:hover:bg-transparent disabled:hover:text-[#111111]/30`}>
             Add to Box
           </button>
         )}
@@ -243,14 +230,14 @@ function GiftCardEditor({ message, onChange }: { message: string | null; onChang
   const enabled = message !== null;
   const text = message ?? "";
   return (
-    <section aria-labelledby="card-title" className="mt-8 border border-neutral-200 p-5">
+    <section aria-labelledby="card-title" className={`mt-8 border bg-white/60 p-5 ${LINE}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 id="card-title" className="font-serif text-xl">Add a gift card</h3>
-          <p className="text-sm text-neutral-500">Write a personal note. It is printed on a card inside the box. Free.</p>
+          <h3 id="card-title" className={`${HEAD} text-2xl`}>Add a gift card</h3>
+          <p className={`text-sm ${MUTED}`}>Write a personal note. It is printed on a card inside the box. Free.</p>
         </div>
         <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" checked={enabled} onChange={(e) => onChange(e.target.checked ? "" : null)} className="h-4 w-4 accent-black" />
+          <input type="checkbox" checked={enabled} onChange={(e) => onChange(e.target.checked ? "" : null)} className="h-4 w-4 accent-[#9C5A2B]" />
           Include card
         </label>
       </div>
@@ -262,15 +249,15 @@ function GiftCardEditor({ message, onChange }: { message: string | null; onChang
               id="card-text" value={text} maxLength={MAX_MESSAGE} rows={6}
               onChange={(e) => onChange(e.target.value)}
               placeholder="Dear Aanya, happy birthday. I chose these because they remind me of you."
-              className="w-full resize-none border border-neutral-300 p-3 text-sm outline-none focus:border-black"
+              className="w-full resize-none border border-[#9C5A2B]/40 bg-white p-3 text-sm outline-none focus:border-[#9C5A2B]"
             />
-            <p className="mt-1 text-right text-xs text-neutral-500" aria-live="polite">{text.length}/{MAX_MESSAGE}</p>
+            <p className={`mt-1 text-right text-xs ${MUTED}`} aria-live="polite">{text.length}/{MAX_MESSAGE}</p>
           </div>
-          <div aria-label="Card preview" className="flex min-h-48 flex-col justify-between border border-neutral-300 bg-[#faf7f0] p-5 shadow-sm">
-            <p className="whitespace-pre-wrap break-words font-serif text-base italic leading-relaxed text-neutral-800">
+          <div aria-label="Card preview" className="flex min-h-48 flex-col justify-between border border-[#9C5A2B]/30 bg-[#F6EEE0] p-5 shadow-sm">
+            <p className="mq-serif whitespace-pre-wrap break-words text-xl italic leading-relaxed text-[#111111]">
               {text.trim() ? text : "Your message will appear here."}
             </p>
-            <p className="mt-4 text-center text-[10px] tracking-[0.3em] text-neutral-500">MIRQAS PERFUMES</p>
+            <p className="mt-4 text-center text-[10px] tracking-[0.3em] text-[#9C5A2B]">MIRQAS PERFUMES</p>
           </div>
         </div>
       )}
@@ -279,18 +266,9 @@ function GiftCardEditor({ message, onChange }: { message: string | null; onChang
 }
 
 interface SummaryProps {
-  step: StepId;
-  sel: Selection;
-  perfumeCount: number;
-  subtotal: number;
-  error: string | null;
-  onClear: () => void;
-  onNext: () => void;
-  onBack: () => void;
-  onRemovePerfume: (id: string) => void;
-  onRemoveBox: () => void;
-  onRemoveMessage: () => void;
-  onAddToCart: () => void;
+  step: StepId; sel: Selection; perfumeCount: number; subtotal: number; error: string | null;
+  onClear: () => void; onNext: () => void; onBack: () => void;
+  onRemovePerfume: (id: string) => void; onRemoveBox: () => void; onRemoveMessage: () => void; onAddToCart: () => void;
 }
 
 function BundleSummary(p: SummaryProps) {
@@ -300,49 +278,49 @@ function BundleSummary(p: SummaryProps) {
   const count = p.perfumeCount + (box ? 1 : 0) + (note ? 1 : 0);
   const Row = ({ art, label, sub, onRemove }: { art: ReactNode; label: string; sub: string; onRemove: () => void }) => (
     <li className="flex items-center gap-3 py-2">
-      <div className="h-12 w-12 shrink-0 overflow-hidden border border-neutral-200">{art}</div>
+      <div className={`h-12 w-12 shrink-0 overflow-hidden border ${LINE}`}>{art}</div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm">{label}</p>
-        <p className="text-xs text-neutral-500">{sub}</p>
+        <p className={`text-xs ${MUTED}`}>{sub}</p>
       </div>
-      <button type="button" aria-label={`Remove ${label}`} onClick={onRemove} className="p-1 text-neutral-500 hover:text-black"><Icon d={ICONS.x} size={16} /></button>
+      <button type="button" aria-label={`Remove ${label}`} onClick={onRemove} className="p-1 text-[#111111]/50 hover:text-[#9C5A2B]"><Icon d={ICONS.x} size={16} /></button>
     </li>
   );
   return (
-    <aside aria-label="Your bundle" className="border border-neutral-200 bg-white p-5 lg:sticky lg:top-6">
+    <aside aria-label="Your bundle" className={`border bg-white p-5 lg:sticky lg:top-6 ${LINE}`}>
       <div className="flex items-baseline justify-between">
-        <h2 className="font-serif text-2xl">Your Bundle</h2>
-        <button type="button" onClick={p.onClear} disabled={count === 0} className="text-sm underline disabled:text-neutral-300 disabled:no-underline">Clear</button>
+        <h2 className={`${HEAD} text-3xl`}>Your Bundle</h2>
+        <button type="button" onClick={p.onClear} disabled={count === 0} className="text-sm text-[#9C5A2B] underline disabled:text-[#111111]/25 disabled:no-underline">Clear</button>
       </div>
-      <p className="mt-1 text-sm text-neutral-500">Review your bundle · {count} {count === 1 ? "item" : "items"}</p>
+      <p className={`mt-1 text-sm ${MUTED}`}>Review your bundle · {count} {count === 1 ? "item" : "items"}</p>
 
       {count === 0 ? (
-        <p className="my-6 border border-dashed border-neutral-300 p-4 text-center text-sm text-neutral-500">Your bundle is empty. Start by choosing your perfumes.</p>
+        <p className={`my-6 border border-dashed p-4 text-center text-sm ${LINE} ${MUTED}`}>Your bundle is empty. Start by choosing your perfumes.</p>
       ) : (
-        <ul className="my-4 divide-y divide-neutral-100">
+        <ul className="my-4 divide-y divide-[#9C5A2B]/15">
           {perfumes.map((m) => (
             <Row key={m.id} art={<PerfumeImage id={m.id} name={m.name} color={m.color} small />} label={m.name} sub={`${p.sel.perfumes[m.id]} × ${money(m.price)} = ${money(m.price * p.sel.perfumes[m.id])}`} onRemove={() => p.onRemovePerfume(m.id)} />
           ))}
           {box && <Row art={<BoxImage id={box.id} name={box.name} color={box.color} />} label={box.name} sub={money(box.price)} onRemove={p.onRemoveBox} />}
-          {note && <Row art={<div className="flex h-full w-full items-center justify-center bg-[#faf7f0] font-serif text-lg italic">“</div>} label="Gift card" sub={note.length > 36 ? `${note.slice(0, 36)}…` : note} onRemove={p.onRemoveMessage} />}
+          {note && <Row art={<div className="mq-serif flex h-full w-full items-center justify-center bg-[#F6EEE0] text-xl italic text-[#9C5A2B]">“</div>} label="Gift card" sub={note.length > 36 ? `${note.slice(0, 36)}…` : note} onRemove={p.onRemoveMessage} />}
         </ul>
       )}
 
-      <p className="text-xs text-neutral-500">Perfumes selected: {p.perfumeCount}</p>
-      <dl className="mt-3 space-y-1 border-t border-neutral-200 pt-3 text-sm">
+      <p className={`text-xs ${MUTED}`}>Perfumes selected: {p.perfumeCount}</p>
+      <dl className={`mt-3 space-y-1 border-t pt-3 text-sm ${LINE}`}>
         <div className="flex justify-between"><dt>Subtotal</dt><dd>{money(p.subtotal)}</dd></div>
-        <div className="flex justify-between text-base font-medium"><dt>Total</dt><dd>{money(p.subtotal)}</dd></div>
+        <div className="flex justify-between text-base font-semibold text-[#9C5A2B]"><dt>Total</dt><dd>{money(p.subtotal)}</dd></div>
       </dl>
 
       {p.error && <p role="alert" className="mt-3 border-l-2 border-red-600 bg-red-50 px-3 py-2 text-sm text-red-700">{p.error}</p>}
 
       <div className="mt-4 flex flex-col gap-2">
         {p.step < 2 ? (
-          <button type="button" onClick={p.onNext} className="w-full bg-black py-3 text-sm tracking-widest text-white hover:bg-neutral-800">NEXT</button>
+          <button type="button" onClick={p.onNext} className={`${BTN} ${CAPS} w-full py-3.5 text-[13px]`}>Next</button>
         ) : (
-          <button type="button" onClick={p.onAddToCart} className="w-full bg-black py-3 text-sm tracking-widest text-white hover:bg-neutral-800">ADD TO CART</button>
+          <button type="button" onClick={p.onAddToCart} className={`${BTN} ${CAPS} w-full py-3.5 text-[13px]`}>Add to cart</button>
         )}
-        {p.step > 1 && <button type="button" onClick={p.onBack} className="w-full border border-neutral-300 py-3 text-sm hover:border-black">Back</button>}
+        {p.step > 1 && <button type="button" onClick={p.onBack} className={`${BTN_LINE} ${CAPS} w-full py-3.5 text-[13px]`}>Back</button>}
       </div>
     </aside>
   );
@@ -353,33 +331,33 @@ function CartDrawer({ open, items, onClose, onQty, onRemove }: { open: boolean; 
   return (
     <div className={`fixed inset-0 z-50 ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
       <div onClick={onClose} className={`absolute inset-0 bg-black/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} />
-      <aside role="dialog" aria-modal="true" aria-label="Shopping cart" className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-xl transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}>
-        <div className="flex items-center justify-between border-b border-neutral-200 p-4">
-          <h2 className="font-serif text-xl">Your Cart</h2>
-          <button type="button" aria-label="Close cart" onClick={onClose} tabIndex={open ? 0 : -1} className="p-1"><Icon d={ICONS.x} /></button>
+      <aside role="dialog" aria-modal="true" aria-label="Shopping cart" className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-[#FCF8F0] shadow-xl transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}>
+        <div className={`flex items-center justify-between border-b p-4 ${LINE}`}>
+          <h2 className={`${HEAD} text-2xl`}>Your Cart</h2>
+          <button type="button" aria-label="Close cart" onClick={onClose} tabIndex={open ? 0 : -1} className="p-1 text-[#9C5A2B]"><Icon d={ICONS.x} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           {items.length === 0 ? (
             <div className="py-16 text-center">
-              <p className="text-neutral-600">Your cart is empty.</p>
-              <button type="button" onClick={onClose} tabIndex={open ? 0 : -1} className="mt-4 bg-black px-6 py-3 text-sm text-white">Explore Products</button>
+              <p className={MUTED}>Your cart is empty.</p>
+              <button type="button" onClick={onClose} tabIndex={open ? 0 : -1} className={`${BTN} ${CAPS} mt-4 px-6 py-3 text-[13px]`}>Explore Products</button>
             </div>
           ) : (
-            <ul className="divide-y divide-neutral-200">
+            <ul className="divide-y divide-[#9C5A2B]/20">
               {items.map((it) => (
                 <li key={it.id} className="py-4">
                   <div className="flex justify-between gap-3">
-                    <h3 className="font-serif text-lg">{it.title}</h3>
+                    <h3 className="mq-serif text-xl font-medium text-[#9C5A2B]">{it.title}</h3>
                     <p className="text-sm">{money(it.unitPrice * it.qty)}</p>
                   </div>
-                  <ul className="mt-1 text-xs text-neutral-500">{it.lines.map((l) => <li key={l}>{l}</li>)}</ul>
+                  <ul className={`mt-1 text-xs ${MUTED}`}>{it.lines.map((l) => <li key={l}>{l}</li>)}</ul>
                   <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center border border-neutral-300">
+                    <div className="flex items-center border border-[#9C5A2B] text-[#9C5A2B]">
                       <button type="button" aria-label="Decrease quantity" onClick={() => onQty(it.id, -1)} disabled={it.qty <= 1} className="p-2 disabled:opacity-30"><Icon d={ICONS.minus} size={14} /></button>
                       <span className="w-8 text-center text-sm">{it.qty}</span>
                       <button type="button" aria-label="Increase quantity" onClick={() => onQty(it.id, 1)} disabled={it.qty >= MAX_CART_QTY} className="p-2 disabled:opacity-30"><Icon d={ICONS.plus} size={14} /></button>
                     </div>
-                    <button type="button" onClick={() => onRemove(it.id)} className="text-sm underline">Remove</button>
+                    <button type="button" onClick={() => onRemove(it.id)} className="text-sm text-[#9C5A2B] underline">Remove</button>
                   </div>
                 </li>
               ))}
@@ -387,10 +365,10 @@ function CartDrawer({ open, items, onClose, onQty, onRemove }: { open: boolean; 
           )}
         </div>
         {items.length > 0 && (
-          <div className="border-t border-neutral-200 p-4">
-            <div className="flex justify-between text-base font-medium"><span>Total</span><span>{money(total)}</span></div>
-            <button type="button" onClick={onClose} className="mt-3 w-full border border-black py-3 text-sm hover:bg-black hover:text-white">Continue Shopping</button>
-            <p className="mt-2 text-center text-xs text-neutral-500">Demo cart only. Checkout is not connected.</p>
+          <div className={`border-t p-4 ${LINE}`}>
+            <div className="flex justify-between text-base font-semibold text-[#9C5A2B]"><span>Total</span><span>{money(total)}</span></div>
+            <button type="button" onClick={onClose} className={`${BTN_LINE} ${CAPS} mt-3 w-full py-3.5 text-[13px]`}>Continue Shopping</button>
+            <p className={`mt-2 text-center text-xs ${MUTED}`}>Demo cart only. Checkout is not connected.</p>
           </div>
         )}
       </aside>
@@ -496,16 +474,22 @@ export default function GiftPage() {
   const cur = STEPS[step - 1];
 
   return (
-    <div className="min-h-screen bg-white font-sans text-black">
+    <div className="min-h-screen" style={{ background: IVORY, color: INK, fontFamily: sans }}>
+      {/* fonts + serif helper class */}
+      <style>{`
+        @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap");
+        .mq-serif { font-family: ${serif}; }
+      `}</style>
+
       <main>
         <Hero onShop={scrollToBuilder} />
 
         <section ref={builderRef} id="builder" aria-labelledby="builder-title" className="mx-auto max-w-7xl scroll-mt-4 px-4 py-12 sm:px-6">
           <ProgressIndicator step={step} maxReached={maxReached} onGo={goTo} />
           <div className="mt-10 text-center">
-            <h2 id="builder-title" className="font-serif text-2xl sm:text-3xl">{cur.title}</h2>
-            <p className="mt-1 text-sm text-neutral-500">{cur.hint}</p>
-            {step === 1 && <p className="mt-2 text-sm" aria-live="polite">{perfumeCount} {perfumeCount === 1 ? "perfume" : "perfumes"} selected</p>}
+            <h2 id="builder-title" className={`${HEAD}`} style={{ fontSize: "clamp(2rem, 4vw, 3rem)" }}>{cur.title}</h2>
+            <p className={`mt-1 text-sm ${MUTED}`}>{cur.hint}</p>
+            {step === 1 && <p className="mt-2 text-sm font-medium text-[#9C5A2B]" aria-live="polite">{perfumeCount} {perfumeCount === 1 ? "perfume" : "perfumes"} selected</p>}
           </div>
 
           <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
@@ -527,17 +511,17 @@ export default function GiftPage() {
                 </div>
               ) : (
                 <div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {BOXES.map((b) => (
-                    <SelectCard
-                      key={b.id} id={b.id} name={b.name} subtitle="Fits your whole selection"
-                      price={b.price} art={<BoxImage id={b.id} name={b.name} color={b.color} />}
-                      qty={sel.box === b.id ? 1 : 0} multi={false} canAdd
-                      onAdd={() => { setSel((s) => ({ ...s, box: b.id })); setError(null); }}
-                      onRemove={() => setSel((s) => ({ ...s, box: null }))}
-                    />
-                  ))}
-                </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {BOXES.map((b) => (
+                      <SelectCard
+                        key={b.id} id={b.id} name={b.name} subtitle="Fits your whole selection"
+                        price={b.price} art={<BoxImage id={b.id} name={b.name} color={b.color} />}
+                        qty={sel.box === b.id ? 1 : 0} multi={false} canAdd
+                        onAdd={() => { setSel((s) => ({ ...s, box: b.id })); setError(null); }}
+                        onRemove={() => setSel((s) => ({ ...s, box: null }))}
+                      />
+                    ))}
+                  </div>
                   <GiftCardEditor message={sel.message} onChange={(m) => { setSel((x) => ({ ...x, message: m })); setError(null); }} />
                 </div>
               )}
@@ -548,7 +532,7 @@ export default function GiftPage() {
 
             {/* Mobile / tablet collapsible summary */}
             <div className="lg:hidden">
-              <button type="button" aria-expanded={summaryOpen} onClick={() => setSummaryOpen((o) => !o)} className="flex w-full items-center justify-between border border-black px-4 py-3 text-sm">
+              <button type="button" aria-expanded={summaryOpen} onClick={() => setSummaryOpen((o) => !o)} className={`${BTN_LINE} flex w-full items-center justify-between px-4 py-3 text-sm font-medium`}>
                 <span>Your Bundle · {money(subtotal)}</span>
                 <Icon d={summaryOpen ? ICONS.minus : ICONS.plus} size={16} />
               </button>
@@ -556,18 +540,17 @@ export default function GiftPage() {
                 <div className="mt-3 flex flex-col gap-2">
                   {error && <p role="alert" className="border-l-2 border-red-600 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
                   {step < 2
-                    ? <button type="button" onClick={next} className="w-full bg-black py-3 text-sm tracking-widest text-white">NEXT</button>
-                    : <button type="button" onClick={addToCart} className="w-full bg-black py-3 text-sm tracking-widest text-white">ADD TO CART</button>}
+                    ? <button type="button" onClick={next} className={`${BTN} ${CAPS} w-full py-3.5 text-[13px]`}>Next</button>
+                    : <button type="button" onClick={addToCart} className={`${BTN} ${CAPS} w-full py-3.5 text-[13px]`}>Add to cart</button>}
                 </div>
               )}
             </div>
           </div>
         </section>
-
       </main>
 
       {cartCount > 0 && !cartOpen && (
-        <button type="button" aria-label={`Open cart, ${cartCount} items`} onClick={() => setCartOpen(true)} className="fixed bottom-4 right-4 z-40 flex items-center gap-2 bg-black px-4 py-3 text-sm text-white shadow-lg">
+        <button type="button" aria-label={`Open cart, ${cartCount} items`} onClick={() => setCartOpen(true)} className={`${BTN} fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-3 text-sm shadow-lg`}>
           <Icon d={ICONS.bag} size={18} /> Cart ({cartCount})
         </button>
       )}
@@ -575,7 +558,7 @@ export default function GiftPage() {
       <CartDrawer open={cartOpen} items={cart} onClose={() => setCartOpen(false)} onQty={cartQty} onRemove={cartRemove} />
 
       {toast && (
-        <div role="status" className="fixed bottom-4 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 bg-black px-4 py-3 text-center text-sm text-white shadow-lg">{toast}</div>
+        <div role="status" className="fixed bottom-4 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 bg-[#9C5A2B] px-4 py-3 text-center text-sm text-white shadow-lg">{toast}</div>
       )}
     </div>
   );

@@ -3,18 +3,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent } from "react";
 
+/* ================= COPPER + FONT (used for buttons and headings) ================= */
+const COPPER = "#9C5A2B"; // button background + heading colour
+const COPPER_DARK = "#7E4622"; // button hover
+const sans = "'Inter', system-ui, sans-serif";
+
 /* ================= EDIT HERE: your colours ================= */
 const THEME = {
   primary: "#ffffff", // hero + badge background
-  primaryDark: "#5A3039", // button hover, collage headline
+  primaryDark: "#5A3039", // (not used for headings any more)
   soft: "#f3f1ec", // chips, collage background
   light: "#ffffff", // text ON dark buttons
-  dark: "#5A3039", // main text, buttons and outlines
+  dark: "#5A3039", // main text and outlines
   page: "#ffffff", // page background
   accent: "#cfcbc2", // hero glow, collage tile
   heart: "#ffffff", // saved wishlist heart
-  heroText: "#3B2116", // PLAIN colour only (used by badge text + arrow button)
-  heroGradient: "linear-gradient(90deg, #3B2116 0%, #5A3020 50%, #3B2116 100%)", // hero headline
+  heroText: "#3B2116", // PLAIN colour only
   heroBottle: "#B4C646", // placeholder hero bottle, only if heroBottle image is empty
 };
 
@@ -28,7 +32,6 @@ const CONFIG = {
     { src: "https://www.pexels.com/download/video/35200638/", type: "video" },
   ] as { src: string; type: "image" | "video" }[],
   currency: "₹",
-  
 };
 
 type Product = {
@@ -92,13 +95,14 @@ type CartLine = { id: number; ml: Ml; q: number };
 
 const T = THEME;
 const PAD = "clamp(18px,5vw,64px)";
-const FONT = "'Inter', system-ui, sans-serif";
 const unitPrice = (p: Product, ml: Ml) => p.price * (SIZES.find((s) => s.ml === ml)?.m ?? 1);
 const money = (n: number) => CONFIG.currency + Math.round(n);
 
 /* shared inline style fragments */
 const z: CSSProperties = { margin: 0, boxSizing: "border-box" };
-const btn: CSSProperties = { ...z, font: "inherit", color: "inherit", cursor: "pointer", border: 0, background: "none", padding: 0 };
+// every button: copper background + Inter font (override background per button where needed)
+const btn: CSSProperties = { ...z, font: "inherit", fontFamily: sans, color: "inherit", cursor: "pointer", border: 0, background: "none", padding: 0 };
+const copperBtn: CSSProperties = { ...btn, background: COPPER, fontFamily: sans };
 const fill: CSSProperties = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
 
 function useMedia(query: string) {
@@ -133,6 +137,7 @@ function Media({ p, bottleStyle, bottleOnly = false }: { p: Product; bottleStyle
   if (!p.media || failed || (bottleOnly && p.mediaType === "video")) return <Bottle color={p.color} cap={p.cap} style={bottleStyle} />;
   const style: CSSProperties = p.fit === "contain" ? { ...fill, objectFit: "contain", padding: "14%" } : fill;
   if (p.mediaType === "video") return <video src={p.media} autoPlay muted loop playsInline style={fill} onError={() => setFailed(true)} />;
+  // eslint-disable-next-line @next/next/no-img-element
   return <img src={p.media} alt={p.name} loading="lazy" style={style} onError={() => setFailed(true)} />;
 }
 
@@ -242,9 +247,7 @@ export default function PerfumeSection() {
   };
 
   return (
-    <div style={{ ...z, width: "100%", maxWidth: "100%", fontFamily: FONT, background: T.page, color: T.dark, lineHeight: 1.55, overflowX: "clip" }}>
-      
-
+    <div style={{ ...z, width: "100%", maxWidth: "100%", fontFamily: sans, background: T.page, color: T.dark, lineHeight: 1.55, overflowX: "clip" }}>
       <main>
         {/* hero */}
         <div
@@ -255,14 +258,13 @@ export default function PerfumeSection() {
             background: `radial-gradient(ellipse 60% 55% at 50% 45%, color-mix(in srgb, ${T.accent} 16%, transparent), transparent 70%), ${T.primary}`,
           }}
         >
-          
-
           {CONFIG.heroVideo && (
             <video src={CONFIG.heroVideo} autoPlay muted loop playsInline
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.4 }} />
           )}
 
-          <h1 style={{ ...z, position: "relative", fontWeight: 800, lineHeight: 0.95, letterSpacing: "-.045em", textTransform: "uppercase", fontSize: xs ? "clamp(36px,11vw,54px)" : "clamp(42px,9.5vw,150px)", backgroundImage: T.heroGradient, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
+          {/* hero heading: copper */}
+          <h1 style={{ ...z, position: "relative", fontFamily: sans, color: COPPER, fontWeight: 800, lineHeight: 0.95, letterSpacing: "-.045em", textTransform: "uppercase", fontSize: xs ? "clamp(36px,11vw,54px)" : "clamp(42px,9.5vw,150px)" }}>
             <span style={{ display: "block" }}>Awaken senses</span>
             <span style={{ display: "block", fontSize: ".5em", letterSpacing: "-.03em" }}>with unforgettable</span>
             <span style={{ display: "block" }}>fragrance</span>
@@ -276,6 +278,7 @@ export default function PerfumeSection() {
             }}
           >
             {CONFIG.heroBottle ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={CONFIG.heroBottle} alt="" style={{ width: "100%", display: "block" }} />
             ) : (
               <Bottle color={T.heroBottle} cap={T.accent} style={{ width: "100%" }} />
@@ -295,7 +298,7 @@ export default function PerfumeSection() {
               </defs>
               <g>
                 {!reduce && <animateTransform attributeName="transform" type="rotate" from="0 75 75" to="360 75 75" dur="18s" repeatCount="indefinite" />}
-                <text fontSize="12.5" fontFamily={FONT} fill={T.heroText} letterSpacing="3">
+                <text fontSize="12.5" fontFamily={sans} fill={COPPER} letterSpacing="3">
                   <textPath href="#mq-circle">EXPLORE THE SCENT LIBRARY • EXPLORE THE SCENT LIBRARY •</textPath>
                 </text>
               </g>
@@ -303,7 +306,7 @@ export default function PerfumeSection() {
             <a
               href="#mq-list"
               aria-label="Shop perfumes"
-              style={{ width: m ? 44 : 52, height: m ? 44 : 52, borderRadius: "50%", background: T.heroText, color: T.primary, display: "grid", placeItems: "center", fontSize: 22, textDecoration: "none" }}
+              style={{ width: m ? 44 : 52, height: m ? 44 : 52, borderRadius: "50%", background: COPPER, fontFamily: sans, color: "#fff", display: "grid", placeItems: "center", fontSize: 22, textDecoration: "none" }}
             >
               ↓
             </a>
@@ -313,7 +316,7 @@ export default function PerfumeSection() {
         {/* listing */}
         <section id="mq-list" style={{ ...z, width: "100%", maxWidth: 1600, margin: "0 auto", padding: `${xs ? 100 : m ? 118 : 130}px ${PAD} clamp(32px,5vw,64px)`, display: "grid", gap: "clamp(44px,7vw,100px)" }}>
           <div style={{ maxWidth: 760 }}>
-            <h2 style={{ ...z, fontWeight: 800, fontSize: "clamp(34px,6vw,88px)", lineHeight: 1, letterSpacing: "-.04em" }}>The signature five</h2>
+            <h2 style={{ ...z, fontFamily: sans, color: COPPER, fontWeight: 800, fontSize: "clamp(34px,6vw,88px)", lineHeight: 1, letterSpacing: "-.04em" }}>The signature five</h2>
             <p style={{ ...z, marginTop: 14, maxWidth: "52ch", opacity: 0.75 }}>
               Five small-batch eaux de parfum, each built on natural ingredients and aged for six weeks before bottling.
             </p>
@@ -348,7 +351,7 @@ export default function PerfumeSection() {
 
                 <div style={{ display: "grid", gap: "clamp(12px,2vw,16px)", alignContent: "center", minWidth: 0, width: "100%" }}>
                   <small style={{ fontSize: 13, opacity: 0.7, fontWeight: 500 }}>{p.family}</small>
-                  <h3 style={{ ...z, fontWeight: 800, fontSize: "clamp(30px,5vw,72px)", overflowWrap: "anywhere", lineHeight: 1, letterSpacing: "-.04em" }}>{p.name}</h3>
+                  <h3 style={{ ...z, fontFamily: sans, color: COPPER, fontWeight: 800, fontSize: "clamp(30px,5vw,72px)", overflowWrap: "anywhere", lineHeight: 1, letterSpacing: "-.04em" }}>{p.name}</h3>
                   <p style={{ ...z, maxWidth: "48ch" }}>{p.desc}</p>
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -364,6 +367,7 @@ export default function PerfumeSection() {
                     <div style={{ display: "grid" }}><small style={{ opacity: 0.7 }}>Longevity</small><b style={{ fontSize: 15 }}>{p.longevity}</b></div>
                   </div>
 
+                  {/* size buttons: copper when selected */}
                   <div role="group" aria-label={`Size for ${p.name}`} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {SIZES.map((s) => {
                       const on = s.ml === ml;
@@ -372,7 +376,10 @@ export default function PerfumeSection() {
                           key={s.ml}
                           aria-pressed={on}
                           onClick={() => setSizes({ ...sizes, [p.id]: s.ml })}
-                          style={{ ...btn, border: `1.5px solid ${T.dark}`, borderRadius: 99, padding: "8px 18px", fontSize: 14, transition: "background .2s,color .2s", background: on ? T.dark : "transparent", color: on ? T.light : T.dark }}
+                          style={{
+                            ...btn, fontFamily: sans, border: `1.5px solid ${COPPER}`, borderRadius: 99, padding: "8px 18px", fontSize: 14,
+                            transition: "background .2s,color .2s", background: on ? COPPER : "transparent", color: on ? T.light : COPPER,
+                          }}
                         >
                           {s.ml} ml
                         </button>
@@ -384,21 +391,25 @@ export default function PerfumeSection() {
                     <span aria-live="polite" style={{ fontWeight: 700, fontSize: "clamp(27px,4vw,34px)", lineHeight: 1, letterSpacing: "-.03em", minWidth: 0, flex: xs ? "1 1 100%" : undefined }}>
                       {money(unitPrice(p, ml))}
                     </span>
+
+                    {/* Add to cart: copper background */}
                     <button
                       onClick={() => add(p)}
                       style={{
-                        ...btn, padding: "14px clamp(18px,3vw,30px)", borderRadius: 99, fontWeight: 600, flex: xs ? "1 1 100%" : "1 1 auto", minWidth: xs ? 0 : 150, maxWidth: xs ? "none" : 260,
-                        order: xs ? 3 : 0, color: T.light, background: hot ? T.primaryDark : T.dark,
+                        ...copperBtn, padding: "14px clamp(18px,3vw,30px)", borderRadius: 99, fontWeight: 600, flex: xs ? "1 1 100%" : "1 1 auto", minWidth: xs ? 0 : 150, maxWidth: xs ? "none" : 260,
+                        order: xs ? 3 : 0, color: T.light, background: hot ? COPPER_DARK : COPPER,
                         transition: reduce ? "none" : "transform .2s, background .2s", transform: hot ? "translateY(-2px)" : "none",
                       }}
                     >
                       Add to cart
                     </button>
+
+                    {/* wishlist: copper outline, copper fill when saved */}
                     <button
                       aria-pressed={saved}
                       aria-label={`Save ${p.name}`}
                       onClick={() => toggleWish(p)}
-                      style={{ ...btn, width: 50, height: 50, borderRadius: "50%", fontSize: 19, border: `1.5px solid ${T.dark}`, background: saved ? T.dark : "transparent", color: saved ? T.heart : T.dark }}
+                      style={{ ...btn, fontFamily: sans, width: 50, height: 50, borderRadius: "50%", fontSize: 19, border: `1.5px solid ${COPPER}`, background: saved ? COPPER : "transparent", color: saved ? T.heart : COPPER }}
                     >
                       {saved ? "♥" : "♡"}
                     </button>
@@ -418,7 +429,7 @@ export default function PerfumeSection() {
         >
           <h2
             style={{
-              ...z, position: "relative", zIndex: 1, color: T.primaryDark, fontWeight: 800, textTransform: "uppercase",
+              ...z, position: "relative", zIndex: 1, fontFamily: sans, color: COPPER, fontWeight: 800, textTransform: "uppercase",
               fontSize: "clamp(34px,10.5vw,170px)", overflowWrap: "anywhere", lineHeight: 0.95, letterSpacing: "-.05em", marginTop: m ? (xs ? 270 : 290) : 0, maxWidth: "100%",
             }}
           >
@@ -439,6 +450,7 @@ export default function PerfumeSection() {
                   (c.type === "video" ? (
                     <video src={c.src} autoPlay muted loop playsInline style={fill} />
                   ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={c.src} alt="" loading="lazy" style={fill} />
                   ))}
               </div>
@@ -463,8 +475,8 @@ export default function PerfumeSection() {
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 16, borderBottom: `1px solid ${T.soft}` }}>
-          <h2 style={{ ...z, fontWeight: 700, fontSize: 26, letterSpacing: "-.02em" }}>Your cart</h2>
-          <button ref={closeRef} onClick={closeCart} aria-label="Close cart" style={{ ...btn, width: 38, height: 38, borderRadius: "50%", background: T.soft, fontSize: 16 }}>✕</button>
+          <h2 style={{ ...z, fontFamily: sans, color: COPPER, fontWeight: 700, fontSize: 26, letterSpacing: "-.02em" }}>Your cart</h2>
+          <button ref={closeRef} onClick={closeCart} aria-label="Close cart" style={{ ...btn, fontFamily: sans, width: 38, height: 38, borderRadius: "50%", background: T.soft, fontSize: 16 }}>✕</button>
         </div>
 
         <div style={{ flex: 1, overflow: "auto", padding: "12px 0" }}>
@@ -478,12 +490,12 @@ export default function PerfumeSection() {
                 <h4 style={{ ...z, fontWeight: 600, fontSize: 16 }}>{l.p.name}</h4>
                 <small style={{ opacity: 0.7 }}>{l.ml} ml · {money(l.unit)}</small>
                 <br />
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 10, border: `1px solid ${T.dark}`, borderRadius: 99, marginTop: 6 }}>
-                  <button onClick={() => change(i, -1)} aria-label="Decrease" style={{ ...btn, width: 30, height: 30 }}>−</button>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 10, border: `1px solid ${COPPER}`, borderRadius: 99, marginTop: 6 }}>
+                  <button onClick={() => change(i, -1)} aria-label="Decrease" style={{ ...btn, fontFamily: sans, width: 30, height: 30 }}>−</button>
                   {l.q}
-                  <button onClick={() => change(i, 1)} aria-label="Increase" style={{ ...btn, width: 30, height: 30 }}>+</button>
+                  <button onClick={() => change(i, 1)} aria-label="Increase" style={{ ...btn, fontFamily: sans, width: 30, height: 30 }}>+</button>
                 </span>
-                <button onClick={() => change(i, -l.q)} style={{ ...btn, fontSize: 12, textDecoration: "underline", display: "block", marginTop: 4, opacity: 0.7 }}>Remove</button>
+                <button onClick={() => change(i, -l.q)} style={{ ...btn, fontFamily: sans, fontSize: 12, textDecoration: "underline", display: "block", marginTop: 4, opacity: 0.7 }}>Remove</button>
               </div>
               <strong>{money(l.unit * l.q)}</strong>
             </div>
@@ -494,10 +506,12 @@ export default function PerfumeSection() {
           <span>Subtotal</span>
           <span>{money(subtotal)}</span>
         </div>
+
+        {/* Checkout: copper background */}
         <button
           disabled={!lines.length}
           onClick={() => say("Connect this button to your checkout")}
-          style={{ ...btn, width: "100%", background: T.dark, color: T.light, padding: 16, borderRadius: 99, fontWeight: 600, opacity: lines.length ? 1 : 0.4, cursor: lines.length ? "pointer" : "not-allowed" }}
+          style={{ ...copperBtn, width: "100%", color: T.light, padding: 16, borderRadius: 99, fontWeight: 600, opacity: lines.length ? 1 : 0.4, cursor: lines.length ? "pointer" : "not-allowed" }}
         >
           Checkout
         </button>
@@ -507,7 +521,7 @@ export default function PerfumeSection() {
       <div
         role="status"
         style={{
-          position: "fixed", left: "50%", bottom: "max(24px, env(safe-area-inset-bottom))", background: T.dark, color: T.light,
+          position: "fixed", left: "50%", bottom: "max(24px, env(safe-area-inset-bottom))", background: T.dark, color: T.light, fontFamily: sans,
           padding: "11px clamp(14px,4vw,22px)", borderRadius: 99, fontSize: 14, zIndex: 80, pointerEvents: "none", whiteSpace: "normal", width: "max-content", maxWidth: "calc(100vw - 28px)", textAlign: "center",
           opacity: toast ? 1 : 0, transform: `translate(-50%, ${toast ? 0 : 30}px)`, transition: "opacity .3s, transform .3s",
         }}
