@@ -18,135 +18,109 @@ const money = (n: number) => "₹" + new Intl.NumberFormat("en-IN").format(n);
 const slugOf = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
-function ProductMedia({
-  src,
-  video,
-  alt,
-  active,
-}: {
-  src: string;
-  video?: string;
-  alt: string;
-  active: boolean;
-}) {
+/**
+ * Shows the product VIDEO directly (no image thumbnail on top of it).
+ * - autoplays muted + inline, which phones allow
+ * - plays while on screen and pauses when scrolled away (saves battery and data)
+ * - the image is only a last-resort fallback if a product has no video, or the video fails to load
+ */
+function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: string }) {
+  const boxRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [imgFailed, setImgFailed] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
-  const [playing, setPlaying] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
 
-  const hasVideo = !!video && !videoFailed;
+  const showVideo = !!video && !videoFailed;
 
-  // Play when active (hover, focus, or scrolled into view), pause + reset when not
   useEffect(() => {
     const v = videoRef.current;
-    if (!v) return;
+    const box = boxRef.current;
+    if (!v || !box) return;
 
-    if (active) {
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      v.currentTime = 0;
+    // React does not always write the "muted" attribute, and phones refuse to autoplay without it
+    v.muted = true;
+    v.defaultMuted = true;
+    v.setAttribute("muted", "");
+    v.setAttribute("playsinline", "");
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let visible = false;
+
+    const play = () => {
+      if (reduce || !visible) return;
       v.play().catch(() => {
-        // Interrupted or blocked: image stays visible
+        // Blocked (e.g. battery saver): it will retry on the first touch below
       });
-    } else {
-      v.pause();
-      v.currentTime = 0;
-      setPlaying(false);
-    }
+    };
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry.isIntersecting;
+        if (visible) play();
+        else v.pause();
+      },
+      { threshold: 0.25 }
+    );
+    io.observe(box);
+
+    // Some phones only allow playback after the first touch: retry once then
+    window.addEventListener("touchstart", play, { once: true, passive: true });
+    v.addEventListener("loadeddata", play);
 
     return () => {
+      io.disconnect();
+      window.removeEventListener("touchstart", play);
+      v.removeEventListener("loadeddata", play);
       v.pause();
     };
-  }, [active]);
-
-  if ((imgFailed || !src) && !hasVideo) {
-    return (
-      <div className="flex h-full w-full items-center justify-center text-center text-[12px] text-black/45">
-        Image unavailable
-      </div>
-    );
-  }
+  }, [video]);
 
   return (
-    <div className="relative h-full w-full">
-      {hasVideo && (
+    <div ref={boxRef} className="relative h-full w-full bg-[#F6EEE0]">
+      {showVideo ? (
         <video
           ref={videoRef}
           src={video}
+          autoPlay
           muted
           loop
           playsInline
-          preload="metadata"
-          onPlaying={() => setPlaying(true)}
-          onError={() => {
-            setVideoFailed(true);
-            setPlaying(false);
-          }}
+          preload="auto"
+          disablePictureInPicture
+          aria-label={alt}
+          onError={() => setVideoFailed(true)}
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
+      ) : src && !imgFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onError={() => setImgFailed(true)}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-center text-[12px] text-black/45">
+          Video unavailable
+        </div>
       )}
-
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onError={() => setImgFailed(true)}
-        className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-300 motion-reduce:transition-none ${
-          playing ? "opacity-0" : "opacity-100"
-        }`}
-      />
     </div>
   );
 }
 
 function ProductCard({ p }: { p: Product }) {
-  const [active, setActive] = useState(false); // hover / keyboard focus (desktop)
-  const [inView, setInView] = useState(false); // scrolled into view (phones)
-  const mediaRef = useRef<HTMLDivElement>(null);
-
   const discounted = p.originalPrice !== undefined && p.originalPrice > p.price;
   const pct = discounted ? Math.round(((p.originalPrice! - p.price) / p.originalPrice!) * 100) : 0;
-
-  // Touch devices have no hover, so play the video when the card scrolls into view.
-  useEffect(() => {
-    const el = mediaRef.current;
-    if (!el || !p.video) return;
-    if (!window.matchMedia("(hover: none)").matches) return; // desktop keeps hover behaviour
-
-    const io = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      {
-        // Only the middle ~50% of the screen counts, so videos
-        // start when the card is properly in view, not at the edge.
-        rootMargin: "-25% 0px -25% 0px",
-        threshold: 0.5,
-      }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [p.video]);
 
   return (
     <li>
       <Link
         href={p.href ?? (p.id ? `/product/${p.id}` : "/shop")}
-        onPointerEnter={(e) => {
-          if (e.pointerType === "mouse") setActive(true);
-        }}
-        onPointerLeave={(e) => {
-          if (e.pointerType === "mouse") setActive(false);
-        }}
-        onFocus={() => setActive(true)}
-        onBlur={() => setActive(false)}
         className="group flex h-full flex-col items-center text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#754747]"
       >
-        <div ref={mediaRef} className="aspect-[4/5] w-full overflow-hidden">
-          <ProductMedia
-            src={p.image}
-            video={p.video}
-            alt={p.name}
-            active={active || inView}
-          />
+        <div className="aspect-[4/5] w-full overflow-hidden">
+          <ProductMedia src={p.image} video={p.video} alt={p.name} />
         </div>
 
         <div className="mt-4 flex w-full flex-1 flex-col items-center px-1">

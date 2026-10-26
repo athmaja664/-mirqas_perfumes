@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 // Brand (same as Choose Your Bottle)
@@ -66,6 +66,107 @@ function BagIcon() {
       <path d="M5 8h14l-1 12H6L5 8z" />
       <path d="M9 8V6a3 3 0 0 1 6 0v2" />
     </svg>
+  );
+}
+
+/* ---------- product card ---------- */
+// Desktop: the second image shows on hover.
+// Phones / tablets (no hover): the second image shows while the card is in the middle of the screen,
+// so it swaps as you scroll past each product.
+function ProductCard({
+  p,
+  saved,
+  inCart,
+  onWish,
+  onAdd,
+}: {
+  p: Perfume;
+  saved: boolean;
+  inCart: number;
+  onWish: () => void;
+  onAdd: () => void;
+}) {
+  const imgBox = useRef<HTMLDivElement>(null);
+  const [swap, setSwap] = useState(false);
+
+  useEffect(() => {
+    const el = imgBox.current;
+    if (!el || !window.matchMedia("(hover: none)").matches) return;
+    const io = new IntersectionObserver(([entry]) => setSwap(entry.isIntersecting), {
+      rootMargin: "-35% 0px -35% 0px", // only the middle band of the screen counts
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    /* The buttons sit beside the Link (not inside it) so clicking them never opens the product page */
+    <div className="group relative">
+      <Link href={`/product/${p.slug}`} className="block">
+        <div ref={imgBox} className="relative aspect-[3/4] overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={p.image ?? "/perfumes/main.jpg"}
+            alt={p.name}
+            className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-700 group-hover:opacity-0 ${swap ? "opacity-0" : "opacity-100"}`}
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={p.hoverImage ?? "/perfumes/hover.jpg"}
+            alt={`${p.name} alternate view`}
+            className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-700 group-hover:opacity-100 ${swap ? "opacity-100" : "opacity-0"}`}
+          />
+        </div>
+
+        <div className="mt-4 text-center">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-[#111111]/50">{p.gender}</p>
+          <h3 className="mq-serif mt-1 text-xl font-medium leading-snug text-[#9C5A2B]">{p.name}</h3>
+          <p className="mt-2 text-sm font-semibold">
+            ₹ {p.price}
+            <span className="ml-2 text-xs font-normal text-[#111111]/45 line-through">₹ {p.mrp}</span>
+          </p>
+        </div>
+      </Link>
+
+      {/* Badge (top left of the image) */}
+      {p.badge && (
+        <span className="pointer-events-none absolute left-0 top-0 z-10 max-w-[140px] bg-[#9C5A2B] px-3 py-2 text-xs font-semibold leading-tight text-white">
+          {p.badge}
+        </span>
+      )}
+
+      {/* Wishlist heart: top right of the image */}
+      <button
+        type="button"
+        aria-pressed={saved}
+        aria-label={saved ? `Remove ${p.name} from wishlist` : `Save ${p.name} to wishlist`}
+        onClick={onWish}
+        className={`absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border shadow-md transition-colors duration-300 ${
+          saved
+            ? "border-[#9C5A2B] bg-[#9C5A2B] text-white"
+            : "border-[#9C5A2B]/30 bg-white text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"
+        }`}
+      >
+        <HeartIcon filled={saved} />
+      </button>
+
+      {/* Add to cart: bottom right of the image */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 aspect-[3/4]">
+        <button
+          type="button"
+          aria-label={`Add ${p.name} to cart`}
+          onClick={onAdd}
+          className="pointer-events-auto absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#9C5A2B] bg-[#9C5A2B] text-white shadow-md transition-colors duration-300 hover:bg-[#7d4720]"
+        >
+          <BagIcon />
+          {inCart > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#111111] px-1 text-[10px] font-semibold leading-none text-white">
+              {inCart}
+            </span>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -180,83 +281,16 @@ export default function NewArrivalsPage() {
             id="new-perfumes"
             className="grid grid-cols-2 gap-x-6 gap-y-14 md:grid-cols-3 lg:grid-cols-4"
           >
-            {visible.map((p) => {
-              const saved = wish.has(p.slug);
-              const inCart = cart[p.slug] ?? 0;
-              return (
-                /* The buttons sit beside the Link (not inside it) so clicking them never opens the product page */
-                <div key={p.slug} className="group relative">
-                  <Link href={`/product/${p.slug}`} className="block">
-                    <div className="relative aspect-[3/4] overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={p.image ?? "/perfumes/main.jpg"}
-                        alt={p.name}
-                        className="absolute inset-0 h-full w-full object-contain transition-opacity duration-500 group-hover:opacity-0"
-                      />
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={p.hoverImage ?? "/perfumes/hover.jpg"}
-                        alt={`${p.name} alternate view`}
-                        className="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-                      />
-                    </div>
-
-                    <div className="mt-4 text-center">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#111111]/50">
-                        {p.gender}
-                      </p>
-                      <h3 className="mq-serif mt-1 text-xl font-medium leading-snug text-[#9C5A2B]">{p.name}</h3>
-                      <p className="mt-2 text-sm font-semibold">
-                        ₹ {p.price}
-                        <span className="ml-2 text-xs font-normal text-[#111111]/45 line-through">
-                          ₹ {p.mrp}
-                        </span>
-                      </p>
-                    </div>
-                  </Link>
-
-                  {/* Badge (top left of the image) */}
-                  {p.badge && (
-                    <span className="pointer-events-none absolute left-0 top-0 z-10 max-w-[140px] bg-[#9C5A2B] px-3 py-2 text-xs font-semibold leading-tight text-white">
-                      {p.badge}
-                    </span>
-                  )}
-
-                  {/* Wishlist heart: top right of the image */}
-                  <button
-                    type="button"
-                    aria-pressed={saved}
-                    aria-label={saved ? `Remove ${p.name} from wishlist` : `Save ${p.name} to wishlist`}
-                    onClick={() => toggleWish(p)}
-                    className={`absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border shadow-md transition-colors duration-300 ${
-                      saved
-                        ? "border-[#9C5A2B] bg-[#9C5A2B] text-white"
-                        : "border-[#9C5A2B]/30 bg-white text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"
-                    }`}
-                  >
-                    <HeartIcon filled={saved} />
-                  </button>
-
-                  {/* Add to cart: bottom right of the image */}
-                  <div className="pointer-events-none absolute inset-x-0 top-0 aspect-[3/4]">
-                    <button
-                      type="button"
-                      aria-label={`Add ${p.name} to cart`}
-                      onClick={() => addToCart(p)}
-                      className="pointer-events-auto absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full border border-[#9C5A2B] bg-[#9C5A2B] text-white shadow-md transition-colors duration-300 hover:bg-[#7d4720]"
-                    >
-                      <BagIcon />
-                      {inCart > 0 && (
-                        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#111111] px-1 text-[10px] font-semibold leading-none text-white">
-                          {inCart}
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+            {visible.map((p) => (
+              <ProductCard
+                key={p.slug}
+                p={p}
+                saved={wish.has(p.slug)}
+                inCart={cart[p.slug] ?? 0}
+                onWish={() => toggleWish(p)}
+                onAdd={() => addToCart(p)}
+              />
+            ))}
           </div>
         )}
       </div>
