@@ -4,7 +4,10 @@
 // Visit: http://localhost:3000/perfumes
 // Layout: dark hero (banner + title), then a light cream shop area:
 //         filters sidebar, sort + count, product grid, features strip.
+// The product card now matches the Best Sellers card on the home page:
+// curved corners, 10ml / 30ml / 50ml / 100ml sizes, same fonts, colours and sizes.
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 // Hero colours
@@ -21,9 +24,41 @@ const MUTED = "rgba(36,36,36,0.65)";
 const LINE = "rgba(36,36,36,0.15)";
 const BORDER = "rgba(36,36,36,0.3)";
 
-// Bottle sizes the customer can choose from on every card
-const SIZES = ["6 ml", "12 ml"] as const;
-type Size = (typeof SIZES)[number];
+// Product card colours and fonts (same as the Best Sellers cards on the home page)
+const CARD_INK = "#111111";
+const CARD_LINE = "#EADFCC";
+const CARD_SOFT = "#5F554B";
+const COPPER_SOFT = "rgba(156,90,43,0.45)";
+const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
+const sans = "Inter, system-ui, sans-serif";
+
+// ---------------------------------------------------------------------------
+// SIZES (same as the home page card): 10ml 30ml 50ml 100ml
+// ---------------------------------------------------------------------------
+type SizeOption = {
+  ml: number;
+  price: number;
+  originalPrice?: number;
+  soldOut?: boolean;
+};
+
+// If a perfume has no "sizes" yet, its normal price is treated as the 10ml price
+// and the other sizes are worked out from it. Add real prices with the "sizes" field when you have them.
+const DEFAULT_STEPS = [
+  { ml: 10, mult: 1 },
+  { ml: 30, mult: 2.25 },
+  { ml: 50, mult: 3.4 },
+  { ml: 100, mult: 5.6 },
+];
+
+function getSizes(p: Perfume): SizeOption[] {
+  if (p.sizes && p.sizes.length > 0) return p.sizes;
+  return DEFAULT_STEPS.map(({ ml, mult }) => ({
+    ml,
+    price: Math.round(p.price * mult),
+    originalPrice: p.originalPrice ? Math.round(p.originalPrice * mult) : undefined,
+  }));
+}
 
 // ---------------------------------------------------------------------------
 // 1. IMAGE URLS
@@ -34,8 +69,14 @@ type Perfume = {
   slug: string;
   name: string;
   size: string;
+  // Normal price. It is used as the 10ml price when "sizes" is not given.
   price: number;
-  prices?: Partial<Record<Size, number>>;
+  // Optional: the old price. If you add it, the card shows it struck through with a green "% OFF" badge.
+  originalPrice?: number;
+  // Optional: real prices per size, e.g. [{ ml: 10, price: 799, originalPrice: 1598 }, { ml: 30, ... }, ...]
+  sizes?: SizeOption[];
+  // Optional: a notes line under the name, e.g. ["Fresh", "Marine", "Powdery"]
+  notes?: string[];
   image?: string;
   hoverImage?: string;
   badge?: string;
@@ -96,10 +137,9 @@ const FEATURES = [
 ];
 
 const PAGE_SIZE = 6;
+// Prices show like Rs. 799.00 (same as the home page cards)
 const formatPrice = (n: number) =>
-  "₹ " + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const priceFor = (p: Perfume, size: Size) => p.prices?.[size] ?? p.price;
+  "Rs. " + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function Placeholder({ label, className = "" }: { label: string; className?: string }) {
   return (
@@ -130,25 +170,32 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-function HeartIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill={filled ? BURGUNDY : "none"} stroke={filled ? BURGUNDY : "currentColor"} strokeWidth="1.5" strokeLinejoin="round" aria-hidden>
-      <path d="M12 20.5s-7.5-4.6-9-9.3C2 7.9 4 5 7 5c1.9 0 3.5 1 5 3 1.5-2 3.1-3 5-3 3 0 5 2.9 4 6.2-1.5 4.7-9 9.3-9 9.3z" />
-    </svg>
-  );
-}
+// ---- Card icons (same as the home page card) ----
+const iconProps = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
 
-function CartIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 4h2l2.2 11h10.6L20 7H6.2" />
-      <circle cx="9" cy="19" r="1.3" />
-      <circle cx="17" cy="19" r="1.3" />
-    </svg>
-  );
-}
+const HeartIcon = ({ filled }: { filled: boolean }) => (
+  <svg {...iconProps} className="h-[14px] w-[14px] md:h-[18px] md:w-[18px]" fill={filled ? "currentColor" : "none"}>
+    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+  </svg>
+);
 
-// Round selector (instead of the square checkbox). Works as a checkbox or a radio.
+const CartIcon = () => (
+  <svg {...iconProps} className="h-[11px] w-[11px] md:h-[15px] md:w-[15px]">
+    <circle cx="8" cy="21" r="1" />
+    <circle cx="19" cy="21" r="1" />
+    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+  </svg>
+);
+
+// Round selector (instead of the square checkbox). Used by the filters.
 function CircleOption({
   type,
   name,
@@ -157,6 +204,7 @@ function CircleOption({
   label,
   className = "",
   disabled,
+  accent = BURGUNDY,
 }: {
   type: "checkbox" | "radio";
   name?: string;
@@ -165,6 +213,7 @@ function CircleOption({
   label: string;
   className?: string;
   disabled?: boolean;
+  accent?: string;
 }) {
   return (
     <label className={`flex cursor-pointer items-center gap-3 ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className}`}>
@@ -179,11 +228,11 @@ function CircleOption({
       <span
         aria-hidden
         className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#754747]/70 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#FFF9F3]"
-        style={{ borderColor: checked ? BURGUNDY : "rgba(36,36,36,0.45)" }}
+        style={{ borderColor: checked ? accent : "rgba(36,36,36,0.45)" }}
       >
         <span
           className={`h-2 w-2 rounded-full transition-transform duration-200 ${checked ? "scale-100" : "scale-0"}`}
-          style={{ background: BURGUNDY }}
+          style={{ background: accent }}
         />
       </span>
       <span>{label}</span>
@@ -264,6 +313,9 @@ function SortDropdown({
   );
 }
 
+// ---------------------------------------------------------------------------
+// PRODUCT CARD: same design as the Best Sellers card on the home page
+// ---------------------------------------------------------------------------
 function ProductCard({
   p,
   wished,
@@ -273,7 +325,9 @@ function ProductCard({
   wished: boolean;
   onToggleWish: (slug: string) => void;
 }) {
-  const [size, setSize] = useState<Size>(SIZES[0]);
+  const sizes = getSizes(p);
+  const firstAvailable = sizes.find((s) => !s.soldOut) ?? sizes[0];
+  const [selectedMl, setSelectedMl] = useState(firstAvailable.ml);
   const [added, setAdded] = useState(false);
 
   // Mobile / touch: show the second image while the card is in the middle of the screen
@@ -298,24 +352,48 @@ function ProductCard({
     return () => observer.disconnect();
   }, [p.hoverImage]);
 
-  // "Added" confirmation goes back to normal after 1.8 seconds
+  // "Added" confirmation goes back to normal after 1.6 seconds
   useEffect(() => {
     if (!added) return;
-    const t = setTimeout(() => setAdded(false), 1800);
+    const t = setTimeout(() => setAdded(false), 1600);
     return () => clearTimeout(t);
   }, [added]);
 
+  const current = sizes.find((s) => s.ml === selectedMl) ?? firstAvailable;
+  const unavailable = !!p.soldOut || !!current.soldOut;
+
+  const discounted = current.originalPrice !== undefined && current.originalPrice > current.price;
+  const pct = discounted
+    ? Math.round(((current.originalPrice! - current.price) / current.originalPrice!) * 100)
+    : 0;
+
+  const detailHref = `/perfumes/${p.slug}`;
+  const buyHref = `${detailHref}?size=${current.ml}ml`;
+
   const addToCart = () => {
-    if (p.soldOut) return;
-    // TODO: connect your cart here, e.g. addItem({ slug: p.slug, size, price: priceFor(p, size) })
+    if (unavailable) return;
+    // TODO: connect your cart here, e.g. addItem({ slug: p.slug, ml: current.ml, price: current.price })
     setAdded(true);
   };
 
+  const radioName = `size-${p.slug}`;
+
   return (
-    <div className="text-center">
-      {/* image + wishlist heart */}
-      <div ref={imgBoxRef} className="group relative overflow-hidden" style={{ background: PASTEL }}>
-        <a href={`/perfumes/${p.slug}`} className="block" aria-label={p.name}>
+    <div
+      className="group flex h-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)]"
+      style={{ borderColor: CARD_LINE, fontFamily: sans }}
+    >
+      {/* image + wishlist heart. Soft curved corners. */}
+      <div
+        ref={imgBoxRef}
+        className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px]"
+        style={{ background: "#F6EEE0" }}
+      >
+        <Link
+          href={detailHref}
+          aria-label={`View ${p.name}`}
+          className="block h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#9C5A2B]"
+        >
           {p.image ? (
             <>
               {/* main image (fades out on hover / when scrolled into view on mobile) */}
@@ -323,7 +401,7 @@ function ProductCard({
               <img
                 src={p.image}
                 alt={p.name}
-                className={`aspect-square w-full object-cover transition duration-700 ${
+                className={`absolute inset-0 h-full w-full object-cover transition duration-700 ${
                   p.hoverImage
                     ? `group-hover:opacity-0 ${inView ? "opacity-0" : "opacity-100"}`
                     : "group-hover:scale-105"
@@ -342,13 +420,13 @@ function ProductCard({
               )}
             </>
           ) : (
-            <Placeholder label={p.name} className="aspect-square w-full" />
+            <Placeholder label={p.name} className="h-full w-full" />
           )}
-        </a>
+        </Link>
 
         {p.badge && (
           <span
-            className="pointer-events-none absolute left-0 top-3 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-white sm:px-3 sm:py-1.5 sm:text-[10px] sm:tracking-[0.2em]"
+            className="pointer-events-none absolute left-0 top-2 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-white md:top-3 md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]"
             style={{ background: COPPER_L }}
           >
             {p.badge}
@@ -356,8 +434,8 @@ function ProductCard({
         )}
         {p.soldOut && (
           <span
-            className="pointer-events-none absolute bottom-2 left-2 bg-white/90 px-2 py-1 text-[9px] uppercase tracking-[0.25em] sm:text-[10px]"
-            style={{ color: BURGUNDY }}
+            className="pointer-events-none absolute bottom-2 left-2 rounded bg-white/90 px-2 py-1 text-[9px] uppercase tracking-[0.15em] md:text-[10px]"
+            style={{ color: COPPER_L }}
           >
             Sold out
           </span>
@@ -369,56 +447,143 @@ function ProductCard({
           onClick={() => onToggleWish(p.slug)}
           aria-pressed={wished}
           aria-label={wished ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
-          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#242424] shadow-sm transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#754747]"
+          className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-sm transition-transform hover:scale-105 md:right-3 md:top-3 md:h-9 md:w-9"
+          style={{ color: wished ? "#C0392B" : "#555555" }}
         >
           <HeartIcon filled={wished} />
         </button>
       </div>
 
-      {/* name + price */}
-      <a href={`/perfumes/${p.slug}`} className="block">
-        <h3 className="mt-4 text-[11px] uppercase tracking-[0.15em] sm:mt-5 sm:text-sm sm:tracking-[0.3em]" style={{ color: INK }}>
-          {p.name}
+      {/* text + buttons */}
+      <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
+        {/* name (serif, copper) */}
+        <h3
+          className="m-0 line-clamp-2 font-medium leading-[1.2]"
+          style={{
+            fontFamily: serif,
+            color: COPPER_L,
+            fontSize: "clamp(1rem, 1.7vw, 1.5rem)",
+            fontVariantNumeric: "lining-nums",
+            fontFeatureSettings: '"lnum" 1',
+          }}
+        >
+          <Link href={detailHref}>{p.name}</Link>
         </h3>
-        <p className="mt-2 text-xs font-medium sm:text-sm" style={{ color: BURGUNDY }}>
-          {formatPrice(priceFor(p, size))}
-        </p>
-      </a>
 
-      {/* size choice: 6 ml / 12 ml */}
-      <div role="radiogroup" aria-label={`${p.name} bottle size`} className="mt-3 flex items-center justify-center gap-4">
-        {SIZES.map((s) => (
-          <CircleOption
-            key={s}
-            type="radio"
-            name={`size-${p.slug}`}
-            checked={size === s}
-            onChange={() => setSize(s)}
-            label={s}
-            className="gap-1.5 text-[11px] hover:text-[#242424] sm:text-xs"
-          />
-        ))}
-      </div>
-
-      {/* add to cart */}
-      <button
-        type="button"
-        onClick={addToCart}
-        disabled={p.soldOut}
-        aria-live="polite"
-        className="mt-3 flex w-full items-center justify-center gap-2 border px-2 py-2.5 text-[10px] uppercase tracking-[0.15em] transition-colors hover:bg-[#754747] hover:text-[#FFF9F3] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#754747] sm:text-xs sm:tracking-[0.2em]"
-        style={{ borderColor: BURGUNDY, color: BURGUNDY }}
-      >
-        {p.soldOut ? (
-          "Sold out"
-        ) : added ? (
-          "Added ✓"
-        ) : (
-          <>
-            Add to cart <CartIcon />
-          </>
+        {/* Notes: Fresh • Marine • Powdery (only if the product has notes) */}
+        {p.notes && p.notes.length > 0 && (
+          <p
+            className="m-0 mt-1 flex flex-wrap items-center justify-center gap-x-1 text-[9px] font-medium tracking-[0.06em] md:mt-1.5 md:gap-x-2 md:text-[12px]"
+            style={{ color: CARD_INK, fontFamily: sans }}
+          >
+            {p.notes.map((n, i) => (
+              <span key={n} className="flex items-center gap-x-1 md:gap-x-2">
+                {i > 0 && (
+                  <span aria-hidden className="h-[3px] w-[3px] rounded-full md:h-[4px] md:w-[4px]" style={{ background: COPPER_L }} />
+                )}
+                {n}
+              </span>
+            ))}
+          </p>
         )}
-      </button>
+
+        {/* Price */}
+        <div
+          className="mt-2 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 md:mt-3 md:gap-x-2"
+          style={{ fontFamily: sans }}
+        >
+          {discounted && (
+            <span className="text-[9px] line-through md:text-[13px]" style={{ color: "#9A8F84" }}>
+              {formatPrice(current.originalPrice!)}
+            </span>
+          )}
+          <span className="text-[11px] font-semibold md:text-[17px]" style={{ color: COPPER_L }}>
+            {formatPrice(current.price)}
+          </span>
+          {discounted && (
+            <span
+              className="rounded-[4px] px-1 py-px text-[8px] font-bold tracking-[0.03em] md:px-1.5 md:py-0.5 md:text-[11px]"
+              style={{ background: "#E3F2E6", color: "#1F7A3A" }}
+            >
+              {pct}% OFF
+            </span>
+          )}
+        </div>
+
+        {/* Sizes in ONE line: 10ml 30ml 50ml 100ml */}
+        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+          <legend className="sr-only">Choose a size</legend>
+          {sizes.map((s) => {
+            const checked = s.ml === selectedMl;
+            const disabled = !!p.soldOut || !!s.soldOut;
+            return (
+              <label
+                key={s.ml}
+                className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
+                  disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+                }`}
+                style={{ color: checked ? CARD_INK : CARD_SOFT, fontFamily: sans }}
+              >
+                <input
+                  type="radio"
+                  name={radioName}
+                  value={s.ml}
+                  checked={checked}
+                  disabled={disabled && !checked}
+                  onChange={() => setSelectedMl(s.ml)}
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden
+                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px]"
+                  style={{ borderColor: checked ? COPPER_L : COPPER_SOFT }}
+                >
+                  {checked && <span className="h-[4px] w-[4px] rounded-full md:h-[6px] md:w-[6px]" style={{ background: COPPER_L }} />}
+                </span>
+                {s.ml}ml
+              </label>
+            );
+          })}
+        </fieldset>
+
+        {/* Buttons (pushed to the bottom so every card lines up) */}
+        <div className="mt-auto flex w-full flex-col items-stretch gap-1.5 pt-3 md:w-[90%] md:gap-2 md:pt-4">
+          <button
+            type="button"
+            onClick={addToCart}
+            disabled={unavailable}
+            aria-live="polite"
+            className={`flex items-center justify-center gap-1.5 rounded-[6px] border px-1 py-1.5 text-[8px] font-medium uppercase tracking-[0.1em] transition-colors duration-200 md:py-2.5 md:text-[12px] md:tracking-[0.12em] ${
+              unavailable
+                ? "cursor-not-allowed border-[#D9CDBA] bg-white text-[#B9AD9A]"
+                : "border-[#9C5A2B] bg-white text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"
+            }`}
+            style={{ fontFamily: sans }}
+          >
+            {unavailable ? "Sold out" : added ? "Added ✓" : "Add to cart"}
+            {!added && !unavailable && <CartIcon />}
+          </button>
+
+          {unavailable ? (
+            <button
+              type="button"
+              disabled
+              className="cursor-not-allowed rounded-[6px] px-1 py-1.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-white opacity-45 md:py-2.5 md:text-[12px] md:tracking-[0.12em]"
+              style={{ background: COPPER_L, fontFamily: sans }}
+            >
+              Buy now
+            </button>
+          ) : (
+            <Link
+              href={buyHref}
+              className="rounded-[6px] px-1 py-1.5 text-center text-[8px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#7d4720] md:py-2.5 md:text-[12px] md:tracking-[0.12em]"
+              style={{ background: COPPER_L, fontFamily: sans }}
+            >
+              Buy now
+            </Link>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -594,9 +759,9 @@ export default function ShopAllPerfumesPage() {
             {FiltersPanel}
           </aside>
 
-          {/* grid */}
+          {/* grid: 2 per row on phones, 3 per row on large screens */}
           <div className="min-w-0 flex-1">
-            <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-7 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2.5 md:gap-4 lg:gap-6 xl:grid-cols-3">
               {shown.map((p) => (
                 <ProductCard key={p.slug} p={p} wished={wishlist.includes(p.slug)} onToggleWish={toggleWish} />
               ))}

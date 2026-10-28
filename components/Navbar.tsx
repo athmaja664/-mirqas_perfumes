@@ -69,6 +69,7 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false); // phones/tablets only (dropdown panel)
   const [query, setQuery] = useState("");
   const [hidden, setHidden] = useState(false); // navbar hidden while scrolling down
+  const [accountHref, setAccountHref] = useState("/login"); // changes when someone is signed in
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -134,6 +135,23 @@ export default function Navbar() {
     if (searchOpen) inputRef.current?.focus();
   }, [searchOpen]);
 
+  // Ask the server who is signed in, and re-check whenever the page changes.
+  // The server decides the role; the navbar only picks where the icon points.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const u = d?.user;
+        setAccountHref(!u ? "/login" : u.role === "admin" ? "/admin/dashboard" : "/account");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
   const submitSearch = (e: FormEvent) => {
     e.preventDefault();
     const q = query.trim();
@@ -141,6 +159,12 @@ export default function Navbar() {
     closeAll();
     router.push(`/shop?search=${encodeURIComponent(q)}`);
   };
+
+  const signedIn = accountHref !== "/login";
+
+  // Admin pages have their own sidebar, so the store navbar is not shown there.
+  // (This must stay AFTER all the hooks above.)
+  if (pathname.startsWith("/admin")) return null;
 
   return (
     <>
@@ -248,11 +272,11 @@ export default function Navbar() {
               </button>
             </form>
 
-            {/* Account, wishlist and bag: now visible on every screen size */}
+            {/* Account, wishlist and bag: visible on every screen size */}
             <div className="flex items-center justify-self-end" style={{ color: INK }}>
               <Link
-                href="/account"
-                aria-label="My account"
+                href={accountHref}
+                aria-label={signedIn ? "My account" : "Login or register"}
                 className="flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
               >
                 <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4" aria-hidden>

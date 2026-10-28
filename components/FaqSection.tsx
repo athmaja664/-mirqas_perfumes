@@ -2,9 +2,11 @@
 
 import { useId, useState } from "react";
 
-const CREAM = "#FFF9F3";
-const CHARCOAL = "#242424";
-const BURGUNDY = "#754747";
+// ---- Fonts and colours: same as the "Choose Your Bottle" section ----
+const IVORY = "#FCF8F0";
+const INK = "#111111";
+const COPPER = "#9C5A2B";
+const COPPER_LINE = "rgba(156,90,43,0.3)";
 
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
@@ -41,7 +43,7 @@ export default function FaqSection() {
     <section
       aria-labelledby={`${baseId}-heading`}
       className="w-full"
-      style={{ background: CREAM, fontFamily: sans }}
+      style={{ background: IVORY, fontFamily: sans }}
     >
       <style>{`
         .faq-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 350ms ease; }
@@ -52,20 +54,20 @@ export default function FaqSection() {
 
       <div className="mx-auto max-w-[820px] px-4 py-14 md:px-8 md:py-20">
         <div className="text-center">
-         <h2
-  id={`${baseId}-heading`}
-  className="m-0 font-normal uppercase tracking-[0.18em]"
-  style={{
-    fontFamily: serif,
-    color: CHARCOAL,
-    fontSize: "clamp(1.6rem, 3vw, 2.5rem)",
-  }}
->
-  Know Before You Scent
-</h2>
+          <h2
+            id={`${baseId}-heading`}
+            className="m-0 font-medium leading-tight"
+            style={{
+              fontFamily: serif,
+              color: COPPER,
+              fontSize: "clamp(2rem, 4vw, 3rem)",
+            }}
+          >
+            Know Before You Scent
+          </h2>
           <p
             className="mx-auto mt-4 max-w-md text-[14px] md:text-[15px]"
-            style={{ color: CHARCOAL, opacity: 0.7 }}
+            style={{ color: INK }}
           >
           
           </p>
@@ -75,7 +77,7 @@ export default function FaqSection() {
           {faqs.map((f, i) => {
             const isOpen = open === i;
             return (
-              <li key={f.q} className="border-b" style={{ borderColor: "rgba(36,36,36,0.15)" }}>
+              <li key={f.q} className="border-b" style={{ borderColor: COPPER_LINE }}>
                 <h3 className="m-0">
                   <button
                     type="button"
@@ -83,11 +85,17 @@ export default function FaqSection() {
                     aria-expanded={isOpen}
                     aria-controls={`${baseId}-a-${i}`}
                     onClick={() => setOpen(isOpen ? null : i)}
-                    className="flex w-full items-center justify-between gap-4 py-5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#754747]"
+                    className="flex w-full items-center justify-between gap-4 py-5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
                   >
                     <span
                       className="text-[18px] leading-snug md:text-[21px]"
-                      style={{ fontFamily: serif, color: isOpen ? BURGUNDY : CHARCOAL, fontWeight: 500 }}
+                      style={{
+                        fontFamily: serif,
+                        color: COPPER,
+                        fontWeight: 500,
+                        fontVariantNumeric: "lining-nums",
+                        fontFeatureSettings: '"lnum" 1',
+                      }}
                     >
                       {f.q}
                     </span>
@@ -100,7 +108,7 @@ export default function FaqSection() {
                         isOpen ? "rotate-180" : ""
                       }`}
                       strokeWidth="1.8"
-                      style={{ color: BURGUNDY }}
+                      style={{ color: COPPER }}
                     >
                       <path d="M6 9l6 6 6-6" />
                     </svg>
@@ -116,8 +124,8 @@ export default function FaqSection() {
                 >
                   <div>
                     <p
-                      className="m-0 pb-6 pr-8 text-[14px] leading-relaxed md:text-[15px]"
-                      style={{ color: CHARCOAL, opacity: 0.8 }}
+                      className="m-0 pb-6 pr-8 text-[14px] leading-relaxed tracking-[0.03em] md:text-[15px]"
+                      style={{ color: INK }}
                     >
                       {f.a}
                     </p>

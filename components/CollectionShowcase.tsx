@@ -1,45 +1,43 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-const CREAM = "#FFF9F3";
-const CHARCOAL = "#242424";
+// ---- Fonts and colours: same as the "Choose Your Bottle" section ----
+const COPPER = "#9C5A2B";
+const IVORY = "#FCF8F0";
+const INK = "#111111";
 const PASTEL = "#F3E7D5";
-const BURGUNDY = "#754747";
 
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
+// Box shape. Use your image's real width / height here so the picture fits with no crop.
+// Example: an image of 1200 x 675 px is 16 / 9.
+const CARD_RATIO = "16 / 9";
+
+// Only two collections: For Her and For Him
 const collections = [
   {
     id: "women",
-    title: "Women's Collection",
-    subtitle: "Elegance in every essence.",
-    image:
-      "https://plus.unsplash.com/premium_photo-1738860331028-9103e025522d?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
-    alt: "Woman wearing a signature Mirqas fragrance",
-    position: "center",
+    title: "For Her",
+    tagline: "Grace. Elegance. Essence.",
+    button: "Explore for her",
+    image: "/images/forhim2.png",
+    alt: "Woman's signature Mirqas fragrance bottle with flowers",
+    position: "right center",
+    shift: 12, // % to move the picture to the right. Raise to move the bottle more, 0 = no move.
     href: "/shop",
   },
   {
     id: "men",
-    title: "Men's Collection",
-    subtitle: "A statement of character.",
-    image: "https://images.pexels.com/photos/28557815/pexels-photo-28557815.jpeg",
-    alt: "Man wearing a signature Mirqas fragrance",
-    position: "center",
-    href: "/shop",
-  },
-  {
-    id: "unisex",
-    title: "Unisex Collection",
-    subtitle: "Fragrance without boundaries.",
-    image:
-      "https://images.unsplash.com/photo-1622618991746-fe6004db3a47?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
-    alt: "Mirqas unisex fragrance collection",
-    position: "center",
+    title: "For Him",
+    tagline: "Grace. Elegance. Essence.",
+    button: "Explore for him",
+    image: "/images/forher3.png",
+    alt: "Men's signature Mirqas fragrance bottle with flowers",
+    position: "right center",
+    shift: 0,
     href: "/shop",
   },
 ];
@@ -48,154 +46,125 @@ const isValidSrc = (src: string) =>
   src.startsWith("/") || src.startsWith("http://") || src.startsWith("https://");
 
 export default function CollectionShowcase() {
-  const listRef = useRef<HTMLUListElement>(null);
-  const [active, setActive] = useState(0);
-
-  const handleScroll = useCallback(() => {
-    const list = listRef.current;
-    if (!list) return;
-    const center = list.scrollLeft + list.clientWidth / 2;
-    let closest = 0;
-    let min = Infinity;
-    Array.from(list.children).forEach((child, i) => {
-      const el = child as HTMLElement;
-      const dist = Math.abs(el.offsetLeft + el.offsetWidth / 2 - center);
-      if (dist < min) {
-        min = dist;
-        closest = i;
-      }
-    });
-    setActive(closest);
-  }, []);
-
-  const goTo = (i: number) => {
-    const list = listRef.current;
-    const el = list?.children[i] as HTMLElement | undefined;
-    if (!list || !el) return;
-    list.scrollTo({
-      left: el.offsetLeft + el.offsetWidth / 2 - list.clientWidth / 2,
-      behavior: "smooth",
-    });
-  };
-
   return (
     <section
       aria-labelledby="collection-showcase-heading"
       className="w-full overflow-hidden"
-      style={{ background: CREAM, fontFamily: sans }}
+      style={{ background: IVORY, fontFamily: sans }}
     >
       <style>{`
         .cs-img { transition: transform 700ms cubic-bezier(0.22, 0.61, 0.36, 1); }
-        .cs-card:focus-visible { outline: 2px solid ${BURGUNDY}; outline-offset: 4px; }
+        .cs-btn { transition: background-color 200ms ease, color 200ms ease; }
+        .cs-card:focus-visible { outline: 2px solid ${COPPER}; outline-offset: 4px; }
+        .cs-card:hover .cs-btn,
+        .cs-card:focus-visible .cs-btn { background: ${COPPER}; color: #fff; }
         @media (hover: hover) {
           .cs-card:hover .cs-img,
-          .cs-card:focus-visible .cs-img { transform: scale(1.05); }
+          .cs-card:focus-visible .cs-img { transform: scale(1.04); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .cs-img { transition: none; }
+          .cs-img, .cs-btn { transition: none; }
           .cs-card:hover .cs-img { transform: none; }
         }
       `}</style>
 
-      <div className="mx-auto max-w-[1600px] px-4 py-10 md:px-8 md:py-16 lg:px-12 lg:py-24">
+      <div className="mx-auto max-w-[1200px] px-4 py-8 md:px-8 md:py-12 lg:px-10 lg:py-14">
         <div className="text-center">
           <h2
             id="collection-showcase-heading"
-            className="m-0 font-normal uppercase tracking-[0.18em]"
+            className="m-0 font-medium leading-tight"
             style={{
               fontFamily: serif,
-              color: CHARCOAL,
-              fontSize: "clamp(1.6rem, 3vw, 2.5rem)",
+              color: COPPER,
+              fontSize: "clamp(1.6rem, 3.2vw, 2.4rem)",
             }}
           >
             Discover Your Signature
           </h2>
           <p
-            className="mx-auto mt-4 max-w-md text-[14px] md:text-[15px]"
-            style={{ color: CHARCOAL, opacity: 0.7 }}
+            className="mx-auto mt-2 max-w-md text-[13px] tracking-[0.08em] md:mt-3 md:text-[15px]"
+            style={{ color: INK }}
           >
-            Three worlds of fragrance. One expression of you.
+            Two worlds of fragrance. One expression of you.
           </p>
         </div>
 
-        {/* Mobile: horizontal flex row that scrolls. md+: 3-column grid. */}
-        <ul
-          ref={listRef}
-          onScroll={handleScroll}
-          className="-mx-4 mt-8 flex list-none snap-x snap-mandatory gap-3 overflow-x-auto px-[11vw] py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:mt-14 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:py-0 lg:gap-8"
-        >
-          {collections.map((c, i) => (
-            <li
-              key={c.id}
-              data-active={active === i}
-              className={`w-[78vw] shrink-0 snap-center transition-all duration-500 ease-out md:w-auto md:shrink md:scale-100 md:opacity-100 ${
-                active === i ? "scale-100 opacity-100" : "scale-90 opacity-70"
-              }`}
-            >
+        {/* Phones: one card under the other. md+: two cards side by side. */}
+        <ul className="m-0 mt-5 grid list-none grid-cols-1 gap-3 p-0 md:mt-8 md:grid-cols-2 md:gap-5 lg:gap-6">
+          {collections.map((c) => (
+            <li key={c.id}>
               <Link
                 href={c.href}
-                className="cs-card relative block aspect-[4/5] w-full overflow-hidden"
-                style={{ background: PASTEL }}
+                className="cs-card relative block w-full overflow-hidden rounded-[6px]"
+                style={{ background: PASTEL, aspectRatio: CARD_RATIO }}
               >
                 {isValidSrc(c.image) && (
-                  <Image
-                    src={c.image}
-                    alt={c.alt}
-                    fill
-                    sizes="(min-width: 768px) 33vw, 80vw"
-                    className="cs-img object-cover"
-                    style={{ objectPosition: c.position }}
-                  />
+                  <div
+                    className="absolute inset-y-0 w-full"
+                    style={{ left: `${c.shift}%` }}
+                  >
+                    <Image
+                      src={c.image}
+                      alt={c.alt}
+                      fill
+                      sizes="(min-width: 768px) 50vw, 100vw"
+                      className="cs-img object-cover"
+                      style={{ objectPosition: c.position }}
+                    />
+                  </div>
                 )}
 
+                {/* Very light ivory fade behind the text only (the old one was too white).
+                    Lower 0.45 for a clearer photo, raise it for easier reading. */}
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent"
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(to right, rgba(252,248,240,0.45) 0%, rgba(252,248,240,0.2) 35%, rgba(252,248,240,0) 58%)",
+                  }}
                 />
 
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center px-4 pb-8 text-center md:pb-10">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex w-[60%] flex-col items-start justify-center pl-5 pr-2 md:pl-8 lg:pl-10">
                   <h3
                     className="m-0 font-medium leading-tight"
                     style={{
                       fontFamily: serif,
-                      color: PASTEL,
-                      fontSize: "clamp(1.5rem, 2.4vw, 2rem)",
-                      textShadow: "0 2px 18px rgba(0,0,0,0.35)",
+                      color: COPPER,
+                      fontSize: "clamp(1.7rem, 3.2vw, 2.6rem)",
                     }}
                   >
                     {c.title}
                   </h3>
-                  <p className="mt-2 text-[13px] md:text-[14px]" style={{ color: PASTEL }}>
-                    {c.subtitle}
+                  <p
+                    className="m-0 mt-1.5 text-[12px] tracking-[0.06em] md:mt-2 md:text-[15px]"
+                    style={{ color: INK }}
+                  >
+                    {c.tagline}
                   </p>
                   <span
-                    className="mt-5 inline-block border-b pb-1 text-[11px] uppercase tracking-[0.22em]"
-                    style={{ color: PASTEL, borderColor: PASTEL }}
+                    className="cs-btn mt-3 inline-flex items-center gap-2 rounded-[6px] border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] md:mt-5 md:px-5 md:py-3 md:text-[12px]"
+                    style={{ borderColor: COPPER, color: COPPER, background: "transparent" }}
                   >
-                    Explore Collection →
+                    {c.button}
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-3.5 w-3.5 md:h-4 md:w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M5 12h14M13 6l6 6-6 6" />
+                    </svg>
                   </span>
                 </div>
               </Link>
             </li>
           ))}
         </ul>
-
-        {/* Dots: mobile only */}
-        <div className="mt-5 flex justify-center gap-2 md:hidden">
-          {collections.map((c, i) => (
-            <button
-              key={c.id}
-              type="button"
-              aria-label={`Show ${c.title}`}
-              onClick={() => goTo(i)}
-              className="h-2 rounded-full border-0 p-0 transition-all duration-300"
-              style={{
-                width: active === i ? 22 : 8,
-                background: active === i ? BURGUNDY : "#D9C9B3",
-              }}
-            />
-          ))}
-        </div>
       </div>
     </section>
   );

@@ -1,5 +1,10 @@
-const COPPER = "#B87333";
-const DARK_COPPER = "#8F5230";
+// Colours and fonts match the "Choose Your Bottle" section.
+const COPPER = "#9C5A2B";
+const COPPER_SOFT = "rgba(156,90,43,0.45)";
+const INK = "#111111";
+
+const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
+const sans = "Inter, system-ui, sans-serif";
 
 const svgProps = {
   viewBox: "0 0 24 24",
@@ -9,7 +14,8 @@ const svgProps = {
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
   "aria-hidden": true,
-  className: "h-[30px] w-[30px]",
+  // Smaller icon on phones, original size from tablet up.
+  className: "h-[11px] w-[11px] md:h-[20px] md:w-[20px]",
 };
 
 const TruckIcon = () => (
@@ -62,32 +68,40 @@ export default function TrustBenefits() {
     <section
       aria-label="Why shop with Mirqas Perfumes"
       className="w-full"
-      style={{ background: "#FCF8F0" }}
+      style={{ background: "#FCF8F0", fontFamily: sans }}
     >
-      <ul className="mx-auto flex max-w-[1600px] flex-wrap justify-center gap-y-10 px-4 py-12 md:px-8 md:py-14 lg:px-12 lg:py-16">
+      {/* Phones: 3 items per row, smaller icons, tighter spacing, so the section is much shorter.
+          Tablet and desktop keep the original look. */}
+      <ul className="mx-auto flex max-w-[1600px] flex-wrap justify-center gap-y-2 px-2 py-3 md:gap-y-6 md:px-8 md:py-8 lg:px-12 lg:py-10">
         {benefits.map(({ title, text, Icon }) => (
           <li
             key={title}
-            className="group flex w-1/2 flex-col items-center px-2 text-center md:w-1/3 lg:w-1/5"
+            className="group flex w-1/3 flex-col items-center px-1 text-center md:w-1/3 md:px-2 lg:w-1/5"
           >
             <span
-              className="flex h-[64px] w-[64px] items-center justify-center rounded-full border bg-transparent transition-all duration-300 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100 md:h-[80px] md:w-[80px]"
-              style={{ borderColor: COPPER, color: COPPER }}
+              className="flex h-[24px] w-[24px] items-center justify-center rounded-full border bg-transparent transition-all duration-300 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100 md:h-[48px] md:w-[48px]"
+              style={{ borderColor: COPPER_SOFT, color: COPPER }}
             >
-              <span className="transition-colors duration-300 group-hover:text-[#8F5230] motion-reduce:transition-none">
+              <span className="transition-colors duration-300 group-hover:text-[#7D4720] motion-reduce:transition-none">
                 <Icon />
               </span>
             </span>
 
             <h3
-              className="mt-5 text-[16px] font-medium leading-snug md:text-[19px] lg:text-[20px]"
-              style={{ color: "#111111" }}
+              className="mt-1 text-[12px] font-medium leading-tight md:mt-3 md:text-[20px] md:leading-snug lg:text-[22px]"
+              style={{
+                fontFamily: serif,
+                color: COPPER,
+                // Cormorant Garamond uses old-style numbers (the 4 drops below the line). This makes them straight.
+                fontVariantNumeric: "lining-nums",
+                fontFeatureSettings: '"lnum" 1',
+              }}
             >
               {title}
             </h3>
             <p
-              className="mt-1.5 max-w-[22ch] text-[13px] leading-snug md:text-[15px]"
-              style={{ color: DARK_COPPER }}
+              className="mt-0.5 max-w-[18ch] text-[9px] leading-tight md:mt-1 md:max-w-[22ch] md:text-[14px] md:leading-snug"
+              style={{ fontFamily: sans, color: INK, letterSpacing: "0.06em" }}
             >
               {text}
             </p>

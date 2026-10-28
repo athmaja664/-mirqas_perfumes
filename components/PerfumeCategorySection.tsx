@@ -5,18 +5,87 @@ import { KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "reac
 import { CATEGORIES, Category, Product, products as allProducts } from "@/data/products";
 
 const CREAM = "#FFF9F3";
-const CHARCOAL = "#242424";
-const BURGUNDY = "#754747";
-const MAX_ITEMS = 5;
+
+// ---- Fonts and colours: same as the "Choose Your Bottle" section ----
+const COPPER = "#9C5A2B";
+const COPPER_SOFT = "rgba(156,90,43,0.45)";
+const INK = "#111111";
+const BORDER = "#EADFCC";
 
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
-const money = (n: number) => "₹" + new Intl.NumberFormat("en-IN").format(n);
+// Size of the heading "You are in Best Sellers" (same as the other section headings)
+const HEADING_SIZE = "clamp(2rem, 4vw, 3rem)";
+
+// Prices look like the reference: Rs. 799.00
+const money = (n: number) =>
+  "Rs. " + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
 // "Musk & Powdery" -> "musk-powdery" (matches the slugs used in the navbar)
 const slugOf = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+// ---- Sizes ----
+type SizeOption = {
+  ml: number;
+  price: number;
+  originalPrice?: number;
+  soldOut?: boolean;
+};
+
+// Optional extra fields. If a product in "@/data/products" has them, they are used.
+//   sizes:   [{ ml: 10, price: 799, originalPrice: 1598 }, { ml: 30, ... }, { ml: 50, ... }, { ml: 100, ... }]
+//   notes:   ["Fresh", "Marine", "Powdery"]
+//   soldOut: true
+type ProductEx = Product & {
+  sizes?: SizeOption[];
+  notes?: string[];
+  soldOut?: boolean;
+};
+
+// If a product has no "sizes" yet, its normal price is treated as the 10ml price
+// and the other sizes are worked out from it. Add real prices to the data when you have them.
+const DEFAULT_STEPS = [
+  { ml: 10, mult: 1 },
+  { ml: 30, mult: 2.25 },
+  { ml: 50, mult: 3.4 },
+  { ml: 100, mult: 5.6 },
+];
+
+function getSizes(p: ProductEx): SizeOption[] {
+  if (p.sizes && p.sizes.length > 0) return p.sizes;
+  return DEFAULT_STEPS.map(({ ml, mult }) => ({
+    ml,
+    price: Math.round(p.price * mult),
+    originalPrice: p.originalPrice ? Math.round(p.originalPrice * mult) : undefined,
+  }));
+}
+
+// ---- Icons ----
+const iconProps = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
+const HeartIcon = ({ filled }: { filled: boolean }) => (
+  <svg {...iconProps} className="h-[14px] w-[14px] md:h-[18px] md:w-[18px]" fill={filled ? "currentColor" : "none"}>
+    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+  </svg>
+);
+
+const CartIcon = () => (
+  <svg {...iconProps} className="h-[11px] w-[11px] md:h-[15px] md:w-[15px]">
+    <circle cx="8" cy="21" r="1" />
+    <circle cx="19" cy="21" r="1" />
+    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+  </svg>
+);
 
 /**
  * Shows the product VIDEO directly (no image thumbnail on top of it).
@@ -109,64 +178,208 @@ function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: s
   );
 }
 
-function ProductCard({ p }: { p: Product }) {
-  const discounted = p.originalPrice !== undefined && p.originalPrice > p.price;
-  const pct = discounted ? Math.round(((p.originalPrice! - p.price) / p.originalPrice!) * 100) : 0;
+type CartItem = { productId: string | number | undefined; name: string; ml: number; price: number };
+
+function ProductCard({
+  p,
+  onAddToCart,
+}: {
+  p: ProductEx;
+  onAddToCart?: (item: CartItem) => void;
+}) {
+  const sizes = getSizes(p);
+  const firstAvailable = sizes.find((s) => !s.soldOut) ?? sizes[0];
+  const [selectedMl, setSelectedMl] = useState(firstAvailable.ml);
+  const [wished, setWished] = useState(false);
+  const [added, setAdded] = useState(false);
+
+  const current = sizes.find((s) => s.ml === selectedMl) ?? firstAvailable;
+  const unavailable = !!p.soldOut || !!current.soldOut;
+
+  const discounted = current.originalPrice !== undefined && current.originalPrice > current.price;
+  const pct = discounted
+    ? Math.round(((current.originalPrice! - current.price) / current.originalPrice!) * 100)
+    : 0;
+
+  const base = p.href ?? (p.id ? `/product/${p.id}` : "/shop");
+  const buyHref = `${base}${base.includes("?") ? "&" : "?"}size=${current.ml}ml`;
+
+  const handleAdd = () => {
+    if (unavailable) return;
+    onAddToCart?.({ productId: p.id, name: p.name, ml: current.ml, price: current.price });
+    setAdded(true);
+    window.setTimeout(() => setAdded(false), 1600);
+  };
+
+  const radioName = `size-${p.id ?? p.name}`;
 
   return (
-    <li>
-      <Link
-        href={p.href ?? (p.id ? `/product/${p.id}` : "/shop")}
-        className="group flex h-full flex-col items-center text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#754747]"
-      >
-        <div className="aspect-[4/5] w-full overflow-hidden">
+    <li
+      className="group flex h-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)]"
+      style={{ borderColor: BORDER }}
+    >
+      {/* Video / image with a heart on top. Soft curved corners. */}
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px]">
+        <Link
+          href={base}
+          aria-label={`View ${p.name}`}
+          className="block h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#9C5A2B]"
+        >
           <ProductMedia src={p.image} video={p.video} alt={p.name} />
-        </div>
+        </Link>
 
-        <div className="mt-4 flex w-full flex-1 flex-col items-center px-1">
-          {p.brand && (
-            <span className="text-[11px] uppercase tracking-[0.2em]" style={{ color: BURGUNDY }}>
-              {p.brand}
+        <button
+          type="button"
+          onClick={() => setWished((w) => !w)}
+          aria-pressed={wished}
+          aria-label={wished ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
+          className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-sm transition-transform hover:scale-105 md:right-3 md:top-3 md:h-9 md:w-9"
+          style={{ color: wished ? "#C0392B" : "#555555" }}
+        >
+          <HeartIcon filled={wished} />
+        </button>
+      </div>
+
+      {/* Details (no brand heading) */}
+      <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
+        <h3
+          className="m-0 line-clamp-2 font-medium leading-[1.2]"
+          style={{
+            fontFamily: serif,
+            color: COPPER,
+            fontSize: "clamp(1rem, 1.7vw, 1.5rem)",
+            fontVariantNumeric: "lining-nums",
+            fontFeatureSettings: '"lnum" 1',
+          }}
+        >
+          <Link href={base}>{p.name}</Link>
+        </h3>
+
+        {/* Notes: Fresh • Marine • Powdery (only if the product has notes) */}
+        {p.notes && p.notes.length > 0 && (
+          <p
+            className="m-0 mt-1 flex flex-wrap items-center justify-center gap-x-1 text-[9px] font-medium tracking-[0.06em] md:mt-1.5 md:gap-x-2 md:text-[12px]"
+            style={{ color: INK, fontFamily: sans }}
+          >
+            {p.notes.map((n, i) => (
+              <span key={n} className="flex items-center gap-x-1 md:gap-x-2">
+                {i > 0 && (
+                  <span aria-hidden className="h-[3px] w-[3px] rounded-full md:h-[4px] md:w-[4px]" style={{ background: COPPER }} />
+                )}
+                {n}
+              </span>
+            ))}
+          </p>
+        )}
+
+        {/* Price */}
+        <div
+          className="mt-2 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 md:mt-3 md:gap-x-2"
+          style={{ fontFamily: sans }}
+        >
+          {discounted && (
+            <span className="text-[9px] line-through md:text-[13px]" style={{ color: "#9A8F84" }}>
+              {money(current.originalPrice!)}
             </span>
           )}
-          <h3
-            className="mt-1 line-clamp-2 min-h-[2.6em] text-[18px] leading-[1.3] md:text-[20px]"
-            style={{ fontFamily: serif, color: CHARCOAL, fontWeight: 500 }}
-          >
-            {p.name}
-          </h3>
-
-          {p.rating !== undefined && (
-            <p className="mt-1.5 text-[13px]" style={{ color: CHARCOAL }}>
-              <span style={{ color: "#B87333" }} aria-hidden>★</span>{" "}
-              <span className="font-medium">{p.rating.toFixed(1)}</span>
-              {p.reviewCount !== undefined && (
-                <span className="text-black/55"> ({p.reviewCount})</span>
-              )}
-              <span className="sr-only"> out of 5 stars</span>
-            </p>
+          <span className="text-[11px] font-semibold md:text-[17px]" style={{ color: COPPER }}>
+            {money(current.price)}
+          </span>
+          {discounted && (
+            <span
+              className="rounded-[4px] px-1 py-px text-[8px] font-bold tracking-[0.03em] md:px-1.5 md:py-0.5 md:text-[11px]"
+              style={{ background: "#E3F2E6", color: "#1F7A3A" }}
+            >
+              {pct}% OFF
+            </span>
           )}
-
-          <p className="mt-2 flex flex-wrap items-baseline justify-center gap-x-2 text-[15px]">
-            <span className="font-medium" style={{ color: CHARCOAL }}>{money(p.price)}</span>
-            {discounted && (
-              <>
-                <s className="text-[13px] text-black/45">{money(p.originalPrice!)}</s>
-                <span className="text-[13px] font-medium" style={{ color: BURGUNDY }}>{pct}% off</span>
-              </>
-            )}
-          </p>
         </div>
-      </Link>
+
+        {/* Sizes in ONE line: 10ml 30ml 50ml 100ml */}
+        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+          <legend className="sr-only">Choose a size</legend>
+          {sizes.map((s) => {
+            const checked = s.ml === selectedMl;
+            const disabled = !!p.soldOut || !!s.soldOut;
+            return (
+              <label
+                key={s.ml}
+                className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
+                  disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+                }`}
+                style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
+              >
+                <input
+                  type="radio"
+                  name={radioName}
+                  value={s.ml}
+                  checked={checked}
+                  disabled={disabled && !checked}
+                  onChange={() => setSelectedMl(s.ml)}
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden
+                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px]"
+                  style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
+                >
+                  {checked && <span className="h-[4px] w-[4px] rounded-full md:h-[6px] md:w-[6px]" style={{ background: COPPER }} />}
+                </span>
+                {s.ml}ml
+              </label>
+            );
+          })}
+        </fieldset>
+
+        {/* Buttons (pushed to the bottom so every card lines up) */}
+        <div className="mt-auto flex w-full flex-col items-stretch gap-1.5 pt-3 md:w-[90%] md:gap-2 md:pt-4">
+          <button
+  type="button"
+  onClick={handleAdd}
+  disabled={unavailable}
+  className={`flex items-center justify-center gap-1.5 rounded-[6px] border px-1 py-1.5 text-[8px] font-medium uppercase tracking-[0.1em] transition-colors duration-200 md:py-2.5 md:text-[12px] md:tracking-[0.12em] ${
+    unavailable
+      ? "cursor-not-allowed border-[#D9CDBA] bg-white text-[#B9AD9A]"
+      : "border-[#9C5A2B] bg-white text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"
+  }`}
+  style={{ fontFamily: sans }}
+>
+  {unavailable ? "Sold out" : added ? "Added ✓" : "Add to cart"}
+  {!added && <CartIcon />}
+</button>
+           
+
+          {unavailable ? (
+            <button
+              type="button"
+              disabled
+              className="cursor-not-allowed rounded-[6px] px-1 py-1.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-white opacity-45 md:py-2.5 md:text-[12px] md:tracking-[0.12em]"
+              style={{ background: COPPER, fontFamily: sans }}
+            >
+              Buy now
+            </button>
+          ) : (
+            <Link
+              href={buyHref}
+              className="rounded-[6px] px-1 py-1.5 text-center text-[8px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#7d4720] md:py-2.5 md:text-[12px] md:tracking-[0.12em]"
+              style={{ background: COPPER, fontFamily: sans }}
+            >
+              Buy now
+            </Link>
+          )}
+        </div>
+      </div>
     </li>
   );
 }
 
 interface Props {
   products?: Product[];
+  // Connect this to your cart. It receives the product, the chosen size (ml) and the price.
+  onAddToCart?: (item: CartItem) => void;
 }
 
-export default function PerfumeCategorySection({ products = allProducts }: Props) {
+export default function PerfumeCategorySection({ products = allProducts, onAddToCart }: Props) {
   const [selected, setSelected] = useState<Category>("Best Sellers");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -175,12 +388,13 @@ export default function PerfumeCategorySection({ products = allProducts }: Props
   const btnRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
 
+  // Only 4 cards: the 4th product is removed and the 5th product takes its place.
   const visible = useMemo(() => {
     const list =
       selected === "Best Sellers"
         ? products.filter((p) => p.isBestSeller)
         : products.filter((p) => p.category === selected);
-    return list.slice(0, MAX_ITEMS);
+    return list.length >= 5 ? [list[0], list[1], list[2], list[4]] : list.slice(0, 4);
   }, [products, selected]);
 
   // Jump here from the navbar: select the category and scroll to this section.
@@ -271,13 +485,13 @@ export default function PerfumeCategorySection({ products = allProducts }: Props
       className="w-full scroll-mt-4"
       style={{ background: CREAM, fontFamily: sans }}
     >
-      <div className="mx-auto max-w-[1600px] px-4 py-14 md:px-8 md:py-20 lg:px-12">
-        {/* Heading + dropdown */}
+      <div className="mx-auto max-w-[1600px] px-3 py-14 md:px-8 md:py-20 lg:px-12">
+        {/* Heading + dropdown: serif, copper, medium (same style as "Choose Your Bottle") */}
         <div className="flex flex-wrap items-baseline justify-center gap-x-3">
           <h2
             id={`${listId}-heading`}
-            className="m-0 text-[28px] font-normal md:text-[36px]"
-            style={{ fontFamily: serif, color: CHARCOAL }}
+            className="m-0 font-medium leading-tight"
+            style={{ fontFamily: serif, color: COPPER, fontSize: HEADING_SIZE }}
           >
             You are in
           </h2>
@@ -291,8 +505,8 @@ export default function PerfumeCategorySection({ products = allProducts }: Props
               aria-controls={listId}
               aria-label={`Fragrance category: ${selected}. Change category`}
               onClick={() => (open ? setOpen(false) : openMenu())}
-              className="inline-flex items-center gap-2 border-b pb-0.5 text-[28px] md:text-[36px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#754747]"
-              style={{ fontFamily: serif, color: BURGUNDY, borderColor: BURGUNDY }}
+              className="inline-flex items-center gap-2 border-b pb-0.5 font-medium leading-tight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9C5A2B]"
+              style={{ fontFamily: serif, color: COPPER, borderColor: COPPER, fontSize: HEADING_SIZE }}
             >
               {selected}
               <svg
@@ -312,9 +526,10 @@ export default function PerfumeCategorySection({ products = allProducts }: Props
               role="listbox"
               aria-label="Fragrance categories"
               aria-activedescendant={open ? `${listId}-opt-${active}` : undefined}
-              className={`absolute left-1/2 top-full z-20 mt-3 w-[min(78vw,260px)] -translate-x-1/2 border border-black/10 bg-white py-2 shadow-sm transition-all duration-200 ease-out motion-reduce:transition-none ${
+              className={`absolute left-1/2 top-full z-20 mt-3 w-[min(78vw,260px)] -translate-x-1/2 rounded-[12px] border bg-white py-2 shadow-sm transition-all duration-200 ease-out motion-reduce:transition-none ${
                 open ? "visible translate-y-0 opacity-100" : "pointer-events-none invisible -translate-y-2 opacity-0"
               }`}
+              style={{ borderColor: BORDER, fontFamily: sans }}
             >
               {CATEGORIES.map((c, i) => {
                 const isSelected = c === selected;
@@ -326,9 +541,9 @@ export default function PerfumeCategorySection({ products = allProducts }: Props
                     aria-selected={isSelected}
                     onPointerEnter={() => setActive(i)}
                     onClick={() => choose(c)}
-                    className="cursor-pointer px-5 py-2.5 text-left text-[15px] transition-colors"
+                    className="cursor-pointer px-5 py-2.5 text-left text-[15px] tracking-[0.04em] transition-colors"
                     style={{
-                      color: isSelected ? BURGUNDY : CHARCOAL,
+                      color: isSelected ? COPPER : INK,
                       fontWeight: isSelected ? 600 : 400,
                       background: i === active ? "#F6EDE3" : "transparent",
                     }}
@@ -341,16 +556,16 @@ export default function PerfumeCategorySection({ products = allProducts }: Props
           </div>
         </div>
 
-        {/* Products */}
-        <div className="mt-12 md:mt-14" aria-live="polite">
+        {/* Products: 2 per row on phones (like the reference), 4 per row on large screens */}
+        <div className="mt-10 md:mt-12" aria-live="polite">
           {visible.length > 0 ? (
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 md:gap-x-6 lg:grid-cols-5">
+            <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 md:grid-cols-4 md:gap-4 lg:gap-6">
               {visible.map((p, i) => (
-                <ProductCard key={p.id ?? `${p.name}-${i}`} p={p} />
+                <ProductCard key={p.id ?? `${p.name}-${i}`} p={p as ProductEx} onAddToCart={onAddToCart} />
               ))}
             </ul>
           ) : (
-            <p className="py-10 text-center text-[16px]" style={{ color: CHARCOAL }}>
+            <p className="py-10 text-center text-[16px]" style={{ color: INK }}>
               No perfumes found in this category.
             </p>
           )}
