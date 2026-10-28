@@ -34,7 +34,10 @@ export default function BrandStorySection() {
            the screen, so it stays still while the section scrolls over it. */
         .bs-section {
           clip-path: inset(0);
-          min-height: 85svh;
+          min-height: 50svh; /* phone height: change this number to make it taller or shorter */
+        }
+        @media (min-width: 768px) {
+          .bs-section { min-height: 85svh; }
         }
         .bs-fixed {
           position: fixed;
@@ -68,7 +71,7 @@ export default function BrandStorySection() {
       </div>
 
       {/* Text: scrolls normally with the page, over the still photo */}
-      <div className="relative z-10 flex min-h-[85svh] items-center px-6 py-16 md:px-10 lg:px-16">
+      <div className="relative z-10 flex min-h-[50svh] items-center px-6 py-16 md:min-h-[85svh] md:px-10 lg:px-16">
         <div className="mx-auto w-full max-w-[520px] text-center text-[#FFF9F3] md:mx-0 md:w-[42%] md:max-w-none lg:w-[40%]">
           <p className="m-0 text-[11px] uppercase tracking-[0.3em] opacity-80">
             {c.eyebrow}

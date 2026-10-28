@@ -35,9 +35,74 @@ const faqs = [
   },
 ];
 
+// Laptop view: first 3 questions on the left, the rest on the right.
+// Phone / tablet: both lists stack into one column, in the same order as before.
+const LEFT_COUNT = 3;
+
 export default function FaqSection() {
   const [open, setOpen] = useState<number | null>(0);
   const baseId = useId();
+
+  const renderItem = (f: (typeof faqs)[number], i: number) => {
+    const isOpen = open === i;
+    return (
+      <li key={f.q} className="border-b" style={{ borderColor: COPPER_LINE }}>
+        <h3 className="m-0">
+          <button
+            type="button"
+            id={`${baseId}-q-${i}`}
+            aria-expanded={isOpen}
+            aria-controls={`${baseId}-a-${i}`}
+            onClick={() => setOpen(isOpen ? null : i)}
+            className="flex w-full items-center justify-between gap-4 py-5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+          >
+            <span
+              className="text-[18px] leading-snug md:text-[21px]"
+              style={{
+                fontFamily: serif,
+                color: COPPER,
+                fontWeight: 500,
+                fontVariantNumeric: "lining-nums",
+                fontFeatureSettings: '"lnum" 1',
+              }}
+            >
+              {f.q}
+            </span>
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              aria-hidden
+              className={`shrink-0 fill-none stroke-current transition-transform duration-300 motion-reduce:transition-none ${
+                isOpen ? "rotate-180" : ""
+              }`}
+              strokeWidth="1.8"
+              style={{ color: COPPER }}
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+        </h3>
+
+        <div
+          id={`${baseId}-a-${i}`}
+          role="region"
+          aria-labelledby={`${baseId}-q-${i}`}
+          className="faq-panel"
+          data-open={isOpen}
+        >
+          <div>
+            <p
+              className="m-0 pb-6 pr-8 text-[14px] leading-relaxed tracking-[0.03em] md:text-[15px]"
+              style={{ color: INK }}
+            >
+              {f.a}
+            </p>
+          </div>
+        </div>
+      </li>
+    );
+  };
 
   return (
     <section
@@ -52,7 +117,7 @@ export default function FaqSection() {
         @media (prefers-reduced-motion: reduce) { .faq-panel { transition: none; } }
       `}</style>
 
-      <div className="mx-auto max-w-[820px] px-4 py-14 md:px-8 md:py-20">
+      <div className="mx-auto max-w-[820px] px-4 py-14 md:px-8 md:py-20 lg:max-w-[1100px]">
         <div className="text-center">
           <h2
             id={`${baseId}-heading`}
@@ -63,7 +128,7 @@ export default function FaqSection() {
               fontSize: "clamp(2rem, 4vw, 3rem)",
             }}
           >
-            Know Before You Scent
+            Frequently Asked Questions
           </h2>
           <p
             className="mx-auto mt-4 max-w-md text-[14px] md:text-[15px]"
@@ -73,68 +138,15 @@ export default function FaqSection() {
           </p>
         </div>
 
-        <ul className="m-0 mt-10 list-none p-0 md:mt-14">
-          {faqs.map((f, i) => {
-            const isOpen = open === i;
-            return (
-              <li key={f.q} className="border-b" style={{ borderColor: COPPER_LINE }}>
-                <h3 className="m-0">
-                  <button
-                    type="button"
-                    id={`${baseId}-q-${i}`}
-                    aria-expanded={isOpen}
-                    aria-controls={`${baseId}-a-${i}`}
-                    onClick={() => setOpen(isOpen ? null : i)}
-                    className="flex w-full items-center justify-between gap-4 py-5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
-                  >
-                    <span
-                      className="text-[18px] leading-snug md:text-[21px]"
-                      style={{
-                        fontFamily: serif,
-                        color: COPPER,
-                        fontWeight: 500,
-                        fontVariantNumeric: "lining-nums",
-                        fontFeatureSettings: '"lnum" 1',
-                      }}
-                    >
-                      {f.q}
-                    </span>
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="20"
-                      height="20"
-                      aria-hidden
-                      className={`shrink-0 fill-none stroke-current transition-transform duration-300 motion-reduce:transition-none ${
-                        isOpen ? "rotate-180" : ""
-                      }`}
-                      strokeWidth="1.8"
-                      style={{ color: COPPER }}
-                    >
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
-                  </button>
-                </h3>
-
-                <div
-                  id={`${baseId}-a-${i}`}
-                  role="region"
-                  aria-labelledby={`${baseId}-q-${i}`}
-                  className="faq-panel"
-                  data-open={isOpen}
-                >
-                  <div>
-                    <p
-                      className="m-0 pb-6 pr-8 text-[14px] leading-relaxed tracking-[0.03em] md:text-[15px]"
-                      style={{ color: INK }}
-                    >
-                      {f.a}
-                    </p>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        {/* Two lists: stacked on phone / tablet, side by side on laptop (3 left, 2 right) */}
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 lg:items-start lg:gap-x-16 md:mt-14">
+          <ul className="m-0 list-none p-0">
+            {faqs.slice(0, LEFT_COUNT).map((f, i) => renderItem(f, i))}
+          </ul>
+          <ul className="m-0 list-none p-0">
+            {faqs.slice(LEFT_COUNT).map((f, i) => renderItem(f, i + LEFT_COUNT))}
+          </ul>
+        </div>
       </div>
     </section>
   );

@@ -26,7 +26,7 @@ const SLIDES: Slide[] = [
 
 const AUTOPLAY_MS = 5000; // time each slide stays on screen
 const SHOW_TEXT = true; // false = hide the logo, quote and button (for banners that already contain text)
-const TEXT_FADE = true; // soft ivory fade behind the text on the left
+const TEXT_FADE = true; // soft dark fade behind the text on the left (makes the white text easy to read)
 
 export default function HeroCarousel() {
   const count = SLIDES.length;
@@ -120,11 +120,11 @@ export default function HeroCarousel() {
         </div>
       ))}
 
-      {/* Soft ivory fade on the left behind the text. It fades out before the bottle. */}
+      {/* Dark fade on the left behind the text (same idea as the men's banner). It fades out before the bottle. */}
       {SHOW_TEXT && TEXT_FADE && (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#FCF8F0]/60 via-[#FCF8F0]/28 to-transparent md:from-[#FCF8F0]/55 md:via-[#FCF8F0]/22 md:via-45% md:to-transparent md:to-70%"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/65 via-black/35 to-transparent md:from-black/65 md:via-black/30 md:via-45% md:to-transparent md:to-70%"
         />
       )}
 
@@ -134,28 +134,28 @@ export default function HeroCarousel() {
         <div className="absolute inset-0 flex items-center justify-start px-4 md:relative md:inset-auto md:mx-auto md:min-h-[calc(100svh-7rem)] md:max-w-[1400px] md:px-10 md:py-10 lg:min-h-[calc(100svh-10.75rem)]">
           <div className="flex max-w-[58%] flex-col items-center md:max-w-[50%]">
             {/* The logo image has empty space around it, so the box below crops it to the visible part. */}
-            <div className="mb-2 flex h-[88px] w-full items-center justify-center overflow-hidden md:mb-5 md:h-[160px] lg:h-[200px]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/logoo.png"
-                alt="Mirqas Perfumes"
-                className="block h-[170px] w-auto max-w-none shrink-0 mix-blend-multiply md:h-[310px] lg:h-[385px]"
-              />
-            </div>
+        <div className="relative top-11 flex max-w-[58%] flex-col items-center md:top-[4.25rem] md:max-w-[50%]">
+  {/* eslint-disable-next-line @next/next/no-img-element */}
+  <img
+    src="/images/logoo.png"
+    alt="Mirqas Perfumes"
+    className="block h-[200px] w-auto max-w-none shrink-0 mix-blend-screen grayscale invert md:h-[370px] lg:h-[460px]"
+  />
+</div>
 
-            {/* The quote is now font-semibold (600). Use font-bold for even bolder, font-medium for the old look. */}
+            {/* The quote is white with a dark shadow. Use font-bold for even bolder, font-medium for lighter. */}
             <h1
-              className="hero-rise m-0 text-center font-semibold leading-[1.2] tracking-[0.01em]"
-              style={{
-                fontFamily: serif,
-                color: "#111111",
-                fontSize: "clamp(1rem, 2.6vw, 2.8rem)",
-                textShadow: "0 1px 18px rgba(252,248,240,0.8)",
-              }}
-            >
-              <span className="block md:whitespace-nowrap">“Your Presence. Your Essence.</span>
-              <span className="block">Your Signature.”</span>
-            </h1>
+  className="hero-rise m-0 text-center font-semibold leading-[1.2] tracking-[0.01em]"
+  style={{
+    fontFamily: serif,
+    color: "#FFFFFF",
+    fontSize: "clamp(1.2rem, 3.1vw, 3.3rem)",
+    textShadow: "0 2px 14px rgba(0,0,0,0.7)",
+  }}
+>
+  <span className="block md:whitespace-nowrap">“Your Presence. Your Essence.</span>
+  <span className="block">Your Signature.”</span>
+</h1>
 
             <Link
               href="/shop"

@@ -2,38 +2,39 @@
 
 // app/perfumes/page.tsx  (Next.js App Router + Tailwind)
 // Visit: http://localhost:3000/perfumes
-// Layout: dark hero (banner + title), then a light cream shop area:
-//         filters sidebar, sort + count, product grid, features strip.
-// The product card now matches the Best Sellers card on the home page:
-// curved corners, 10ml / 30ml / 50ml / 100ml sizes, same fonts, colours and sizes.
+// Same look as the Men / Women / Unisex pages: image banner, copper filters
+// (round selectors, price slider, slide-in mobile drawer), same product card.
+// This page also keeps its sort dropdown and "Load more" button.
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-// Hero colours
-const GOLD = "#D4A017";
-const COPPER = "#B87333";
-
-// Light section colours (same family as the home page)
+// Brand colours (same as the other shop pages)
+const COPPER = "#9C5A2B";
+const COPPER_SOFT = "rgba(156,90,43,0.45)";
 const CREAM = "#FFF9F3";
 const PASTEL = "#F3E7D5";
-const INK = "#242424";
-const BURGUNDY = "#754747";
-const COPPER_L = "#9C5A2B";
-const MUTED = "rgba(36,36,36,0.65)";
-const LINE = "rgba(36,36,36,0.15)";
-const BORDER = "rgba(36,36,36,0.3)";
-
-// Product card colours and fonts (same as the Best Sellers cards on the home page)
-const CARD_INK = "#111111";
+const INK = "#111111";
+const MUTED = "rgba(17,17,17,0.6)";
+const LINE = "rgba(156,90,43,0.25)";
 const CARD_LINE = "#EADFCC";
 const CARD_SOFT = "#5F554B";
-const COPPER_SOFT = "rgba(156,90,43,0.45)";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
+// ---- Banner content (change these) ----
+const PAGE_LABEL = "SHOP ALL";
+const ANCHOR_ID = "all-perfumes";
+const TAGLINE = "Discover your signature scent";
+const HEADING_TOP = "Make every moment";
+const HEADING_BOTTOM = "Special";
+const BANNER_IMAGE = "/images/shopallhero1.png";
+
+// How many products show first, and how many more each "Load more" click adds
+const PAGE_SIZE = 6;
+
 // ---------------------------------------------------------------------------
-// SIZES (same as the home page card): 10ml 30ml 50ml 100ml
+// SIZES (same as the other pages): 10ml 30ml 50ml 100ml
 // ---------------------------------------------------------------------------
 type SizeOption = {
   ml: number;
@@ -41,29 +42,6 @@ type SizeOption = {
   originalPrice?: number;
   soldOut?: boolean;
 };
-
-// If a perfume has no "sizes" yet, its normal price is treated as the 10ml price
-// and the other sizes are worked out from it. Add real prices with the "sizes" field when you have them.
-const DEFAULT_STEPS = [
-  { ml: 10, mult: 1 },
-  { ml: 30, mult: 2.25 },
-  { ml: 50, mult: 3.4 },
-  { ml: 100, mult: 5.6 },
-];
-
-function getSizes(p: Perfume): SizeOption[] {
-  if (p.sizes && p.sizes.length > 0) return p.sizes;
-  return DEFAULT_STEPS.map(({ ml, mult }) => ({
-    ml,
-    price: Math.round(p.price * mult),
-    originalPrice: p.originalPrice ? Math.round(p.originalPrice * mult) : undefined,
-  }));
-}
-
-// ---------------------------------------------------------------------------
-// 1. IMAGE URLS
-// ---------------------------------------------------------------------------
-const BANNER_IMAGE = "https://images.pexels.com/photos/16239693/pexels-photo-16239693.jpeg";
 
 type Perfume = {
   slug: string;
@@ -89,24 +67,54 @@ type Perfume = {
   family: string;
 };
 
-// ---------------------------------------------------------------------------
-// 2. PRODUCTS
-// ---------------------------------------------------------------------------
-const perfumes: Perfume[] = [
-  { slug: "nadeem", name: "Nadeem", size: "100ML", price: 6290, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", badge: "#1 Best Seller", featured: true, sales: 980, added: "2026-03-10", gender: "Unisex", occasion: ["Evening", "Gifting"], family: "Oud" },
-  { slug: "oudh-al-ayal", name: "Oudh Al Ayal", size: "100ML", price: 2490, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", badge: "Best Seller", sales: 860, added: "2026-01-22", gender: "Men", occasion: ["Everyday", "Office"], family: "Oud" },
-  { slug: "a-poem", name: "A Poem", size: "100ML", price: 5990, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", featured: true, sales: 540, added: "2026-05-02", gender: "Women", occasion: ["Date Night", "Party"], family: "Floral" },
-  { slug: "rouge-vanilla", name: "Rouge Vanilla", size: "100ML", price: 5990, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", badge: "Best Seller", sales: 720, added: "2026-02-14", gender: "Women", occasion: ["Date Night", "Evening"], family: "Gourmand" },
-  { slug: "7-moons", name: "7 Moons", size: "100ML", price: 5990, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", sales: 610, added: "2026-06-18", gender: "Unisex", occasion: ["Evening", "Party"], family: "Amber" },
-  { slug: "maliki", name: "Maliki", size: "100ML", price: 5990, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", featured: true, sales: 450, added: "2026-08-01", gender: "Men", occasion: ["Casual", "Gifting"], family: "Woody" },
-  { slug: "amber-noir", name: "Amber Noir", size: "100ML", price: 3799, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", badge: "New", sales: 300, added: "2026-10-05", gender: "Men", occasion: ["Office", "Everyday"], family: "Amber" },
-  { slug: "oud-royale", name: "Oud Royale", size: "100ML", price: 4999, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", soldOut: true, sales: 690, added: "2025-11-30", gender: "Unisex", occasion: ["Gifting", "Party"], family: "Oud" },
-  { slug: "golden-musk", name: "Golden Musk", size: "100ML", price: 3299, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", sales: 270, added: "2026-09-12", gender: "Women", occasion: ["Casual", "Everyday"], family: "Musk" },
-  { slug: "desert-rose", name: "Desert Rose", size: "100ML", price: 4290, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", sales: 380, added: "2026-07-07", gender: "Women", occasion: ["Date Night", "Gifting"], family: "Floral" },
+// If a perfume has no "sizes" yet, its normal price is treated as the 10ml price
+// and the other sizes are worked out from it. Add real prices with the "sizes" field when you have them.
+const DEFAULT_STEPS = [
+  { ml: 10, mult: 1 },
+  { ml: 30, mult: 2.25 },
+  { ml: 50, mult: 3.4 },
+  { ml: 100, mult: 5.6 },
 ];
 
+function getSizes(p: Perfume): SizeOption[] {
+  if (p.sizes && p.sizes.length > 0) return p.sizes;
+  return DEFAULT_STEPS.map(({ ml, mult }) => ({
+    ml,
+    price: Math.round(p.price * mult),
+    originalPrice: p.originalPrice ? Math.round(p.originalPrice * mult) : undefined,
+  }));
+}
+
 // ---------------------------------------------------------------------------
-// 3. FILTER GROUPS
+// PRODUCTS
+// ---------------------------------------------------------------------------
+const perfumes: Perfume[] = [
+  { slug: "nadeem", name: "Nadeem", size: "100ML", price: 6290, image: "/images/cedar-study.jpg", hoverImage: "/images/forher1.png", badge: "#1 Best Seller", featured: true, sales: 980, added: "2026-03-10", gender: "Unisex", occasion: ["Evening", "Gifting"], family: "Oud" },
+
+  { slug: "oudh-al-ayal", name: "Oudh Al Ayal", size: "100ML", price: 2490, image: "/images/shop1.png", hoverImage: "/images/shop2.png", badge: "Best Seller", sales: 860, added: "2026-01-22", gender: "Men", occasion: ["Everyday", "Office"], family: "Oud" },
+
+  { slug: "a-poem", name: "A Poem", size: "100ML", price: 5990, image: "/images/forhim.png", hoverImage: "/images/shop4.png", featured: true, sales: 540, added: "2026-05-02", gender: "Women", occasion: ["Date Night", "Party"], family: "Floral" },
+
+  { slug: "rouge-vanilla", name: "Rouge Vanilla", size: "100ML", price: 5990, image: "/images/shop6.png", hoverImage: "/images/shop5.png", badge: "Best Seller", sales: 720, added: "2026-02-14", gender: "Women", occasion: ["Date Night", "Evening"], family: "Gourmand" },
+
+  { slug: "7-moons", name: "7 Moons", size: "100ML", price: 5990, image: "/images/choose1.png", hoverImage: "/images/citrus-dawn.jpg", sales: 610, added: "2026-06-18", gender: "Unisex", occasion: ["Evening", "Party"], family: "Amber" },
+
+  { slug: "maliki", name: "Maliki", size: "100ML", price: 5990, image: "/images/forher3.png", hoverImage: "/images/forhim.png", featured: true, sales: 450, added: "2026-08-01", gender: "Men", occasion: ["Casual", "Gifting"], family: "Woody" },
+
+  { slug: "amber-noir", name: "Amber Noir", size: "100ML", price: 3799, image: "/images/shop7.png", hoverImage: "/images/shop8.png", badge: "New", sales: 300, added: "2026-10-05", gender: "Men", occasion: ["Office", "Everyday"], family: "Amber" },
+
+  { slug: "oud-royale", name: "Oud Royale", size: "100ML", price: 4999, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", soldOut: true, sales: 690, added: "2025-11-30", gender: "Unisex", occasion: ["Gifting", "Party"], family: "Oud" },
+
+  { slug: "golden-musk", name: "Golden Musk", size: "100ML", price: 3299, image: "/images/forher1.png", hoverImage: "/images/shop9.png", sales: 270, added: "2026-09-12", gender: "Women", occasion: ["Casual", "Everyday"], family: "Musk" },
+
+  { slug: "desert-rose", name: "Desert Rose", size: "100ML", price: 4290, image: "/images/choose2.png", hoverImage: "/images/shop2.png", sales: 380, added: "2026-07-07", gender: "Women", occasion: ["Date Night", "Gifting"], family: "Floral" },
+];
+
+// Slider range: from 0 up to the highest price, rounded up to the next 100
+const PRICE_MAX = Math.ceil(Math.max(...perfumes.map((p) => p.price)) / 100) * 100;
+
+// ---------------------------------------------------------------------------
+// FILTER GROUPS
 // ---------------------------------------------------------------------------
 type FilterKey = "gender" | "occasion" | "family";
 const FILTER_GROUPS: { key: FilterKey; title: string; options: string[] }[] = [
@@ -114,6 +122,9 @@ const FILTER_GROUPS: { key: FilterKey; title: string; options: string[] }[] = [
   { key: "occasion", title: "Occasion", options: ["Casual", "Date Night", "Evening", "Everyday", "Gifting", "Office", "Party"] },
   { key: "family", title: "Fragrance Family", options: ["Oud", "Amber", "Woody", "Floral", "Gourmand", "Musk"] },
 ];
+
+const countFor = (key: FilterKey, option: string) =>
+  perfumes.filter((p) => (key === "occasion" ? p.occasion.includes(option) : p[key] === option)).length;
 
 const SORTS = [
   { value: "featured", label: "Featured" },
@@ -128,7 +139,7 @@ const SORTS = [
 ];
 
 // ---------------------------------------------------------------------------
-// 4. FEATURES SECTION
+// FEATURES SECTION
 // ---------------------------------------------------------------------------
 const FEATURES = [
   { title: "100% Authentic", text: "Every bottle is genuine and sealed.", icon: "M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z M8.5 12l2.5 2.5 4.5-5" },
@@ -136,24 +147,17 @@ const FEATURES = [
   { title: "Luxury Gift Packaging", text: "Presented in a premium gold box.", icon: "M4 10h16v10H4z M3 7h18v3H3z M12 7v13 M12 7c-2-4-6-3-5 0 M12 7c2-4 6-3 5 0" },
 ];
 
-const PAGE_SIZE = 6;
-// Prices show like Rs. 799.00 (same as the home page cards)
+// Prices show like Rs. 799.00
 const formatPrice = (n: number) =>
   "Rs. " + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function Placeholder({ label, className = "" }: { label: string; className?: string }) {
   return (
-    <div className={`relative flex items-center justify-center bg-gradient-to-br from-neutral-900 via-black to-neutral-900 ${className}`}>
-      <svg viewBox="0 0 200 200" className="h-1/2 w-1/2 opacity-80" fill="none">
-        <defs>
-          <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={GOLD} />
-            <stop offset="100%" stopColor={COPPER} />
-          </linearGradient>
-        </defs>
-        <rect x="70" y="80" width="60" height="90" rx="10" stroke="url(#pg)" strokeWidth="3" />
-        <rect x="88" y="55" width="24" height="25" rx="4" stroke="url(#pg)" strokeWidth="3" />
-        <path d="M80 120h40" stroke="url(#pg)" strokeWidth="2" />
+    <div className={`relative flex items-center justify-center bg-[#F6EEE0] ${className}`}>
+      <svg viewBox="0 0 200 200" className="h-1/2 w-1/2 opacity-70" fill="none" stroke={COPPER}>
+        <rect x="70" y="80" width="60" height="90" rx="10" strokeWidth="3" />
+        <rect x="88" y="55" width="24" height="25" rx="4" strokeWidth="3" />
+        <path d="M80 120h40" strokeWidth="2" />
       </svg>
       <span className="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs uppercase tracking-[0.3em]" style={{ color: COPPER }}>
         {label}
@@ -164,13 +168,20 @@ function Placeholder({ label, className = "" }: { label: string; className?: str
 
 function Chevron({ open }: { open: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" className={`h-5 w-5 transition ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.5">
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      className={`fill-none stroke-current transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+      strokeWidth="1.6"
+      aria-hidden
+    >
       <path d="M6 9l6 6 6-6" />
     </svg>
   );
 }
 
-// ---- Card icons (same as the home page card) ----
+// ---- Card icons ----
 const iconProps = {
   viewBox: "0 0 24 24",
   fill: "none",
@@ -195,47 +206,56 @@ const CartIcon = () => (
   </svg>
 );
 
-// Round selector (instead of the square checkbox). Used by the filters.
+function FilterSection({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="border-b border-[#9C5A2B]/25 py-5">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="mq-serif flex w-full items-center justify-between text-left text-xl font-medium text-[#9C5A2B]"
+      >
+        {title}
+        <Chevron open={open} />
+      </button>
+
+      {open && <div className="mt-4">{children}</div>}
+    </div>
+  );
+}
+
+// Round selector instead of the square checkbox (used by the filters)
 function CircleOption({
-  type,
-  name,
+  label,
+  count,
   checked,
   onChange,
-  label,
-  className = "",
-  disabled,
-  accent = BURGUNDY,
 }: {
-  type: "checkbox" | "radio";
-  name?: string;
+  label: string;
+  count: number;
   checked: boolean;
   onChange: () => void;
-  label: string;
-  className?: string;
-  disabled?: boolean;
-  accent?: string;
 }) {
   return (
-    <label className={`flex cursor-pointer items-center gap-3 ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className}`}>
-      <input
-        type={type}
-        name={name}
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-        className="peer sr-only"
-      />
+    <label className="flex cursor-pointer items-center gap-3 text-sm text-[#111111]/80 hover:text-[#111111]">
+      <input type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" />
       <span
         aria-hidden
-        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#754747]/70 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#FFF9F3]"
-        style={{ borderColor: checked ? accent : "rgba(36,36,36,0.45)" }}
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#9C5A2B] peer-focus-visible:ring-offset-2 ${
+          checked ? "border-[#9C5A2B]" : "border-[#9C5A2B]/50"
+        }`}
       >
         <span
-          className={`h-2 w-2 rounded-full transition-transform duration-200 ${checked ? "scale-100" : "scale-0"}`}
-          style={{ background: accent }}
+          className={`h-2 w-2 rounded-full bg-[#9C5A2B] transition-transform duration-200 ${
+            checked ? "scale-100" : "scale-0"
+          }`}
         />
       </span>
-      <span>{label}</span>
+      <span>
+        {label} <span className="text-[#111111]/50">({count})</span>
+      </span>
     </label>
   );
 }
@@ -269,16 +289,16 @@ function SortDropdown({
   const current = options.find((o) => o.value === value)?.label ?? "";
 
   return (
-    <div ref={ref} className="relative w-52">
+    <div ref={ref} className="relative w-44 sm:w-52" style={{ fontFamily: sans }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex w-full items-center justify-between border bg-white px-4 py-2.5 text-left normal-case tracking-[0.05em] outline-none focus-visible:border-[#754747]"
-        style={{ borderColor: open ? BURGUNDY : BORDER, color: INK }}
+        className="flex w-full items-center justify-between border bg-white px-3 py-2.5 text-left text-[13px] outline-none focus-visible:border-[#9C5A2B]"
+        style={{ borderColor: open ? COPPER : "rgba(156,90,43,0.4)", color: INK }}
       >
-        <span>{current}</span>
+        <span className="truncate">{current}</span>
         <Chevron open={open} />
       </button>
 
@@ -286,7 +306,7 @@ function SortDropdown({
         <ul
           role="listbox"
           className="absolute right-0 top-full z-30 mt-1 w-full overflow-hidden border bg-white shadow-[0_10px_30px_rgba(36,36,36,0.15)]"
-          style={{ borderColor: BORDER }}
+          style={{ borderColor: "rgba(156,90,43,0.4)" }}
         >
           {options.map((o) => {
             const active = o.value === value;
@@ -298,8 +318,8 @@ function SortDropdown({
                     onChange(o.value);
                     setOpen(false);
                   }}
-                  className={`block w-full px-4 py-2.5 text-left normal-case tracking-[0.05em] transition-colors ${
-                    active ? "bg-[#754747] text-[#FFF9F3]" : "text-[#242424] hover:bg-[#F3E7D5]"
+                  className={`block w-full px-3 py-2.5 text-left text-[13px] transition-colors ${
+                    active ? "bg-[#9C5A2B] text-[#FFF9F3]" : "text-[#111111] hover:bg-[#F3E7D5]"
                   }`}
                 >
                   {o.label}
@@ -314,7 +334,7 @@ function SortDropdown({
 }
 
 // ---------------------------------------------------------------------------
-// PRODUCT CARD: same design as the Best Sellers card on the home page
+// PRODUCT CARD: same design as the other shop pages
 // ---------------------------------------------------------------------------
 function ProductCard({
   p,
@@ -340,7 +360,7 @@ function ProductCard({
     if (!el) return;
 
     // Only on devices that cannot hover (phones / tablets). Desktop keeps the normal hover.
-    const noHover = window.matchMedia("(hover: none)").matches;
+    const noHover = window.matchMedia("(hover: none), (pointer: coarse)").matches;
     if (!noHover) return;
 
     const observer = new IntersectionObserver(
@@ -384,11 +404,7 @@ function ProductCard({
       style={{ borderColor: CARD_LINE, fontFamily: sans }}
     >
       {/* image + wishlist heart. Soft curved corners. */}
-      <div
-        ref={imgBoxRef}
-        className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px]"
-        style={{ background: "#F6EEE0" }}
-      >
+      <div ref={imgBoxRef} className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px] bg-[#F6EEE0]">
         <Link
           href={detailHref}
           aria-label={`View ${p.name}`}
@@ -426,8 +442,8 @@ function ProductCard({
 
         {p.badge && (
           <span
-            className="pointer-events-none absolute left-0 top-2 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-white md:top-3 md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]"
-            style={{ background: COPPER_L }}
+            className="pointer-events-none absolute left-0 top-2 max-w-[75%] px-1.5 py-0.5 text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-white md:top-3 md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]"
+            style={{ background: COPPER }}
           >
             {p.badge}
           </span>
@@ -435,7 +451,7 @@ function ProductCard({
         {p.soldOut && (
           <span
             className="pointer-events-none absolute bottom-2 left-2 rounded bg-white/90 px-2 py-1 text-[9px] uppercase tracking-[0.15em] md:text-[10px]"
-            style={{ color: COPPER_L }}
+            style={{ color: COPPER }}
           >
             Sold out
           </span>
@@ -461,7 +477,7 @@ function ProductCard({
           className="m-0 line-clamp-2 font-medium leading-[1.2]"
           style={{
             fontFamily: serif,
-            color: COPPER_L,
+            color: COPPER,
             fontSize: "clamp(1rem, 1.7vw, 1.5rem)",
             fontVariantNumeric: "lining-nums",
             fontFeatureSettings: '"lnum" 1',
@@ -474,12 +490,12 @@ function ProductCard({
         {p.notes && p.notes.length > 0 && (
           <p
             className="m-0 mt-1 flex flex-wrap items-center justify-center gap-x-1 text-[9px] font-medium tracking-[0.06em] md:mt-1.5 md:gap-x-2 md:text-[12px]"
-            style={{ color: CARD_INK, fontFamily: sans }}
+            style={{ color: INK, fontFamily: sans }}
           >
             {p.notes.map((n, i) => (
               <span key={n} className="flex items-center gap-x-1 md:gap-x-2">
                 {i > 0 && (
-                  <span aria-hidden className="h-[3px] w-[3px] rounded-full md:h-[4px] md:w-[4px]" style={{ background: COPPER_L }} />
+                  <span aria-hidden className="h-[3px] w-[3px] rounded-full md:h-[4px] md:w-[4px]" style={{ background: COPPER }} />
                 )}
                 {n}
               </span>
@@ -497,7 +513,7 @@ function ProductCard({
               {formatPrice(current.originalPrice!)}
             </span>
           )}
-          <span className="text-[11px] font-semibold md:text-[17px]" style={{ color: COPPER_L }}>
+          <span className="text-[11px] font-semibold md:text-[17px]" style={{ color: COPPER }}>
             {formatPrice(current.price)}
           </span>
           {discounted && (
@@ -522,7 +538,7 @@ function ProductCard({
                 className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
                   disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
                 }`}
-                style={{ color: checked ? CARD_INK : CARD_SOFT, fontFamily: sans }}
+                style={{ color: checked ? INK : CARD_SOFT, fontFamily: sans }}
               >
                 <input
                   type="radio"
@@ -536,9 +552,9 @@ function ProductCard({
                 <span
                   aria-hidden
                   className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px]"
-                  style={{ borderColor: checked ? COPPER_L : COPPER_SOFT }}
+                  style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
                 >
-                  {checked && <span className="h-[4px] w-[4px] rounded-full md:h-[6px] md:w-[6px]" style={{ background: COPPER_L }} />}
+                  {checked && <span className="h-[4px] w-[4px] rounded-full md:h-[6px] md:w-[6px]" style={{ background: COPPER }} />}
                 </span>
                 {s.ml}ml
               </label>
@@ -569,7 +585,7 @@ function ProductCard({
               type="button"
               disabled
               className="cursor-not-allowed rounded-[6px] px-1 py-1.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-white opacity-45 md:py-2.5 md:text-[12px] md:tracking-[0.12em]"
-              style={{ background: COPPER_L, fontFamily: sans }}
+              style={{ background: COPPER, fontFamily: sans }}
             >
               Buy now
             </button>
@@ -577,7 +593,7 @@ function ProductCard({
             <Link
               href={buyHref}
               className="rounded-[6px] px-1 py-1.5 text-center text-[8px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#7d4720] md:py-2.5 md:text-[12px] md:tracking-[0.12em]"
-              style={{ background: COPPER_L, fontFamily: sans }}
+              style={{ background: COPPER, fontFamily: sans }}
             >
               Buy now
             </Link>
@@ -591,43 +607,71 @@ function ProductCard({
 export default function ShopAllPerfumesPage() {
   const [sort, setSort] = useState("featured");
   const [selected, setSelected] = useState<Record<FilterKey, string[]>>({ gender: [], occasion: [], family: [] });
-  const [inStockOnly, setInStockOnly] = useState(false);
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [visible, setVisible] = useState(PAGE_SIZE);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ gender: true, occasion: true, family: true, price: true });
-  const [mobileFilters, setMobileFilters] = useState(false);
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(PRICE_MAX);
+  const [showInStock, setShowInStock] = useState(false);
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false); // mobile drawer
   const [wishlist, setWishlist] = useState<string[]>([]);
+
+  // "Load more": how many products are showing. It starts again from PAGE_SIZE whenever a filter or the sort changes.
+  const filterKey = `${sort}|${selected.gender.join(",")}|${selected.occasion.join(",")}|${selected.family.join(",")}|${minPrice}|${maxPrice}|${showInStock}|${showOutOfStock}`;
+  const [limit, setLimit] = useState({ key: filterKey, count: PAGE_SIZE });
+  const visibleCount = limit.key === filterKey ? limit.count : PAGE_SIZE;
 
   const toggleWish = (slug: string) =>
     setWishlist((w) => (w.includes(slug) ? w.filter((s) => s !== slug) : [...w, slug]));
 
-  const toggleOption = (key: FilterKey, value: string) => {
-    setSelected((s) => ({ ...s, [key]: s[key].includes(value) ? s[key].filter((v) => v !== value) : [...s[key], value] }));
-    setVisible(PAGE_SIZE);
-  };
+  const toggleOption = (key: FilterKey, value: string) =>
+    setSelected((s) => ({
+      ...s,
+      [key]: s[key].includes(value) ? s[key].filter((v) => v !== value) : [...s[key], value],
+    }));
 
-  const activeCount =
-    selected.gender.length + selected.occasion.length + selected.family.length +
-    (inStockOnly ? 1 : 0) + (minPrice || maxPrice ? 1 : 0);
+  const filtersActive =
+    selected.gender.length > 0 ||
+    selected.occasion.length > 0 ||
+    selected.family.length > 0 ||
+    minPrice > 0 ||
+    maxPrice < PRICE_MAX ||
+    showInStock ||
+    showOutOfStock;
 
   const clearAll = () => {
     setSelected({ gender: [], occasion: [], family: [] });
-    setInStockOnly(false);
-    setMinPrice("");
-    setMaxPrice("");
-    setVisible(PAGE_SIZE);
+    setMinPrice(0);
+    setMaxPrice(PRICE_MAX);
+    setShowInStock(false);
+    setShowOutOfStock(false);
   };
 
+  // Mobile drawer: stop the page behind from scrolling, and close with the Escape key
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFiltersOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [filtersOpen]);
+
   const filtered = useMemo(() => {
-    const min = minPrice ? Number(minPrice) : 0;
-    const max = maxPrice ? Number(maxPrice) : Infinity;
     const list = perfumes.filter((p) => {
-      if (inStockOnly && p.soldOut) return false;
-      if (p.price < min || p.price > max) return false;
       if (selected.gender.length && !selected.gender.includes(p.gender)) return false;
       if (selected.family.length && !selected.family.includes(p.family)) return false;
       if (selected.occasion.length && !p.occasion.some((o) => selected.occasion.includes(o))) return false;
+      if (p.price < minPrice || p.price > maxPrice) return false;
+      // If both or neither availability box is ticked, show everything
+      if (showInStock !== showOutOfStock) {
+        const inStock = !p.soldOut;
+        if (showInStock && !inStock) return false;
+        if (showOutOfStock && inStock) return false;
+      }
       return true;
     });
     switch (sort) {
@@ -641,183 +685,367 @@ export default function ShopAllPerfumesPage() {
       case "new": list.sort((a, b) => b.added.localeCompare(a.added)); break;
     }
     return list;
-  }, [sort, selected, inStockOnly, minPrice, maxPrice]);
+  }, [sort, selected, minPrice, maxPrice, showInStock, showOutOfStock]);
 
-  const shown = filtered.slice(0, visible);
+  const shown = filtered.slice(0, visibleCount);
+  const hasMore = filtered.length > visibleCount;
+  const loadMore = () => setLimit({ key: filterKey, count: visibleCount + PAGE_SIZE });
 
-  const priceInput =
-    "w-full border bg-white px-3 py-2 text-sm text-[#242424] outline-none placeholder:text-[#242424]/40 focus:border-[#754747]";
+  const inStockCount = perfumes.filter((p) => !p.soldOut).length;
+  const outOfStockCount = perfumes.length - inStockCount;
 
-  const FiltersPanel = (
-    <div>
-      {activeCount > 0 && (
-        <button onClick={clearAll} className="mb-6 text-xs uppercase tracking-[0.3em] underline" style={{ color: BURGUNDY }}>
-          Clear all ({activeCount})
-        </button>
-      )}
+  const leftPct = (minPrice / PRICE_MAX) * 100;
+  const rightPct = (maxPrice / PRICE_MAX) * 100;
 
+  // The filter groups. Used in the desktop sidebar AND in the mobile drawer.
+  const filterSections = (
+    <>
       {FILTER_GROUPS.map((g) => (
-        <div key={g.key} className="border-b py-5" style={{ borderColor: LINE }}>
-          <button onClick={() => setOpenGroups((o) => ({ ...o, [g.key]: !o[g.key] }))} className="flex w-full items-center justify-between text-left uppercase tracking-[0.25em]">
-            <span>{g.title}</span>
-            <Chevron open={!!openGroups[g.key]} />
-          </button>
-          {openGroups[g.key] && (
-            <ul className="mt-4 space-y-3">
-              {g.options.map((opt) => (
-                <li key={opt}>
-                  <CircleOption
-                    type="checkbox"
-                    checked={selected[g.key].includes(opt)}
-                    onChange={() => toggleOption(g.key, opt)}
-                    label={opt}
-                    className="text-sm hover:text-[#242424]"
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <FilterSection key={g.key} title={g.title}>
+          <div className="flex flex-col gap-3">
+            {g.options.map((opt) => (
+              <CircleOption
+                key={opt}
+                label={opt}
+                count={countFor(g.key, opt)}
+                checked={selected[g.key].includes(opt)}
+                onChange={() => toggleOption(g.key, opt)}
+              />
+            ))}
+          </div>
+        </FilterSection>
       ))}
 
-      <div className="border-b py-5" style={{ borderColor: LINE }}>
-        <button onClick={() => setOpenGroups((o) => ({ ...o, price: !o.price }))} className="flex w-full items-center justify-between text-left uppercase tracking-[0.25em]">
-          <span>Price</span>
-          <Chevron open={!!openGroups.price} />
-        </button>
-        {openGroups.price && (
-          <div className="mt-4 flex items-center gap-3">
-            <input type="number" min={0} placeholder="₹ Min" value={minPrice} onChange={(e) => { setMinPrice(e.target.value); setVisible(PAGE_SIZE); }} className={priceInput} style={{ borderColor: BORDER }} />
-            <span style={{ color: MUTED }}>-</span>
-            <input type="number" min={0} placeholder="₹ Max" value={maxPrice} onChange={(e) => { setMaxPrice(e.target.value); setVisible(PAGE_SIZE); }} className={priceInput} style={{ borderColor: BORDER }} />
-          </div>
-        )}
-      </div>
+      {/* Price */}
+      <FilterSection title="Price">
+        <div className="relative mx-1 h-6">
+          <div className="absolute left-0 right-0 top-1/2 h-[3px] -translate-y-1/2 rounded bg-[#9C5A2B]/20" />
+          <div
+            className="absolute top-1/2 h-[3px] -translate-y-1/2 rounded bg-[#9C5A2B]"
+            style={{ left: `${leftPct}%`, right: `${100 - rightPct}%` }}
+          />
+          <input
+            type="range"
+            min={0}
+            max={PRICE_MAX}
+            step={50}
+            value={minPrice}
+            aria-label="Minimum price"
+            onChange={(e) => setMinPrice(Math.min(Number(e.target.value), maxPrice))}
+            className="dual-range"
+          />
+          <input
+            type="range"
+            min={0}
+            max={PRICE_MAX}
+            step={50}
+            value={maxPrice}
+            aria-label="Maximum price"
+            onChange={(e) => setMaxPrice(Math.max(Number(e.target.value), minPrice))}
+            className="dual-range"
+          />
+        </div>
 
-      <div className="py-5">
-        <CircleOption
-          type="checkbox"
-          checked={inStockOnly}
-          onChange={() => { setInStockOnly((v) => !v); setVisible(PAGE_SIZE); }}
-          label="In stock only"
-          className="uppercase tracking-[0.25em]"
-        />
-      </div>
-    </div>
+        <div className="mt-5 flex items-center gap-3">
+          <label className="flex h-11 w-full items-center gap-2 border border-[#9C5A2B]/40 bg-white px-3 text-sm focus-within:border-[#9C5A2B]">
+            <span>₹</span>
+            <input
+              type="number"
+              min={0}
+              max={PRICE_MAX}
+              value={minPrice}
+              aria-label="Minimum price"
+              onChange={(e) => setMinPrice(Math.min(Math.max(Number(e.target.value) || 0, 0), maxPrice))}
+              className="w-full bg-transparent outline-none"
+            />
+          </label>
+
+          <span className="text-sm text-[#111111]/60">To</span>
+
+          <label className="flex h-11 w-full items-center gap-2 border border-[#9C5A2B]/40 bg-white px-3 text-sm focus-within:border-[#9C5A2B]">
+            <span>₹</span>
+            <input
+              type="number"
+              min={0}
+              max={PRICE_MAX}
+              value={maxPrice}
+              aria-label="Maximum price"
+              onChange={(e) =>
+                setMaxPrice(Math.max(Math.min(Number(e.target.value) || 0, PRICE_MAX), minPrice))
+              }
+              className="w-full bg-transparent outline-none"
+            />
+          </label>
+        </div>
+      </FilterSection>
+
+      {/* Availability */}
+      <FilterSection title="Availability">
+        <div className="flex flex-col gap-3">
+          <CircleOption
+            label="In stock"
+            count={inStockCount}
+            checked={showInStock}
+            onChange={() => setShowInStock((v) => !v)}
+          />
+          <CircleOption
+            label="Out of stock"
+            count={outOfStockCount}
+            checked={showOutOfStock}
+            onChange={() => setShowOutOfStock((v) => !v)}
+          />
+        </div>
+      </FilterSection>
+    </>
   );
 
   return (
-    <main className="min-h-screen" style={{ background: CREAM, color: INK }}>
-      {/* ---------- HERO (dark, original) ---------- */}
-      <div className="bg-black text-[#D4A017]">
-        {/* BANNER */}
-        <section className="relative h-48 w-full overflow-hidden bg-black md:h-64">
-          {BANNER_IMAGE ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={BANNER_IMAGE} alt="Perfumes" className="h-full w-full object-cover opacity-60" />
-          ) : (
-            <Placeholder label="Banner image" className="h-full w-full opacity-60" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black" />
+    <main
+      className="min-h-screen px-4 py-8 sm:px-6 sm:py-12 lg:px-16"
+      style={{ background: CREAM, color: INK, fontFamily: sans }}
+    >
+      {/* Fonts, serif helper and the two-handle price slider */}
+      <style>{`
+        @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600&family=Inter:wght@400;500;600&display=swap");
+        .mq-serif{font-family:${serif}}
+        .dual-range{-webkit-appearance:none;appearance:none;background:transparent;pointer-events:none;height:24px;margin:0;position:absolute;inset:0;width:100%}
+        .dual-range::-webkit-slider-runnable-track{background:transparent;height:24px}
+        .dual-range::-moz-range-track{background:transparent;height:24px}
+        .dual-range::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:18px;height:18px;border-radius:9999px;background:${COPPER};border:0;cursor:pointer;margin-top:3px}
+        .dual-range::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:9999px;background:${COPPER};border:0;cursor:pointer}
+      `}</style>
+
+      <div className="mx-auto max-w-[1400px]">
+        {/* Banner (image, same as the men's page) */}
+        <section className="relative mb-6 h-[260px] w-full overflow-hidden bg-[#111111] sm:mb-8 sm:h-[360px] lg:h-[420px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={BANNER_IMAGE}
+            alt="Perfume campaign"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+
+          {/* Dark overlay so the white text is easy to read on any image */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/45 to-black/30 sm:bg-gradient-to-l sm:from-black/70 sm:via-black/40 sm:to-black/10" />
+
+          {/* Campaign text */}
+          <div className="absolute inset-0 flex items-center justify-center px-5 text-center sm:justify-end sm:pr-[8%] sm:text-left lg:pr-[10%]">
+            <div className="max-w-xl text-white" style={{ textShadow: "0 2px 14px rgba(0,0,0,0.7)" }}>
+              <p className="mb-2 text-xs font-medium uppercase tracking-[0.3em] sm:text-sm">{TAGLINE}</p>
+
+              <h1 className="mq-serif text-3xl font-medium leading-tight sm:text-5xl lg:text-7xl">
+                {HEADING_TOP}
+                <span className="block text-4xl sm:text-6xl lg:text-8xl">{HEADING_BOTTOM}</span>
+              </h1>
+
+              <a
+                href={`#${ANCHOR_ID}`}
+                className="mt-6 inline-flex border border-white bg-black/20 px-7 py-3 text-xs font-semibold uppercase tracking-[0.2em] transition-colors duration-300 hover:bg-white hover:text-[#9C5A2B] sm:mt-8"
+                style={{ textShadow: "none" }}
+              >
+                Shop Now
+              </a>
+            </div>
+          </div>
         </section>
 
-        {/* TITLE */}
-        <section className="px-6 pb-10 pt-10 text-center">
-          <nav className="mb-5 text-xs uppercase tracking-[0.3em]" style={{ color: COPPER }}>
-            <a href="/" className="hover:text-[#D4A017]">Home</a>
-            <span className="mx-3">/</span>
-            <span>Shop All Perfumes</span>
-          </nav>
-          <h1 className="text-4xl font-light uppercase tracking-[0.3em] md:text-5xl">Shop All Perfumes</h1>
-          <div className="mx-auto mt-6 h-px w-24" style={{ background: COPPER }} />
-        </section>
-      </div>
+        {/* Top bar: count, sort, and the mobile Filters button */}
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-[#111111]/60">
+            {PAGE_LABEL} &nbsp;|&nbsp; {filtered.length} Products
+          </p>
 
-      {/* ---------- LIGHT SHOP AREA ---------- */}
-      <section className="mx-auto max-w-7xl px-4 pb-20 pt-10">
-        {/* top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-5" style={{ borderColor: LINE }}>
-          <button onClick={() => setMobileFilters(true)} className="flex items-center gap-3 uppercase tracking-[0.3em] lg:pointer-events-none">
-            <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M3 7h18M3 12h18M3 17h18" />
-              <circle cx="8" cy="7" r="2" fill={CREAM} />
-              <circle cx="16" cy="12" r="2" fill={CREAM} />
-              <circle cx="10" cy="17" r="2" fill={CREAM} />
-            </svg>
-            Filters{activeCount > 0 && ` (${activeCount})`}
-          </button>
-
-          <div className="flex flex-wrap items-center gap-5 text-xs uppercase tracking-[0.2em]">
-            <span style={{ color: MUTED }}>Showing - {shown.length} out of {filtered.length} products</span>
+          <div className="flex items-center gap-3">
             <SortDropdown value={sort} onChange={setSort} options={SORTS} />
+
+            {/* Mobile: opens the filter sidebar */}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={filtersOpen}
+              className="flex items-center gap-2 border border-[#9C5A2B] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white lg:hidden"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                className="fill-none stroke-current"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+                <circle cx="16" cy="7" r="2" />
+                <circle cx="8" cy="17" r="2" />
+              </svg>
+              Filters{filtersActive ? " •" : ""}
+            </button>
           </div>
         </div>
 
-        <div className="mt-8 flex gap-10">
-          {/* sidebar (desktop) */}
-          <aside className="sticky top-6 hidden max-h-[calc(100vh-3rem)] w-64 shrink-0 self-start overflow-y-auto pr-2 [scrollbar-color:#c9b8a3_transparent] [scrollbar-width:thin] lg:block">
-            {FiltersPanel}
-          </aside>
-
-          {/* grid: 2 per row on phones, 3 per row on large screens */}
-          <div className="min-w-0 flex-1">
-            <div className="grid grid-cols-2 gap-2.5 md:gap-4 lg:gap-6 xl:grid-cols-3">
-              {shown.map((p) => (
-                <ProductCard key={p.slug} p={p} wished={wishlist.includes(p.slug)} onToggleWish={toggleWish} />
-              ))}
+        <div id={ANCHOR_ID} className="grid grid-cols-1 gap-10 lg:grid-cols-[260px_1fr] lg:gap-12">
+          {/* ---------- Desktop filter sidebar (stays in place while scrolling) ---------- */}
+          <aside
+            aria-label="Filters"
+            className="hidden lg:sticky lg:top-40 lg:block lg:max-h-[calc(100vh-10rem)] lg:self-start lg:overflow-y-auto lg:pr-2 lg:[scrollbar-width:thin] lg:[scrollbar-color:#9C5A2B66_transparent]"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="mq-serif text-3xl font-medium text-[#9C5A2B]">Filters</h2>
+              {filtersActive && (
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="text-xs uppercase tracking-[0.15em] text-[#9C5A2B] underline underline-offset-4 hover:text-[#7d4720]"
+                >
+                  Clear all
+                </button>
+              )}
             </div>
 
-            {filtered.length === 0 && (
-              <div className="py-20 text-center">
-                <p className="uppercase tracking-[0.3em]" style={{ color: BURGUNDY }}>No products found</p>
-                <button onClick={clearAll} className="mt-6 border px-6 py-2 text-xs uppercase tracking-[0.3em] transition-colors hover:bg-[#754747] hover:text-[#FFF9F3]" style={{ borderColor: BURGUNDY, color: BURGUNDY }}>
-                  Clear filters
-                </button>
-              </div>
-            )}
+            {filterSections}
+          </aside>
 
-            {visible < filtered.length && (
-              <div className="mt-12 text-center">
-                <button onClick={() => setVisible((v) => v + PAGE_SIZE)} className="border px-10 py-3 text-xs uppercase tracking-[0.3em] transition-colors hover:bg-[#754747] hover:text-[#FFF9F3]" style={{ borderColor: BURGUNDY, color: BURGUNDY }}>
-                  Load more
+          {/* ---------- Product grid ---------- */}
+          <div className="min-w-0">
+            {filtered.length === 0 ? (
+              <div className="py-20 text-center">
+                <p className="text-[#111111]/60">No perfumes match these filters.</p>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="mt-4 text-sm uppercase tracking-[0.15em] text-[#9C5A2B] underline underline-offset-4"
+                >
+                  Clear all filters
                 </button>
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4 lg:gap-6 xl:grid-cols-4">
+                  {shown.map((p) => (
+                    <ProductCard
+                      key={p.slug}
+                      p={p}
+                      wished={wishlist.includes(p.slug)}
+                      onToggleWish={toggleWish}
+                    />
+                  ))}
+                </div>
+
+                {/* Load more: shows the next PAGE_SIZE products */}
+                {filtered.length > PAGE_SIZE && (
+                  <div className="mt-10 flex flex-col items-center gap-4 md:mt-12">
+                    <p className="m-0 text-xs" style={{ color: MUTED }} aria-live="polite">
+                      Showing {shown.length} of {filtered.length} products
+                    </p>
+                    {hasMore && (
+                      <button
+                        type="button"
+                        onClick={loadMore}
+                        className="border border-[#9C5A2B] px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white"
+                      >
+                        Load more
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
-      </section>
+      </div>
 
       {/* FEATURES */}
-      <section className="border-y py-16" style={{ borderColor: LINE, background: PASTEL }}>
+      <section className="mt-16 border-y py-16" style={{ borderColor: LINE, background: PASTEL }}>
         <div className="mx-auto grid max-w-4xl gap-10 px-6 sm:grid-cols-3">
           {FEATURES.map((f) => (
             <div key={f.title} className="text-center">
-              <svg viewBox="0 0 24 24" className="mx-auto h-9 w-9" fill="none" stroke={BURGUNDY} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg viewBox="0 0 24 24" className="mx-auto h-9 w-9" fill="none" stroke={COPPER} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d={f.icon} />
               </svg>
-              <h3 className="mt-4 text-sm uppercase tracking-[0.3em]" style={{ color: INK }}>{f.title}</h3>
-              <p className="mt-2 text-sm" style={{ color: MUTED }}>{f.text}</p>
+              <h3 className="mq-serif mt-4 text-xl font-medium" style={{ color: COPPER }}>
+                {f.title}
+              </h3>
+              <p className="mt-2 text-sm" style={{ color: MUTED }}>
+                {f.text}
+              </p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* MOBILE FILTER DRAWER */}
-      {mobileFilters && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileFilters(false)} />
-          <div className="absolute left-0 top-0 h-full w-80 max-w-[85%] overflow-y-auto border-r p-6" style={{ borderColor: LINE, background: CREAM, color: INK }}>
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-lg uppercase tracking-[0.3em]">Filters</h2>
-              <button onClick={() => setMobileFilters(false)} aria-label="Close filters" className="text-2xl leading-none">×</button>
-            </div>
-            {FiltersPanel}
-            <button onClick={() => setMobileFilters(false)} className="mt-6 w-full border py-3 text-xs uppercase tracking-[0.3em] transition-colors hover:bg-[#754747] hover:text-[#FFF9F3]" style={{ borderColor: BURGUNDY, color: BURGUNDY }}>
-              Show {filtered.length} products
+      {/* ---------- Mobile filter sidebar (slides in from the left) ---------- */}
+      <div
+        className={`fixed inset-0 z-[60] transition-[visibility] duration-0 lg:hidden ${
+          filtersOpen ? "visible delay-0" : "pointer-events-none invisible delay-300"
+        }`}
+        aria-hidden={!filtersOpen}
+      >
+        {/* Dark background: tap to close */}
+        <div
+          onClick={() => setFiltersOpen(false)}
+          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+            filtersOpen ? "opacity-100" : "opacity-0"
+          }`}
+        />
+
+        <aside
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filter"
+          className={`absolute left-0 top-0 flex h-full w-[min(86vw,380px)] flex-col shadow-xl transition-transform duration-300 ease-out ${
+            filtersOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+          style={{ background: CREAM, color: INK, fontFamily: sans }}
+        >
+          {/* Header */}
+          <div className="relative border-b border-[#9C5A2B]/25 px-5 py-4 text-center">
+            <h2 className="mq-serif text-2xl font-medium text-[#9C5A2B]">Filter</h2>
+            <p className="mt-0.5 text-xs text-[#111111]/60">{filtered.length} products</p>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(false)}
+              aria-label="Close filters"
+              className="absolute right-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-[#9C5A2B]"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                className="fill-none stroke-current"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M5 5l14 14M19 5L5 19" />
+              </svg>
             </button>
           </div>
-        </div>
-      )}
+
+          {/* Filters (scrolls if the list is long) */}
+          <div className="flex-1 overflow-y-auto px-5 pb-4">{filterSections}</div>
+
+          {/* Footer: Remove all + Apply */}
+          <div className="flex items-center justify-between gap-4 border-t border-[#9C5A2B]/25 px-5 py-4">
+            <button
+              type="button"
+              onClick={clearAll}
+              disabled={!filtersActive}
+              className="text-sm text-[#111111] underline underline-offset-4 disabled:cursor-not-allowed disabled:text-[#111111]/35"
+            >
+              Remove all
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(false)}
+              className="flex-1 rounded-[6px] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-[#7d4720]"
+              style={{ background: COPPER, fontFamily: sans }}
+            >
+              Apply
+            </button>
+          </div>
+        </aside>
+      </div>
     </main>
   );
 }
