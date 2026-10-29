@@ -3,6 +3,9 @@ import { connectDB } from "@/lib/db";
 import { Product } from "@/models/Product";
 import { SECTION_VALUES, COLLECTION_VALUES } from "@/lib/sections";
 
+// A product stays in New Arrivals for this many days
+const NEW_ARRIVAL_DAYS = 30;
+
 export const slugify = (s: string) =>
   s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "product";
 
@@ -21,7 +24,7 @@ type Lean = {
   video?: string; stock: number; isActive: boolean; isBestSeller: boolean;
   gender?: string; occasion?: string[]; family?: string; notes?: string[];
   badge?: string; isFeatured?: boolean; sales?: number;
-  sections?: string[]; collections?: string[];
+  sections?: string[]; collections?: string[]; showInNewArrivals?: boolean;
   createdAt?: Date; updatedAt?: Date;
 };
 
@@ -51,6 +54,7 @@ export function toProduct(p: Lean) {
     sales: p.sales ?? 0,
     sections: p.sections ?? ["shop-all"],
     collections: p.collections ?? [],
+    showInNewArrivals: p.showInNewArrivals ?? true,
     createdAt: p.createdAt,
   };
 }
@@ -86,21 +90,26 @@ export async function listProducts(sp: URLSearchParams, activeOnly: boolean) {
   const gender = sp.get("gender");
   if (gender) filter.gender = String(gender);
 
-  // NEW: website section, e.g. ?section=men  (shop-all means no filter)
+  // Website section, e.g. ?section=men  (shop-all means no filter)
+  // new-arrivals is automatic, so it is handled below and not by the sections list
   const section = sp.get("section");
-  if (section && section !== "shop-all" && SECTION_VALUES.includes(section)) {
+  if (section && section !== "shop-all" && section !== "new-arrivals" && SECTION_VALUES.includes(section)) {
     filter.sections = section;
   }
 
-  // NEW: Collections menu family, e.g. ?collection=floral
+  // Collections menu family, e.g. ?collection=floral
   const collection = sp.get("collection");
   if (collection && COLLECTION_VALUES.includes(collection)) {
     filter.collections = collection;
   }
-    // NEW: new arrivals = products created in the last 30 days (automatic)
-  if (sp.get("newArrival") === "true") {
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // New arrivals = made in the last 30 days AND not hidden by the admin.
+  // Works for ?newArrival=true and for ?section=new-arrivals.
+  // Old products have no showInNewArrivals value, so "not false" counts them as shown.
+  if (sp.get("newArrival") === "true" || section === "new-arrivals") {
+    const since = new Date(Date.now() - NEW_ARRIVAL_DAYS * 24 * 60 * 60 * 1000);
     filter.createdAt = { $gte: since };
+    filter.showInNewArrivals = { $ne: false };
   }
 
   const search = (sp.get("search") ?? "").trim().slice(0, 80);

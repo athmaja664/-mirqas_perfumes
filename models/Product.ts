@@ -23,6 +23,7 @@ export interface IProduct {
   // NEW: where the product shows on the website
   sections: string[]; // shop-all, men, women, unisex, luxury, oud-arabian, gift-sets, new-arrivals
   collections: string[]; // oud-woody, fresh-aquatic, floral, citrus-fruity, amber-spicy, musk-powdery, sweet-gourmand
+  showInNewArrivals: boolean; // admin can hide a product from New Arrivals
 }
 
 const ProductSchema = new Schema<IProduct>(
@@ -50,6 +51,7 @@ const ProductSchema = new Schema<IProduct>(
     // NEW
     sections: { type: [String], default: ["shop-all"], index: true },
     collections: { type: [String], default: [], index: true },
+    showInNewArrivals: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

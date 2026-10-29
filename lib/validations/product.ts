@@ -48,6 +48,7 @@ const shape = {
     .array(z.string().refine((v) => COLLECTION_VALUES.includes(v), "Unknown collection."))
     .max(12)
     .optional(),
+    showInNewArrivals: z.boolean().optional(),
 };
 
 export const SALE_MESSAGE = "Sale price must be lower than the price.";
