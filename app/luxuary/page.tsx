@@ -1,12 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent } from "react";
 import Link from "next/link";
 import { productHref } from "@/lib/productHref";
+import {
+  CART_KEY,
+  CartLine,
+  ShopProduct,
+  SIZE_STEPS,
+  addToCart,
+  readList,
+  sizesOf,
+  toggleWishlist,
+  useSectionProducts,
+  useStoredCart,
+  useWishlistSlugs,
+  writeList,
+} from "@/lib/sectionProducts";
+
 /* ================= COPPER + FONT (same as the other pages) ================= */
 const COPPER = "#9C5A2B";
-const COPPER_DARK = "#7d4720";
 const COPPER_SOFT = "rgba(156,90,43,0.45)";
 const CREAM = "#FFF9F3";
 const INK = "#111111";
@@ -16,21 +30,19 @@ const sans = "'Inter', system-ui, sans-serif";
 
 /* ================= EDIT HERE: your colours ================= */
 const THEME = {
-  primary: "#ffffff", // hero + badge background
-  primaryDark: "#5A3039", // collage tile
-  soft: "#F6EEE0", // image backgrounds, collage background
-  light: "#ffffff", // text ON dark buttons
-  dark: "#5A3039", // toast / outlines
-  page: CREAM, // page background
-  accent: "#cfcbc2", // hero glow, collage tile
-  heroText: "#3B2116", // PLAIN colour only
-  heroBottle: "#B4C646", // placeholder hero bottle, only if heroBottle image is empty
+  primary: "#ffffff",
+  primaryDark: "#5A3039",
+  soft: "#F6EEE0",
+  page: CREAM,
+  accent: "#cfcbc2",
+  heroText: "#3B2116",
+  heroBottle: "#B4C646",
 };
 
-/* ================= EDIT HERE: add your image / video URLs ================= */
+/* ================= EDIT HERE: your image / video URLs ================= */
 const CONFIG = {
-  heroVideo: "", // optional background video, e.g. "/videos/hero.mp4"
-  heroBottle: "/images/luxhero.png", // transparent PNG bottle that overlaps the headline
+  heroVideo: "",
+  heroBottle: "/images/luxhero.png",
   collage: [
     { src: "/images/mirqas2.png", type: "image" },
     { src: "/images/mirqas1.png", type: "image" },
@@ -39,142 +51,13 @@ const CONFIG = {
   currency: "₹",
 };
 
-type Product = {
-  id: number;
-  name: string;
-  family: string;
-  price: number; // base price for 50 ml
-  color: string; // placeholder bottle colour
-  cap: string;
-  bg: string; // panel colour behind the bottle
-  media: string; // image or video URL. Empty (or broken) = drawn bottle
-  fit?: "cover" | "contain"; // cover = photo fills the box (default). contain = transparent bottle cut-out
-  mediaType: "image" | "video";
-  notes: string[];
-  concentration: string;
-  longevity: string;
-  desc: string;
-};
-
-const PRODUCTS: Product[] = [
-  {
-    id: 1, name: "Noir Esencia", family: "Woody · Amber", price: 1240,
-    color: "#1c1c1c", cap: "#9a9a9a", bg: "#F6EEE0", media: "/images/noir-esencia.jpg", mediaType: "image",
-    notes: ["Oud", "Black pepper", "Amber", "Tonka"], concentration: "Extrait", longevity: "10+ hours",
-    desc: "",
-  },
-  {
-    id: 2, name: "Citrus Dawn", family: "Fruit · Fresh", price: 1185,
-    color: "#6e6e6e", cap: "#9a9a9a", bg: "#F6EEE0", media: "/images/citrus-dawn.jpg", mediaType: "image",
-    notes: ["Bergamot", "Blood orange", "Neroli", "Cedar"], concentration: "Eau de parfum", longevity: "6–8 hours",
-    desc: "",
-  },
-  {
-    id: 3, name: "Jasmine Hour", family: "Flower · Musk", price: 1210,
-    color: "#cfcfcf", cap: "#9a9a9a", bg: "#F6EEE0", media: "/images/jasmine-hour.jpg", mediaType: "image",
-    notes: ["Jasmine", "Tuberose", "Ylang", "White musk"], concentration: "Eau de parfum", longevity: "8–10 hours",
-    desc: "",
-  },
-  {
-    id: 4, name: "Fig & Smoke", family: "Fruit · Smoky", price: 1225,
-    color: "#444444", cap: "#9a9a9a", bg: "#F6EEE0", media: "/images/fig-smoke.jpg", mediaType: "image",
-    notes: ["Green fig", "Birch tar", "Cedar", "Vanilla"], concentration: "Eau de parfum", longevity: "8–10 hours",
-    desc: "",
-  },
-  {
-    id: 5, name: "Cedar Study", family: "Woody · Leather", price: 1260,
-    color: "#8c8c8c", cap: "#9a9a9a", bg: "#F6EEE0", media: "/images/cedar-study.jpg", mediaType: "image",
-    notes: ["Atlas cedar", "Vetiver", "Leather", "Iris"], concentration: "Extrait", longevity: "10+ hours",
-    desc: "",
-  },
-];
-/* ========================================================================= */
-
-// Sizes: "m" multiplies the base (50 ml) price. Change these numbers to set your real prices.
-const SIZES = [
-  { ml: 10, m: 0.25 },
-  { ml: 30, m: 0.6 },
-  { ml: 50, m: 1 },
-  { ml: 100, m: 1.65 },
-] as const;
-type Ml = (typeof SIZES)[number]["ml"];
-type CartLine = { id: number; ml: Ml; q: number };
-type StoredSize = { ml: number; price: number; originalPrice?: number; soldOut?: boolean };
-type StoredWishItem = {
-  slug: string; name: string; image?: string; hoverImage?: string;
-  notes?: string[]; sizes: StoredSize[]; soldOut?: boolean;
-};
-type StoredCartLine = {
-  slug: string; name: string; image?: string; notes?: string[];
-  sizes: StoredSize[]; ml: number; qty: number;
-};
-
-const WISHLIST_KEY = "mirqas-wishlist";
-const CART_KEY = "mirqas-cart";
-const STORAGE_EVENT = "mirqas-storage";
-
-const slugify = (value: string) =>
-  value.toLowerCase().trim().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-
-function readStoredList<T>(key: string): T[] {
-  try {
-    const value = JSON.parse(window.localStorage.getItem(key) || "[]");
-    return Array.isArray(value) ? value as T[] : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredList<T>(key: string, value: T[]) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-    window.dispatchEvent(new Event(STORAGE_EVENT));
-  } catch {
-    // Storage may be unavailable in private browsing or when disabled.
-  }
-}
-
-function storedSizes(p: Product): StoredSize[] {
-  return SIZES.map(({ ml }) => ({
-    ml,
-    price: Math.round(unitPrice(p, ml)),
-    originalPrice: Math.round(unitPrice(p, ml) * 1.2),
-  }));
-}
-
-function toStoredWish(p: Product): StoredWishItem {
-  return {
-    slug: slugify(p.name),
-    name: p.name,
-    image: p.media || undefined,
-    notes: p.notes,
-    sizes: storedSizes(p),
-  };
-}
-
-function toStoredCartLine(p: Product, ml: Ml, qty: number): StoredCartLine {
-  return {
-    slug: slugify(p.name),
-    name: p.name,
-    image: p.media || undefined,
-    notes: p.notes,
-    sizes: storedSizes(p),
-    ml,
-    qty,
-  };
-}
-
 const T = THEME;
-const unitPrice = (p: Product, ml: Ml) => p.price * (SIZES.find((s) => s.ml === ml)?.m ?? 1);
+const DEFAULT_ML = 50; // the size each card starts on
 const money = (n: number) => CONFIG.currency + Math.round(n);
 
-/* shared inline style fragments */
 const z: CSSProperties = { margin: 0, boxSizing: "border-box" };
 const fill: CSSProperties = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
 
-/* Card grid: wraps, and the last row is centred.
-   2 cards per row on phones, 3 on tablets, 4 on laptops, 5 on large screens (same card size as Shop All).
-   (Phone gap is 0.625rem, so each card is 50% minus half of that = 0.3125rem.) */
 const GRID = "flex flex-wrap justify-center gap-2.5 md:gap-4 lg:gap-6";
 const GRID_ITEM =
   "flex w-[calc(50%-0.3125rem)] md:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-1.125rem)] xl:w-[calc(20%-1.2rem)]";
@@ -205,17 +88,52 @@ function Bottle({ color, cap, style }: { color: string; cap: string; style?: CSS
   );
 }
 
-function Media({ p, bottleStyle, bottleOnly = false }: { p: Product; bottleStyle?: CSSProperties; bottleOnly?: boolean }) {
-  const [failed, setFailed] = useState(false); // if the file is missing, show the drawn bottle instead
-  useEffect(() => setFailed(false), [p.media]);
-  if (!p.media || failed || (bottleOnly && p.mediaType === "video")) return <Bottle color={p.color} cap={p.cap} style={bottleStyle} />;
-  const style: CSSProperties = p.fit === "contain" ? { ...fill, objectFit: "contain", padding: "14%" } : fill;
-  if (p.mediaType === "video") return <video src={p.media} autoPlay muted loop playsInline style={fill} onError={() => setFailed(true)} />;
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={p.media} alt={p.name} loading="lazy" style={style} onError={() => setFailed(true)} />;
+/* Product photo (with a hover photo). If a product has no photo, a drawn bottle is shown. */
+function CardImage({ p, lift, reduce }: { p: ShopProduct; lift: boolean; reduce: boolean }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [p.image]);
+
+  if (!p.image || failed) {
+    return (
+      <Bottle
+        color="#6e6e6e"
+        cap="#9a9a9a"
+        style={{
+          width: "42%",
+          margin: "0 auto",
+          transition: reduce ? "none" : "transform .5s",
+          filter: "drop-shadow(0 24px 20px rgba(0,0,0,.25))",
+          transform: lift ? "translateY(-10px) rotate(-3deg)" : "none",
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={p.image}
+        alt={p.name}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className={`absolute inset-0 h-full w-full object-cover transition duration-700 ${
+          p.hoverImage ? "group-hover:opacity-0" : "group-hover:scale-105"
+        }`}
+      />
+      {p.hoverImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={p.hoverImage}
+          alt={`${p.name} alternate view`}
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-700 group-hover:scale-105 group-hover:opacity-100"
+        />
+      )}
+    </>
+  );
 }
 
-/* ---- Icons (same as the other cards) ---- */
 const iconProps = {
   viewBox: "0 0 24 24",
   fill: "none",
@@ -240,15 +158,19 @@ const CartIcon = ({ size = 15 }: { size?: number }) => (
   </svg>
 );
 
+const unitOf = (l: CartLine) => l.sizes?.find((s) => s.ml === l.ml)?.price ?? 0;
+
 export default function PerfumeSection() {
-  const [cart, setCart] = useState<CartLine[]>([]);
-  const [wish, setWish] = useState<Set<number>>(new Set());
-  const [cartAction, setCartAction] = useState<Record<number, "loading" | "added">>({});
-  const cartActionTimers = useRef<Record<number, number>>({});
-  const [sizes, setSizes] = useState<Record<number, Ml>>(() => Object.fromEntries(PRODUCTS.map((p) => [p.id, 50 as Ml])));
+  const { products, loaded, error } = useSectionProducts("luxury");
+  const wishSlugs = useWishlistSlugs();
+  const cartLines = useStoredCart();
+
+  const [cartAction, setCartAction] = useState<Record<string, "loading" | "added">>({});
+  const cartActionTimers = useRef<Record<string, number>>({});
+  const [sizes, setSizes] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState("");
-  const [hover, setHover] = useState<number | null>(null);
+  const [hover, setHover] = useState<string | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const bottleRef = useRef<HTMLDivElement>(null);
   const cartBtnRef = useRef<HTMLButtonElement>(null);
@@ -258,18 +180,9 @@ export default function PerfumeSection() {
   const xs = useMedia("(max-width: 480px)");
   const reduce = useMedia("(prefers-reduced-motion: reduce)");
 
-  const lines = useMemo(
-    () =>
-      cart.flatMap((l) => {
-        const p = PRODUCTS.find((x) => x.id === l.id);
-        return p ? [{ ...l, p, unit: unitPrice(p, l.ml) }] : [];
-      }),
-    [cart]
-  );
-  const count = lines.reduce((n, l) => n + l.q, 0);
-  const subtotal = lines.reduce((n, l) => n + l.unit * l.q, 0);
+  const count = cartLines.reduce((n, l) => n + (Number(l.qty) || 1), 0);
+  const subtotal = cartLines.reduce((n, l) => n + unitOf(l) * (Number(l.qty) || 1), 0);
 
-  /* load Inter + remembered cart (client only) */
   useEffect(() => {
     if (!document.getElementById("inter-font")) {
       const link = document.createElement("link");
@@ -278,58 +191,12 @@ export default function PerfumeSection() {
       link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";
       document.head.appendChild(link);
     }
-    // Migrate this page's older underscore key into the shared site-wide key.
-    const sharedCart = readStoredList<StoredCartLine>(CART_KEY);
-    const legacyCart = readStoredList<{ id: number; ml: Ml; q: number }>("mirqas_cart");
-    if (sharedCart.length === 0 && legacyCart.length > 0) {
-      const migrated = legacyCart.flatMap((line) => {
-        const product = PRODUCTS.find((item) => item.id === line.id);
-        return product ? [toStoredCartLine(product, line.ml, line.q)] : [];
-      });
-      if (migrated.length) writeStoredList(CART_KEY, migrated);
-    }
-
-    const activeCart = readStoredList<StoredCartLine>(CART_KEY);
-    setCart(activeCart.flatMap((line) => {
-      const product = PRODUCTS.find((item) => slugify(item.name) === line.slug);
-      const validSize = SIZES.find((item) => item.ml === line.ml);
-      return product && validSize
-        ? [{ id: product.id, ml: validSize.ml, q: Math.max(1, Number(line.qty) || 1) }]
-        : [];
-    }));
-
-    const savedWishlist = readStoredList<StoredWishItem>(WISHLIST_KEY);
-    setWish(new Set(savedWishlist.flatMap((item) => {
-      const product = PRODUCTS.find((product) => slugify(product.name) === item.slug);
-      return product ? [product.id] : [];
-    })));
-
-    const syncFromStorage = () => {
-      const savedCart = readStoredList<StoredCartLine>(CART_KEY);
-      setCart(savedCart.flatMap((line) => {
-        const product = PRODUCTS.find((item) => slugify(item.name) === line.slug);
-        const validSize = SIZES.find((item) => item.ml === line.ml);
-        return product && validSize
-          ? [{ id: product.id, ml: validSize.ml, q: Math.max(1, Number(line.qty) || 1) }]
-          : [];
-      }));
-      const savedWish = readStoredList<StoredWishItem>(WISHLIST_KEY);
-      setWish(new Set(savedWish.flatMap((item) => {
-        const product = PRODUCTS.find((product) => slugify(product.name) === item.slug);
-        return product ? [product.id] : [];
-      })));
-    };
-    window.addEventListener(STORAGE_EVENT, syncFromStorage);
-    window.addEventListener("storage", syncFromStorage);
-    return () => {
-      window.removeEventListener(STORAGE_EVENT, syncFromStorage);
-      window.removeEventListener("storage", syncFromStorage);
-    };
   }, []);
 
   useEffect(() => {
+    const timers = cartActionTimers.current;
     return () => {
-      Object.values(cartActionTimers.current).forEach((timer) => window.clearTimeout(timer));
+      Object.values(timers).forEach((t) => window.clearTimeout(t));
       window.clearTimeout(toastTimer.current);
     };
   }, []);
@@ -350,70 +217,37 @@ export default function PerfumeSection() {
     toastTimer.current = window.setTimeout(() => setToast(""), 1800);
   };
 
-  const add = (p: Product) => {
-    const ml = sizes[p.id];
-    setCartAction((current) => ({ ...current, [p.id]: "loading" }));
-    window.clearTimeout(cartActionTimers.current[p.id]);
+  const add = (p: ShopProduct) => {
+    const ml = sizes[p.slug] ?? DEFAULT_ML;
+    setCartAction((c) => ({ ...c, [p.slug]: "loading" }));
+    window.clearTimeout(cartActionTimers.current[p.slug]);
+    addToCart(p, ml);
 
-    // Update the shared cart without overwriting products added on other pages.
-    const savedCart = readStoredList<StoredCartLine>(CART_KEY);
-    const slug = slugify(p.name);
-    const existing = savedCart.find((line) => line.slug === slug && line.ml === ml);
-    const nextCart = existing
-      ? savedCart.map((line) => line === existing ? { ...line, qty: (Number(line.qty) || 1) + 1 } : line)
-      : [...savedCart, toStoredCartLine(p, ml, 1)];
-    writeStoredList(CART_KEY, nextCart);
-
-    setCart((current) => {
-      const hit = current.find((line) => line.id === p.id && line.ml === ml);
-      return hit
-        ? current.map((line) => line.id === p.id && line.ml === ml ? { ...line, q: line.q + 1 } : line)
-        : [...current, { id: p.id, ml, q: 1 }];
-    });
-
-    cartActionTimers.current[p.id] = window.setTimeout(() => {
-      setCartAction((current) => ({ ...current, [p.id]: "added" }));
-      cartActionTimers.current[p.id] = window.setTimeout(() => {
-        setCartAction((current) => {
-          const next = { ...current };
-          delete next[p.id];
+    cartActionTimers.current[p.slug] = window.setTimeout(() => {
+      setCartAction((c) => ({ ...c, [p.slug]: "added" }));
+      cartActionTimers.current[p.slug] = window.setTimeout(() => {
+        setCartAction((c) => {
+          const next = { ...c };
+          delete next[p.slug];
           return next;
         });
       }, 1500);
     }, 700);
   };
 
-  const change = (i: number, d: number) => {
-    const target = lines[i];
-    if (!target) return;
-    const savedCart = readStoredList<StoredCartLine>(CART_KEY);
-    const slug = slugify(target.p.name);
-    const nextCart = savedCart.flatMap((line) => {
-      if (line.slug !== slug || line.ml !== target.ml) return [line];
-      const qty = (Number(line.qty) || 1) + d;
-      return qty > 0 ? [{ ...line, qty }] : [];
+  // Change the quantity of one cart line (use a negative number to remove)
+  const change = (line: CartLine, d: number) => {
+    const next = readList<CartLine>(CART_KEY).flatMap((l) => {
+      if (l.slug !== line.slug || l.ml !== line.ml) return [l];
+      const qty = (Number(l.qty) || 1) + d;
+      return qty > 0 ? [{ ...l, qty }] : [];
     });
-    writeStoredList(CART_KEY, nextCart);
-    setCart((current) => current.flatMap((line) => {
-      if (line.id !== target.id || line.ml !== target.ml) return [line];
-      const qty = line.q + d;
-      return qty > 0 ? [{ ...line, q: qty }] : [];
-    }));
+    writeList(CART_KEY, next);
   };
 
-  const toggleWish = (p: Product) => {
-    const savedWishlist = readStoredList<StoredWishItem>(WISHLIST_KEY);
-    const slug = slugify(p.name);
-    const alreadySaved = savedWishlist.some((item) => item.slug === slug);
-    const nextWishlist = alreadySaved
-      ? savedWishlist.filter((item) => item.slug !== slug)
-      : [...savedWishlist, toStoredWish(p)];
-    writeStoredList(WISHLIST_KEY, nextWishlist);
-    setWish(new Set(nextWishlist.flatMap((item) => {
-      const product = PRODUCTS.find((product) => slugify(product.name) === item.slug);
-      return product ? [product.id] : [];
-    })));
-    say(alreadySaved ? "Removed from wishlist" : "Saved to wishlist");
+  const toggleWish = (p: ShopProduct) => {
+    const saved = toggleWishlist(p);
+    say(saved ? "Saved to wishlist" : "Removed from wishlist");
   };
 
   const onHeroMove = (e: MouseEvent) => {
@@ -437,14 +271,13 @@ export default function PerfumeSection() {
 
   return (
     <div style={{ ...z, width: "100%", maxWidth: "100%", fontFamily: sans, background: T.page, color: INK, lineHeight: 1.55, overflowX: "clip" }}>
-      {/* Serif font + helper class (same as the other pages) */}
       <style>{`
         @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600&family=Inter:wght@400;500;600&display=swap");
         .mq-serif { font-family: ${serif}; }
       `}</style>
 
       <main>
-        {/* hero (unchanged) */}
+        {/* hero */}
         <div
           onMouseMove={onHeroMove}
           style={{
@@ -458,7 +291,6 @@ export default function PerfumeSection() {
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.4 }} />
           )}
 
-          {/* hero heading: copper */}
           <h1 style={{ ...z, position: "relative", fontFamily: sans, color: COPPER, fontWeight: 800, lineHeight: 0.95, letterSpacing: "-.045em", textTransform: "uppercase", fontSize: xs ? "clamp(36px,11vw,54px)" : "clamp(42px,9.5vw,150px)" }}>
             <span style={{ display: "block" }}>Awaken senses</span>
             <span style={{ display: "block", fontSize: ".5em", letterSpacing: "-.03em" }}>with unforgettable</span>
@@ -508,13 +340,12 @@ export default function PerfumeSection() {
           </div>
         </div>
 
-        {/* listing */}
+        {/* listing: products ticked "Luxury Collection" in admin */}
         <section
           id="mq-list"
           className="mx-auto w-full max-w-[1600px] px-3 pb-14 md:px-8 md:pb-20 lg:px-12"
           style={{ paddingTop: xs ? 100 : m ? 118 : 130 }}
         >
-          {/* Heading */}
           <div className="text-center">
             <p className="m-0 text-[11px] font-medium uppercase tracking-[0.3em] text-[#111111]/60 md:text-xs">
               Small-batch eaux de parfum
@@ -523,197 +354,223 @@ export default function PerfumeSection() {
               className="mq-serif m-0 mt-3 font-medium leading-tight"
               style={{ color: COPPER, fontSize: "clamp(2rem, 4vw, 3rem)" }}
             >
-              The signature five
+              The luxury collection
             </h2>
             <p className="mx-auto mt-4 max-w-md text-[14px] leading-relaxed text-[#111111]/70 md:text-[15px]">
-              Five small-batch eaux de parfum, each built on natural ingredients and aged for six weeks before bottling.
+              Small-batch eaux de parfum, each built on natural ingredients and aged for six weeks before bottling.
             </p>
           </div>
 
-          {/* Product cards: same design as the Shop All Perfumes card */}
-          <ul className={`m-0 mt-8 list-none p-0 md:mt-14 ${GRID}`}>
-            {PRODUCTS.map((p) => {
-              const ml = sizes[p.id];
-              const saved = wish.has(p.id);
-              const hot = hover === p.id;
-              // Every card opens /product/<slug>, for example /product/noir-esencia
-              const href = productHref(p);
-              return (
-                <li key={p.id} className={GRID_ITEM}>
-                  <article
-                    onMouseEnter={() => setHover(p.id)}
-                    onMouseLeave={() => setHover(null)}
-                    className="group flex h-full w-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)]"
-                    style={{ borderColor: CARD_BORDER, fontFamily: sans }}
-                  >
-                    {/* Image + heart. Soft curved corners. */}
-                    <div
-                      className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px]"
-                      style={{ background: p.bg }}
+          {!loaded ? (
+            <p className="py-16 text-center text-[#111111]/60">Loading perfumes…</p>
+          ) : error ? (
+            <p className="py-16 text-center text-[#111111]/60">Could not load perfumes. Please refresh.</p>
+          ) : products.length === 0 ? (
+            <p className="py-16 text-center text-[#111111]/60">No perfumes in the luxury collection yet.</p>
+          ) : (
+            <ul className={`m-0 mt-8 list-none p-0 md:mt-14 ${GRID}`}>
+              {products.map((p) => {
+                const productSizes = sizesOf(p);
+                const ml = sizes[p.slug] ?? DEFAULT_ML;
+                const current = productSizes.find((s) => s.ml === ml) ?? productSizes[0];
+                const saved = wishSlugs.includes(p.slug);
+                const href = productHref(p);
+                const unavailable = !p.inStock;
+                const discounted = current.originalPrice !== undefined && current.originalPrice > current.price;
+                const pct = discounted
+                  ? Math.round(((current.originalPrice! - current.price) / current.originalPrice!) * 100)
+                  : 0;
+                const action = cartAction[p.slug];
+
+                return (
+                  <li key={p.slug} className={GRID_ITEM}>
+                    <article
+                      onMouseEnter={() => setHover(p.slug)}
+                      onMouseLeave={() => setHover(null)}
+                      className="group flex h-full w-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)]"
+                      style={{ borderColor: CARD_BORDER, fontFamily: sans }}
                     >
-                      <Link
-                        href={href}
-                        aria-label={`View ${p.name}`}
-                        className="grid h-full w-full place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#9C5A2B]"
-                      >
-                        <Media
-                          p={p}
-                          bottleStyle={{
-                            width: "42%", transition: reduce ? "none" : "transform .5s", filter: "drop-shadow(0 24px 20px rgba(0,0,0,.25))",
-                            transform: hot ? "translateY(-10px) rotate(-3deg)" : "none",
-                          }}
-                        />
-                      </Link>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleWish(p)}
-                        aria-pressed={saved}
-                        aria-label={saved ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
-                        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-sm transition-transform hover:scale-105 md:right-3 md:top-3 md:h-9 md:w-9"
-                        style={{ color: saved ? "#C0392B" : "#555555" }}
-                      >
-                        <HeartIcon filled={saved} />
-                      </button>
-                    </div>
-
-                    {/* Details */}
-                    <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
-                      <p className="m-0 text-[9px] uppercase tracking-[0.15em] text-[#111111]/50 md:text-[11px] md:tracking-[0.2em]">
-                        {p.family}
-                      </p>
-
-                      <h3
-                        className="m-0 mt-1 line-clamp-2 font-medium leading-[1.2]"
-                        style={{
-                          fontFamily: serif,
-                          color: COPPER,
-                          fontSize: "clamp(1rem, 1.7vw, 1.5rem)",
-                          fontVariantNumeric: "lining-nums",
-                          fontFeatureSettings: '"lnum" 1',
-                        }}
-                      >
-                        <Link href={href}>{p.name}</Link>
-                      </h3>
-
-                      {/* Notes: Oud • Black pepper • Amber */}
-                      <p
-                        className="m-0 mt-1 flex flex-wrap items-center justify-center gap-x-1 text-[9px] font-medium tracking-[0.06em] md:mt-1.5 md:gap-x-2 md:text-[12px]"
-                        style={{ color: INK, fontFamily: sans }}
-                      >
-                        {p.notes.map((n, i) => (
-                          <span key={n} className="flex items-center gap-x-1 md:gap-x-2">
-                            {i > 0 && <span aria-hidden className="h-[3px] w-[3px] rounded-full md:h-[4px] md:w-[4px]" style={{ background: COPPER }} />}
-                            {n}
-                          </span>
-                        ))}
-                      </p>
-
-                      <p className="m-0 mt-2 line-clamp-3 max-w-[46ch] text-[11px] leading-snug text-[#111111]/75 md:mt-3 md:line-clamp-none md:text-[14px] md:leading-relaxed">
-                        {p.desc}
-                      </p>
-
-                      {/* Concentration / Longevity */}
-                      <dl className="m-0 mt-3 grid w-full grid-cols-2 divide-x divide-[#9C5A2B]/25 border-y border-[#9C5A2B]/25 py-2 md:mt-4 md:py-3">
-                        <div>
-                          <dt className="text-[8px] uppercase tracking-[0.1em] text-[#111111]/50 md:text-[10px] md:tracking-[0.15em]">Concentration</dt>
-                          <dd className="m-0 mt-0.5 text-[10px] font-medium md:text-[13px]">{p.concentration}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-[8px] uppercase tracking-[0.1em] text-[#111111]/50 md:text-[10px] md:tracking-[0.15em]">Longevity</dt>
-                          <dd className="m-0 mt-0.5 text-[10px] font-medium md:text-[13px]">{p.longevity}</dd>
-                        </div>
-                      </dl>
-
-                      {/* Price */}
-                      <div
-                        className="mt-3 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 md:mt-4 md:gap-x-2"
-                        style={{ fontFamily: sans }}
-                      >
-                        <span
-                          aria-live="polite"
-                          className="text-[11px] font-semibold md:text-[17px]"
-                          style={{ color: COPPER }}
+                      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px]" style={{ background: T.soft }}>
+                        <Link
+                          href={href}
+                          aria-label={`View ${p.name}`}
+                          className="relative grid h-full w-full place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#9C5A2B]"
                         >
-                          {money(unitPrice(p, ml))}
-                        </span>
-                      </div>
+                          <CardImage p={p} lift={hover === p.slug} reduce={reduce} />
+                        </Link>
 
-                      {/* Sizes in ONE line: 10ml 30ml 50ml 100ml */}
-                      <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
-                        <legend className="sr-only">Choose a size for {p.name}</legend>
-                        {SIZES.map((s) => {
-                          const checked = s.ml === ml;
-                          return (
-                            <label
-                              key={s.ml}
-                              className="flex cursor-pointer items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px]"
-                              style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
-                            >
-                              <input
-                                type="radio"
-                                name={`size-${p.id}`}
-                                value={s.ml}
-                                checked={checked}
-                                onChange={() => setSizes({ ...sizes, [p.id]: s.ml })}
-                                className="peer sr-only"
-                              />
-                              <span
-                                aria-hidden
-                                className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
-                                style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
-                              >
-                                {checked && <span className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]" style={{ background: COPPER }} />}
-                              </span>
-                              {s.ml}ml
-                            </label>
-                          );
-                        })}
-                      </fieldset>
+                        {p.badge && (
+                          <span
+                            className="pointer-events-none absolute left-0 top-2 max-w-[75%] px-1.5 py-0.5 text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-white md:top-3 md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]"
+                            style={{ background: COPPER }}
+                          >
+                            {p.badge}
+                          </span>
+                        )}
 
-                      {/* Add to cart (pushed to the bottom so every card lines up) */}
-                      <div className="mt-auto flex w-full flex-col items-stretch gap-1.5 pt-3 md:w-[90%] md:gap-2 md:pt-4">
+                        {unavailable && (
+                          <span
+                            className="pointer-events-none absolute bottom-2 left-2 rounded bg-white/90 px-2 py-1 text-[9px] uppercase tracking-[0.15em] md:text-[10px]"
+                            style={{ color: COPPER }}
+                          >
+                            Sold out
+                          </span>
+                        )}
+
                         <button
                           type="button"
-                          onClick={() => add(p)}
-                          disabled={cartAction[p.id] === "loading"}
-                          aria-live="polite"
-                          className="flex min-h-[34px] items-center justify-center gap-1.5 rounded-[6px] border border-[#9C5A2B] bg-white px-1 py-1.5 text-[8px] font-medium uppercase tracking-[0.1em] text-[#9C5A2B] transition-colors duration-200 hover:bg-[#9C5A2B] hover:text-white disabled:cursor-wait disabled:opacity-80 md:min-h-[42px] md:py-2.5 md:text-[12px] md:tracking-[0.12em]"
-                          style={{ fontFamily: sans }}
+                          onClick={() => toggleWish(p)}
+                          aria-pressed={saved}
+                          aria-label={saved ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
+                          className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-sm transition-transform hover:scale-105 md:right-3 md:top-3 md:h-9 md:w-9"
+                          style={{ color: saved ? "#C0392B" : "#555555" }}
                         >
-                          {cartAction[p.id] === "loading" ? (
-                            <>
-                              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity=".25" strokeWidth="3" />
-                                <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                              </svg>
-                              Adding
-                            </>
-                          ) : cartAction[p.id] === "added" ? (
-                            <>
-                              <span aria-hidden="true">✓</span>
-                              Added
-                            </>
-                          ) : (
-                            <>
-                              Add to cart
-                              <CartIcon size={xs || m ? 11 : 15} />
-                            </>
-                          )}
+                          <HeartIcon filled={saved} />
                         </button>
                       </div>
-                    </div>
-                  </article>
-                </li>
-              );
-            })}
-          </ul>
+
+                      <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
+                        <p className="m-0 text-[9px] uppercase tracking-[0.15em] text-[#111111]/50 md:text-[11px] md:tracking-[0.2em]">
+                          {p.category}
+                        </p>
+
+                        <h3
+                          className="m-0 mt-1 line-clamp-2 font-medium leading-[1.2]"
+                          style={{
+                            fontFamily: serif,
+                            color: COPPER,
+                            fontSize: "clamp(1rem, 1.7vw, 1.5rem)",
+                            fontVariantNumeric: "lining-nums",
+                            fontFeatureSettings: '"lnum" 1',
+                          }}
+                        >
+                          <Link href={href}>{p.name}</Link>
+                        </h3>
+
+                        {p.notes.length > 0 && (
+                          <p
+                            className="m-0 mt-1 flex flex-wrap items-center justify-center gap-x-1 text-[9px] font-medium tracking-[0.06em] md:mt-1.5 md:gap-x-2 md:text-[12px]"
+                            style={{ color: INK, fontFamily: sans }}
+                          >
+                            {p.notes.map((n, i) => (
+                              <span key={n} className="flex items-center gap-x-1 md:gap-x-2">
+                                {i > 0 && <span aria-hidden className="h-[3px] w-[3px] rounded-full md:h-[4px] md:w-[4px]" style={{ background: COPPER }} />}
+                                {n}
+                              </span>
+                            ))}
+                          </p>
+                        )}
+
+                        {p.description && (
+                          <p className="m-0 mt-2 line-clamp-3 max-w-[46ch] text-[11px] leading-snug text-[#111111]/75 md:mt-3 md:text-[14px] md:leading-relaxed">
+                            {p.description}
+                          </p>
+                        )}
+
+                        <div
+                          className="mt-3 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 md:mt-4 md:gap-x-2"
+                          style={{ fontFamily: sans }}
+                        >
+                          {discounted && (
+                            <span className="text-[9px] line-through md:text-[13px]" style={{ color: "#9A8F84" }}>
+                              {money(current.originalPrice!)}
+                            </span>
+                          )}
+                          <span aria-live="polite" className="text-[11px] font-semibold md:text-[17px]" style={{ color: COPPER }}>
+                            {money(current.price)}
+                          </span>
+                          {discounted && (
+                            <span
+                              className="rounded-[4px] px-1 py-px text-[8px] font-bold tracking-[0.03em] md:px-1.5 md:py-0.5 md:text-[11px]"
+                              style={{ background: "#E3F2E6", color: "#1F7A3A" }}
+                            >
+                              {pct}% OFF
+                            </span>
+                          )}
+                        </div>
+
+                        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+                          <legend className="sr-only">Choose a size for {p.name}</legend>
+                          {SIZE_STEPS.map((s) => {
+                            const checked = s.ml === ml;
+                            return (
+                              <label
+                                key={s.ml}
+                                className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
+                                  unavailable ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+                                }`}
+                                style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`size-${p.slug}`}
+                                  value={s.ml}
+                                  checked={checked}
+                                  disabled={unavailable && !checked}
+                                  onChange={() => setSizes((cur) => ({ ...cur, [p.slug]: s.ml }))}
+                                  className="peer sr-only"
+                                />
+                                <span
+                                  aria-hidden
+                                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
+                                  style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
+                                >
+                                  {checked && <span className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]" style={{ background: COPPER }} />}
+                                </span>
+                                {s.ml}ml
+                              </label>
+                            );
+                          })}
+                        </fieldset>
+
+                        <div className="mt-auto flex w-full flex-col items-stretch gap-1.5 pt-3 md:w-[90%] md:gap-2 md:pt-4">
+                          <button
+                            type="button"
+                            onClick={() => add(p)}
+                            disabled={unavailable || action === "loading"}
+                            aria-live="polite"
+                            className={`flex min-h-[34px] items-center justify-center gap-1.5 rounded-[6px] border px-1 py-1.5 text-[8px] font-medium uppercase tracking-[0.1em] transition-colors duration-200 md:min-h-[42px] md:py-2.5 md:text-[12px] md:tracking-[0.12em] ${
+                              unavailable
+                                ? "cursor-not-allowed border-[#D9CDBA] bg-white text-[#B9AD9A]"
+                                : "border-[#9C5A2B] bg-white text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white disabled:cursor-wait disabled:opacity-80"
+                            }`}
+                            style={{ fontFamily: sans }}
+                          >
+                            {unavailable ? (
+                              "Sold out"
+                            ) : action === "loading" ? (
+                              <>
+                                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity=".25" strokeWidth="3" />
+                                  <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                                </svg>
+                                Adding
+                              </>
+                            ) : action === "added" ? (
+                              <>
+                                <span aria-hidden="true">✓</span>
+                                Added
+                              </>
+                            ) : (
+                              <>
+                                Add to cart
+                                <CartIcon size={xs || m ? 11 : 15} />
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
 
         {/* collage */}
         <section className="relative overflow-hidden" style={{ background: T.soft }}>
           <div className="mx-auto grid max-w-[1400px] items-center gap-8 px-4 py-12 md:grid-cols-2 md:gap-12 md:px-8 md:py-20 lg:px-12">
-            {/* Pictures: on top on phones, on the right from tablet up */}
             <div className="relative order-1 h-[270px] w-full sm:h-[360px] md:order-2 md:h-[460px] lg:h-[520px]">
               {CONFIG.collage.map((c, i) => (
                 <div key={i} style={tile(i)}>
@@ -733,7 +590,6 @@ export default function PerfumeSection() {
               ))}
             </div>
 
-            {/* Text */}
             <div className="order-2 text-center md:order-1 md:text-left">
               <p className="m-0 text-[11px] font-medium uppercase tracking-[0.3em] text-[#111111]/60 md:text-xs">
                 Just landed
@@ -759,7 +615,7 @@ export default function PerfumeSection() {
         </section>
       </main>
 
-      {/* Floating cart button (appears once something is added) */}
+      {/* Floating cart button (appears once something is in the cart) */}
       {count > 0 && !open && (
         <button
           ref={cartBtnRef}
@@ -773,7 +629,7 @@ export default function PerfumeSection() {
         </button>
       )}
 
-      {/* cart drawer */}
+      {/* cart drawer (reads the same saved cart as the cart page) */}
       <div
         onClick={closeCart}
         className={`fixed inset-0 z-50 bg-black/40 transition-opacity duration-300 ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
@@ -786,7 +642,6 @@ export default function PerfumeSection() {
         }`}
         style={{ background: CREAM, color: INK, fontFamily: sans }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-[#9C5A2B]/25 px-5 py-4">
           <h2 className="mq-serif m-0 text-2xl font-medium" style={{ color: COPPER }}>Your cart</h2>
           <button
@@ -803,87 +658,72 @@ export default function PerfumeSection() {
           </button>
         </div>
 
-        {/* Items */}
         <div className="flex-1 overflow-y-auto px-5 py-2">
-          {lines.length === 0 && (
+          {cartLines.length === 0 && (
             <p className="m-0 py-10 text-center text-[14px] text-[#111111]/60">Your cart is empty. Choose a fragrance to begin.</p>
           )}
-          {lines.map((l, i) => (
-            <div
-              key={l.id + "-" + l.ml}
-              className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-start gap-3 border-b border-[#9C5A2B]/20 py-4"
-            >
+          {cartLines.map((l) => {
+            const qty = Number(l.qty) || 1;
+            return (
               <div
-                className="grid h-[80px] w-[64px] place-items-center overflow-hidden rounded-[10px]"
-                style={{ background: l.p.bg }}
+                key={l.slug + "-" + l.ml}
+                className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-start gap-3 border-b border-[#9C5A2B]/20 py-4"
               >
-                <Media p={l.p} bottleOnly bottleStyle={{ width: "60%" }} />
-              </div>
-
-              <div className="min-w-0">
-                <h4 className="mq-serif m-0 text-lg font-medium leading-tight" style={{ color: COPPER }}>{l.p.name}</h4>
-                <p className="m-0 mt-0.5 text-[12px] text-[#111111]/60">{l.ml} ml · {money(l.unit)}</p>
-
-                <div className="mt-2 flex items-center gap-3">
-                  <span className="inline-flex items-center rounded-[6px] border border-[#9C5A2B] text-[#9C5A2B]">
-                    <button
-                      type="button"
-                      onClick={() => change(i, -1)}
-                      aria-label="Decrease"
-                      tabIndex={open ? 0 : -1}
-                      className="flex h-8 w-8 items-center justify-center text-base"
-                    >
-                      −
-                    </button>
-                    <span className="w-6 text-center text-[13px] font-semibold">{l.q}</span>
-                    <button
-                      type="button"
-                      onClick={() => change(i, 1)}
-                      aria-label="Increase"
-                      tabIndex={open ? 0 : -1}
-                      className="flex h-8 w-8 items-center justify-center text-base"
-                    >
-                      +
-                    </button>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => change(i, -l.q)}
-                    tabIndex={open ? 0 : -1}
-                    className="text-[12px] text-[#9C5A2B] underline underline-offset-4"
-                  >
-                    Remove
-                  </button>
+                <div className="grid h-[80px] w-[64px] place-items-center overflow-hidden rounded-[10px]" style={{ background: T.soft }}>
+                  {l.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={l.image} alt={l.name} style={fill} />
+                  ) : (
+                    <Bottle color="#6e6e6e" cap="#9a9a9a" style={{ width: "60%" }} />
+                  )}
                 </div>
-              </div>
 
-              <strong className="text-[14px] font-semibold" style={{ color: COPPER }}>{money(l.unit * l.q)}</strong>
-            </div>
-          ))}
+                <div className="min-w-0">
+                  <h4 className="mq-serif m-0 text-lg font-medium leading-tight" style={{ color: COPPER }}>{l.name}</h4>
+                  <p className="m-0 mt-0.5 text-[12px] text-[#111111]/60">{l.ml} ml · {money(unitOf(l))}</p>
+
+                  <div className="mt-2 flex items-center gap-3">
+                    <span className="inline-flex items-center rounded-[6px] border border-[#9C5A2B] text-[#9C5A2B]">
+                      <button type="button" onClick={() => change(l, -1)} aria-label="Decrease" tabIndex={open ? 0 : -1} className="flex h-8 w-8 items-center justify-center text-base">−</button>
+                      <span className="w-6 text-center text-[13px] font-semibold">{qty}</span>
+                      <button type="button" onClick={() => change(l, 1)} aria-label="Increase" tabIndex={open ? 0 : -1} className="flex h-8 w-8 items-center justify-center text-base">+</button>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => change(l, -qty)}
+                      tabIndex={open ? 0 : -1}
+                      className="text-[12px] text-[#9C5A2B] underline underline-offset-4"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                <strong className="text-[14px] font-semibold" style={{ color: COPPER }}>{money(unitOf(l) * qty)}</strong>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Footer */}
         <div className="border-t border-[#9C5A2B]/25 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
           <div className="flex items-center justify-between text-base font-semibold" style={{ color: COPPER }}>
             <span>Subtotal</span>
             <span>{money(subtotal)}</span>
           </div>
-          <button
-            type="button"
-            disabled={!lines.length}
-            onClick={() => say("Connect this button to your checkout")}
+          <Link
+            href="/cart"
+            onClick={closeCart}
             tabIndex={open ? 0 : -1}
-            className={`mt-3 w-full rounded-[6px] px-4 py-3.5 text-[12px] font-semibold uppercase tracking-[0.15em] text-white transition-colors ${
-              lines.length ? "hover:bg-[#7d4720]" : "cursor-not-allowed opacity-40"
+            className={`mt-3 block w-full rounded-[6px] px-4 py-3.5 text-center text-[12px] font-semibold uppercase tracking-[0.15em] text-white transition-colors ${
+              cartLines.length ? "hover:bg-[#7d4720]" : "pointer-events-none opacity-40"
             }`}
             style={{ background: COPPER, fontFamily: sans }}
           >
-            Checkout
-          </button>
+            View cart
+          </Link>
         </div>
       </aside>
 
-      {/* toast */}
       <div
         role="status"
         className={`pointer-events-none fixed bottom-20 left-1/2 z-[80] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 px-5 py-3 text-center text-sm text-white shadow-lg transition-all duration-300 md:bottom-6 ${

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SECTION_VALUES, COLLECTION_VALUES } from "@/lib/sections";
 
 export const FRAGRANCE_FAMILIES = [
   "Oud & Woody",
@@ -37,6 +38,16 @@ const shape = {
   badge: z.string().trim().max(40).optional(),
   isFeatured: z.boolean().optional(),
   sales: z.number().int().min(0).optional(),
+
+  // NEW: where the product shows on the website
+  sections: z
+    .array(z.string().refine((v) => SECTION_VALUES.includes(v), "Unknown website section."))
+    .max(12)
+    .optional(),
+  collections: z
+    .array(z.string().refine((v) => COLLECTION_VALUES.includes(v), "Unknown collection."))
+    .max(12)
+    .optional(),
 };
 
 export const SALE_MESSAGE = "Sale price must be lower than the price.";

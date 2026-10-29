@@ -1,10 +1,6 @@
 "use client";
 
-// app/perfumes/page.tsx  (Next.js App Router + Tailwind)
-// Visit: http://localhost:3000/perfumes
-// Same look as the Men / Women / Unisex pages: image banner, copper filters
-// (round selectors, price slider, slide-in mobile drawer), same product card.
-// This page also keeps its sort dropdown and "Load more" button.
+// Shop All Perfumes. Products now come from MongoDB through /api/products.
 
 import Link from "next/link";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -19,7 +15,6 @@ const INK = "#111111";
 const MUTED = "rgba(17,17,17,0.6)";
 const LINE = "rgba(156,90,43,0.25)";
 const CARD_LINE = "#EADFCC";
-const CARD_SOFT = "#5F554B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
@@ -34,8 +29,11 @@ const BANNER_IMAGE = "/images/shopallhero1.png";
 // How many products show first, and how many more each "Load more" click adds
 const PAGE_SIZE = 6;
 
+// Top of the price slider, in rupees. Raise it if you add a more expensive perfume.
+const PRICE_MAX = 20000;
+
 // ---------------------------------------------------------------------------
-// SIZES (same as the other pages): 10ml 30ml 50ml 100ml
+// TYPES
 // ---------------------------------------------------------------------------
 type SizeOption = {
   ml: number;
@@ -48,13 +46,9 @@ type Perfume = {
   slug: string;
   name: string;
   size: string;
-  // Normal price. It is used as the 10ml price when "sizes" is not given.
-  price: number;
-  // Optional: the old price. If you add it, the card shows it struck through with a green "% OFF" badge.
-  originalPrice?: number;
-  // Optional: real prices per size, e.g. [{ ml: 10, price: 799, originalPrice: 1598 }, { ml: 30, ... }, ...]
+  price: number; // rupees
+  originalPrice?: number; // rupees
   sizes?: SizeOption[];
-  // Optional: a notes line under the name, e.g. ["Fresh", "Marine", "Powdery"]
   notes?: string[];
   image?: string;
   hoverImage?: string;
@@ -68,8 +62,26 @@ type Perfume = {
   family: string;
 };
 
+// What /api/products sends (prices are in paise)
+type ApiProduct = {
+  slug: string;
+  name: string;
+  price: number;
+  salePrice: number | null;
+  images: string[];
+  badge: string;
+  isFeatured: boolean;
+  sales: number;
+  inStock: boolean;
+  createdAt: string;
+  gender: "Men" | "Women" | "Unisex";
+  occasion: string[];
+  family: string;
+  notes: string[];
+};
+
 // If a perfume has no "sizes" yet, its normal price is treated as the 10ml price
-// and the other sizes are worked out from it. Add real prices with the "sizes" field when you have them.
+// and the other sizes are worked out from it.
 const DEFAULT_STEPS = [
   { ml: 10, mult: 1 },
   { ml: 30, mult: 2.25 },
@@ -87,34 +99,6 @@ function getSizes(p: Perfume): SizeOption[] {
 }
 
 // ---------------------------------------------------------------------------
-// PRODUCTS
-// ---------------------------------------------------------------------------
-const perfumes: Perfume[] = [
-  { slug: "nadeem", name: "Nadeem", size: "100ML", price: 6290, image: "/images/cedar-study.jpg", hoverImage: "/images/forher1.png", badge: "#1 Best Seller", featured: true, sales: 980, added: "2026-03-10", gender: "Unisex", occasion: ["Evening", "Gifting"], family: "Oud" },
-
-  { slug: "oudh-al-ayal", name: "Oudh Al Ayal", size: "100ML", price: 2490, image: "/images/shop1.png", hoverImage: "/images/shop2.png", badge: "Best Seller", sales: 860, added: "2026-01-22", gender: "Men", occasion: ["Everyday", "Office"], family: "Oud" },
-
-  { slug: "a-poem", name: "A Poem", size: "100ML", price: 5990, image: "/images/forhim.png", hoverImage: "/images/shop4.png", featured: true, sales: 540, added: "2026-05-02", gender: "Women", occasion: ["Date Night", "Party"], family: "Floral" },
-
-  { slug: "rouge-vanilla", name: "Rouge Vanilla", size: "100ML", price: 5990, image: "/images/shop6.png", hoverImage: "/images/shop5.png", badge: "Best Seller", sales: 720, added: "2026-02-14", gender: "Women", occasion: ["Date Night", "Evening"], family: "Gourmand" },
-
-  { slug: "7-moons", name: "7 Moons", size: "100ML", price: 5990, image: "/images/choose1.png", hoverImage: "/images/citrus-dawn.jpg", sales: 610, added: "2026-06-18", gender: "Unisex", occasion: ["Evening", "Party"], family: "Amber" },
-
-  { slug: "maliki", name: "Maliki", size: "100ML", price: 5990, image: "/images/forher3.png", hoverImage: "/images/forhim.png", featured: true, sales: 450, added: "2026-08-01", gender: "Men", occasion: ["Casual", "Gifting"], family: "Woody" },
-
-  { slug: "amber-noir", name: "Amber Noir", size: "100ML", price: 3799, image: "/images/shop7.png", hoverImage: "/images/shop8.png", badge: "New", sales: 300, added: "2026-10-05", gender: "Men", occasion: ["Office", "Everyday"], family: "Amber" },
-
-  { slug: "oud-royale", name: "Oud Royale", size: "100ML", price: 4999, image: "/images/collection-one.jpg", hoverImage: "/images/collection-two.jpg", soldOut: true, sales: 690, added: "2025-11-30", gender: "Unisex", occasion: ["Gifting", "Party"], family: "Oud" },
-
-  { slug: "golden-musk", name: "Golden Musk", size: "100ML", price: 3299, image: "/images/forher1.png", hoverImage: "/images/shop9.png", sales: 270, added: "2026-09-12", gender: "Women", occasion: ["Casual", "Everyday"], family: "Musk" },
-
-  { slug: "desert-rose", name: "Desert Rose", size: "100ML", price: 4290, image: "/images/choose2.png", hoverImage: "/images/shop2.png", sales: 380, added: "2026-07-07", gender: "Women", occasion: ["Date Night", "Gifting"], family: "Floral" },
-];
-
-// Slider range: from 0 up to the highest price, rounded up to the next 100
-const PRICE_MAX = Math.ceil(Math.max(...perfumes.map((p) => p.price)) / 100) * 100;
-
-// ---------------------------------------------------------------------------
 // FILTER GROUPS
 // ---------------------------------------------------------------------------
 type FilterKey = "gender" | "occasion" | "family";
@@ -123,9 +107,6 @@ const FILTER_GROUPS: { key: FilterKey; title: string; options: string[] }[] = [
   { key: "occasion", title: "Occasion", options: ["Casual", "Date Night", "Evening", "Everyday", "Gifting", "Office", "Party"] },
   { key: "family", title: "Fragrance Family", options: ["Oud", "Amber", "Woody", "Floral", "Gourmand", "Musk"] },
 ];
-
-const countFor = (key: FilterKey, option: string) =>
-  perfumes.filter((p) => (key === "occasion" ? p.occasion.includes(option) : p[key] === option)).length;
 
 const SORTS = [
   { value: "featured", label: "Featured" },
@@ -366,7 +347,6 @@ function ProductCard({
 
     const observer = new IntersectionObserver(
       ([entry]) => setInView(entry.isIntersecting),
-      // Only the horizontal band across the middle of the screen counts
       { rootMargin: "-35% 0px -35% 0px", threshold: 0 }
     );
     observer.observe(el);
@@ -394,7 +374,7 @@ function ProductCard({
 
   const addToCart = () => {
     if (unavailable) return;
-    // TODO: connect your cart here, e.g. addItem({ slug: p.slug, ml: current.ml, price: current.price })
+    // TODO: connect the cart here (cart stage)
     setAdded(true);
   };
 
@@ -405,7 +385,7 @@ function ProductCard({
       className="group flex h-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)]"
       style={{ borderColor: CARD_LINE, fontFamily: sans }}
     >
-      {/* image + wishlist heart. Soft curved corners. */}
+      {/* image + wishlist heart */}
       <div ref={imgBoxRef} className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px] bg-[#F6EEE0]">
         <Link
           href={detailHref}
@@ -414,7 +394,6 @@ function ProductCard({
         >
           {p.image ? (
             <>
-              {/* main image (fades out on hover / when scrolled into view on mobile) */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={p.image}
@@ -425,7 +404,6 @@ function ProductCard({
                     : "group-hover:scale-105"
                 }`}
               />
-              {/* second image (fades in on hover / when scrolled into view on mobile) */}
               {p.hoverImage && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -474,7 +452,6 @@ function ProductCard({
 
       {/* text + buttons */}
       <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
-        {/* name (serif, copper) */}
         <h3
           className="m-0 line-clamp-2 font-medium leading-[1.2]"
           style={{
@@ -488,7 +465,7 @@ function ProductCard({
           <Link href={detailHref}>{p.name}</Link>
         </h3>
 
-        {/* Notes: Fresh • Marine • Powdery (only if the product has notes) */}
+        {/* Notes line (only if the product has notes) */}
         {p.notes && p.notes.length > 0 && (
           <p
             className="m-0 mt-1 flex flex-wrap items-center justify-center gap-x-1 text-[9px] font-medium tracking-[0.06em] md:mt-1.5 md:gap-x-2 md:text-[12px]"
@@ -528,7 +505,7 @@ function ProductCard({
           )}
         </div>
 
-        {/* Sizes in ONE line: 10ml 30ml 50ml 100ml */}
+        {/* Sizes in ONE line */}
         <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
           <legend className="sr-only">Choose a size</legend>
           {sizes.map((s) => {
@@ -569,7 +546,7 @@ function ProductCard({
           })}
         </fieldset>
 
-        {/* Buttons (pushed to the bottom so every card lines up) */}
+        {/* Buttons */}
         <div className="mt-auto flex w-full flex-col items-stretch gap-1.5 pt-3 md:w-[90%] md:gap-2 md:pt-4">
           <button
             type="button"
@@ -620,6 +597,56 @@ export default function ShopAllPerfumesPage() {
   const [showOutOfStock, setShowOutOfStock] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // mobile drawer
   const [wishlist, setWishlist] = useState<string[]>([]);
+
+  // The perfumes now come from the database
+  const [perfumes, setPerfumes] = useState<Perfume[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/products?limit=48")
+      .then((r) => r.json())
+      .then((d: { items: ApiProduct[] }) => {
+        if (cancelled) return;
+        setPerfumes(
+          d.items.map((a): Perfume => {
+            const onSale = a.salePrice != null;
+            return {
+              slug: a.slug,
+              name: a.name,
+              size: "100ML",
+              price: (onSale ? a.salePrice! : a.price) / 100,
+              originalPrice: onSale ? a.price / 100 : undefined,
+              notes: a.notes.length ? a.notes : undefined,
+              image: a.images[0],
+              hoverImage: a.images[1],
+              badge: a.badge || undefined,
+              soldOut: !a.inStock,
+              featured: a.isFeatured,
+              sales: a.sales,
+              added: a.createdAt.slice(0, 10),
+              gender: a.gender,
+              occasion: a.occasion,
+              family: a.family,
+            };
+          })
+        );
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadError(true);
+          setLoaded(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const countFor = (key: FilterKey, option: string) =>
+    perfumes.filter((p) => (key === "occasion" ? p.occasion.includes(option) : p[key] === option)).length;
 
   // "Load more": how many products are showing. It starts again from PAGE_SIZE whenever a filter or the sort changes.
   const filterKey = `${sort}|${selected.gender.join(",")}|${selected.occasion.join(",")}|${selected.family.join(",")}|${minPrice}|${maxPrice}|${showInStock}|${showOutOfStock}`;
@@ -692,7 +719,7 @@ export default function ShopAllPerfumesPage() {
       case "new": list.sort((a, b) => b.added.localeCompare(a.added)); break;
     }
     return list;
-  }, [sort, selected, minPrice, maxPrice, showInStock, showOutOfStock]);
+  }, [perfumes, sort, selected, minPrice, maxPrice, showInStock, showOutOfStock]);
 
   const shown = filtered.slice(0, visibleCount);
   const hasMore = filtered.length > visibleCount;
@@ -823,7 +850,7 @@ export default function ShopAllPerfumesPage() {
       `}</style>
 
       <div className="mx-auto max-w-[1400px]">
-        {/* Banner (image, same as the men's page) */}
+        {/* Banner */}
         <section className="relative mb-6 h-[260px] w-full overflow-hidden bg-[#111111] sm:mb-8 sm:h-[360px] lg:h-[420px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -832,10 +859,8 @@ export default function ShopAllPerfumesPage() {
             className="absolute inset-0 h-full w-full object-cover object-center"
           />
 
-          {/* Dark overlay so the white text is easy to read on any image */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/45 to-black/30 sm:bg-gradient-to-l sm:from-black/70 sm:via-black/40 sm:to-black/10" />
 
-          {/* Campaign text */}
           <div className="absolute inset-0 flex items-center justify-center px-5 text-center sm:justify-end sm:pr-[8%] sm:text-left lg:pr-[10%]">
             <div className="max-w-xl text-white" style={{ textShadow: "0 2px 14px rgba(0,0,0,0.7)" }}>
               <p className="mb-2 text-xs font-medium uppercase tracking-[0.3em] sm:text-sm">{TAGLINE}</p>
@@ -865,7 +890,6 @@ export default function ShopAllPerfumesPage() {
           <div className="flex items-center gap-3">
             <SortDropdown value={sort} onChange={setSort} options={SORTS} />
 
-            {/* Mobile: opens the filter sidebar */}
             <button
               type="button"
               onClick={() => setFiltersOpen(true)}
@@ -892,7 +916,7 @@ export default function ShopAllPerfumesPage() {
         </div>
 
         <div id={ANCHOR_ID} className="grid grid-cols-1 gap-10 lg:grid-cols-[260px_1fr] lg:gap-12">
-          {/* ---------- Desktop filter sidebar (stays in place while scrolling) ---------- */}
+          {/* Desktop filter sidebar */}
           <aside
             aria-label="Filters"
             className="hidden lg:sticky lg:top-40 lg:block lg:max-h-[calc(100vh-10rem)] lg:self-start lg:overflow-y-auto lg:pr-2 lg:[scrollbar-width:thin] lg:[scrollbar-color:#9C5A2B66_transparent]"
@@ -913,9 +937,13 @@ export default function ShopAllPerfumesPage() {
             {filterSections}
           </aside>
 
-          {/* ---------- Product grid ---------- */}
+          {/* Product grid */}
           <div className="min-w-0">
-            {filtered.length === 0 ? (
+            {!loaded ? (
+              <p className="py-20 text-center text-[#111111]/60">Loading perfumes…</p>
+            ) : loadError ? (
+              <p className="py-20 text-center text-[#111111]/60">Could not load perfumes. Please refresh.</p>
+            ) : filtered.length === 0 ? (
               <div className="py-20 text-center">
                 <p className="text-[#111111]/60">No perfumes match these filters.</p>
                 <button
@@ -939,7 +967,6 @@ export default function ShopAllPerfumesPage() {
                   ))}
                 </div>
 
-                {/* Load more: shows the next PAGE_SIZE products */}
                 {filtered.length > PAGE_SIZE && (
                   <div className="mt-10 flex flex-col items-center gap-4 md:mt-12">
                     <p className="m-0 text-xs" style={{ color: MUTED }} aria-live="polite">
@@ -981,14 +1008,13 @@ export default function ShopAllPerfumesPage() {
         </div>
       </section>
 
-      {/* ---------- Mobile filter sidebar (slides in from the left) ---------- */}
+      {/* Mobile filter sidebar */}
       <div
         className={`fixed inset-0 z-[60] transition-[visibility] duration-0 lg:hidden ${
           filtersOpen ? "visible delay-0" : "pointer-events-none invisible delay-300"
         }`}
         aria-hidden={!filtersOpen}
       >
-        {/* Dark background: tap to close */}
         <div
           onClick={() => setFiltersOpen(false)}
           className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
@@ -1005,7 +1031,6 @@ export default function ShopAllPerfumesPage() {
           }`}
           style={{ background: CREAM, color: INK, fontFamily: sans }}
         >
-          {/* Header */}
           <div className="relative border-b border-[#9C5A2B]/25 px-5 py-4 text-center">
             <h2 className="mq-serif text-2xl font-medium text-[#9C5A2B]">Filter</h2>
             <p className="mt-0.5 text-xs text-[#111111]/60">{filtered.length} products</p>
@@ -1029,10 +1054,8 @@ export default function ShopAllPerfumesPage() {
             </button>
           </div>
 
-          {/* Filters (scrolls if the list is long) */}
           <div className="flex-1 overflow-y-auto px-5 pb-4">{filterSections}</div>
 
-          {/* Footer: Remove all + Apply */}
           <div className="flex items-center justify-between gap-4 border-t border-[#9C5A2B]/25 px-5 py-4">
             <button
               type="button"

@@ -1,6 +1,7 @@
 import { isValidObjectId } from "mongoose";
 import { connectDB } from "@/lib/db";
 import { Product } from "@/models/Product";
+import { SECTION_VALUES, COLLECTION_VALUES } from "@/lib/sections";
 
 export const slugify = (s: string) =>
   s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "product";
@@ -20,6 +21,7 @@ type Lean = {
   video?: string; stock: number; isActive: boolean; isBestSeller: boolean;
   gender?: string; occasion?: string[]; family?: string; notes?: string[];
   badge?: string; isFeatured?: boolean; sales?: number;
+  sections?: string[]; collections?: string[];
   createdAt?: Date; updatedAt?: Date;
 };
 
@@ -47,6 +49,8 @@ export function toProduct(p: Lean) {
     badge: p.badge ?? "",
     isFeatured: p.isFeatured ?? false,
     sales: p.sales ?? 0,
+    sections: p.sections ?? ["shop-all"],
+    collections: p.collections ?? [],
     createdAt: p.createdAt,
   };
 }
@@ -81,6 +85,18 @@ export async function listProducts(sp: URLSearchParams, activeOnly: boolean) {
 
   const gender = sp.get("gender");
   if (gender) filter.gender = String(gender);
+
+  // NEW: website section, e.g. ?section=men  (shop-all means no filter)
+  const section = sp.get("section");
+  if (section && section !== "shop-all" && SECTION_VALUES.includes(section)) {
+    filter.sections = section;
+  }
+
+  // NEW: Collections menu family, e.g. ?collection=floral
+  const collection = sp.get("collection");
+  if (collection && COLLECTION_VALUES.includes(collection)) {
+    filter.collections = collection;
+  }
 
   const search = (sp.get("search") ?? "").trim().slice(0, 80);
   if (search) {

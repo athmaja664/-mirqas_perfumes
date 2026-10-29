@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FRAGRANCE_FAMILIES } from "@/lib/validations/product";
+import { SHOP_SECTIONS, COLLECTION_SECTIONS } from "@/lib/sections";
+import MultiSelect from "@/components/MultiSelect";
 
 const COPPER = "#9C5A2B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
@@ -24,6 +26,8 @@ export type ProductData = {
   stock: number;
   isActive: boolean;
   isBestSeller: boolean;
+  sections?: string[];
+  collections?: string[];
 };
 
 const toRupees = (paise: number) => String(paise / 100);
@@ -64,6 +68,10 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [video, setVideo] = useState(product?.video ?? "");
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [isBestSeller, setIsBestSeller] = useState(product?.isBestSeller ?? false);
+
+  // NEW: where the product shows on the website
+  const [sections, setSections] = useState<string[]>(product?.sections ?? ["shop-all"]);
+  const [collections, setCollections] = useState<string[]>(product?.collections ?? []);
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -154,6 +162,11 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     const stockNum = Number(stock);
     if (!Number.isInteger(stockNum) || stockNum < 0) return setError("Stock must be a whole number, 0 or more.");
 
+    // The gender follows the sections: only Men -> Men, only Women -> Women, anything else -> Unisex
+    const isMen = sections.includes("men");
+    const isWomen = sections.includes("women");
+    const gender = isMen && !isWomen ? "Men" : isWomen && !isMen ? "Women" : "Unisex";
+
     const payload = {
       name,
       brand,
@@ -166,6 +179,9 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       video: video.trim(),
       isActive,
       isBestSeller,
+      gender,
+      sections,
+      collections,
     };
 
     setSaving(true);
@@ -227,6 +243,22 @@ export default function ProductForm({ product }: { product?: ProductData }) {
               ))}
             </select>
           </div>
+        </div>
+
+        {/* NEW: website sections + Collections menu (multiple choice) */}
+        <div className="grid gap-6 sm:grid-cols-2">
+          <MultiSelect
+            label="Show in website sections"
+            options={SHOP_SECTIONS}
+            value={sections}
+            onChange={setSections}
+          />
+          <MultiSelect
+            label="Show in Collections menu"
+            options={COLLECTION_SECTIONS}
+            value={collections}
+            onChange={setCollections}
+          />
         </div>
 
         <div>

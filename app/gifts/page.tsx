@@ -5,20 +5,20 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { productHref } from "@/lib/productHref";
+import { ShopProduct, useSectionProducts } from "@/lib/sectionProducts";
 
-/* ───────────────────────── Brand (same as Choose Your Bottle) ───────────────────────── */
+/* ───────────────────────── Brand ───────────────────────── */
 
 const COPPER = "#9C5A2B";
 const COPPER_SOFT = "rgba(156,90,43,0.45)";
 const IVORY = "#FCF8F0";
-const SAND = "#F6EEE0"; // image backgrounds / soft panels
+const SAND = "#F6EEE0";
 const INK = "#111111";
 const CARD_BORDER = "#EADFCC";
 
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
-/* shared class fragments */
 const BTN = "bg-[#9C5A2B] text-white transition-colors hover:bg-[#7d4720] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]";
 const BTN_LINE = "border border-[#9C5A2B] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white";
 const LINE = "border-[#9C5A2B]/25";
@@ -26,7 +26,6 @@ const MUTED = "text-[#111111]/60";
 const HEAD = "mq-serif font-medium text-[#9C5A2B]";
 const CAPS = "uppercase tracking-[0.12em] font-semibold";
 
-/* Card grid: wraps, and the last odd card is centred (2 columns on phone, 3 on large screens) */
 const GRID = "flex flex-wrap justify-center gap-3 sm:gap-4";
 const GRID_ITEM = "flex w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.667rem)]";
 
@@ -35,11 +34,11 @@ const GRID_ITEM = "flex w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.5rem)] xl:w-[cal
 type StepId = 1 | 2;
 
 // price = the 10ml price. The other sizes are worked out from it (see SIZE_STEPS).
-interface Product { id: string; name: string; category: string; price: number; color: string }
+interface Product { id: string; name: string; category: string; price: number; color: string; image?: string }
 interface GiftBox { id: string; name: string; price: number; color: string }
 interface CartItem { id: string; title: string; lines: string[]; unitPrice: number; qty: number }
 interface Selection {
-  perfumes: Record<string, number>; // key = "<perfume id>__<ml>", value = quantity
+  perfumes: Record<string, number>; // key = "<perfume slug>__<ml>", value = quantity
   box: string | null;
   message: string | null;
 }
@@ -47,15 +46,25 @@ interface LineItem { key: string; product: Product; ml: number; qty: number; uni
 
 /* ───────────────────────── Data ───────────────────────── */
 
-const PRODUCTS: Product[] = [
-  { id: "oud-woody", name: "Oud & Woody", category: "Deep, smoky wood notes", price: 646, color: "#4a3b34" },
-  { id: "fresh-aquatic", name: "Fresh & Aquatic", category: "Clean, cool sea-air notes", price: 556, color: "#7fb3c8" },
-  { id: "floral", name: "Floral", category: "Soft, blooming petals", price: 556, color: "#e3b5c4" },
-  { id: "citrus-fruity", name: "Citrus & Fruity", category: "Bright, juicy and zesty", price: 596, color: "#f0b93a" },
-  { id: "amber-spicy", name: "Amber & Spicy", category: "Warm resin and spice", price: 646, color: "#c9772b" },
-  { id: "musk-powdery", name: "Musk & Powdery", category: "Soft, skin-close and smooth", price: 556, color: "#d8cfc8" },
-  { id: "sweet-gourmand", name: "Sweet & Gourmand", category: "Vanilla, caramel and cocoa", price: 596, color: "#b5784a" },
-];
+// Colour of the drawn bottle (only used when a product has no photo)
+const FAMILY_COLORS: Record<string, string> = {
+  "Oud & Woody": "#4a3b34",
+  "Fresh & Aquatic": "#7fb3c8",
+  "Floral": "#e3b5c4",
+  "Citrus & Fruity": "#f0b93a",
+  "Amber & Spicy": "#c9772b",
+  "Musk & Powdery": "#d8cfc8",
+  "Sweet & Gourmand": "#b5784a",
+};
+
+const toGiftProduct = (p: ShopProduct): Product => ({
+  id: p.slug,
+  name: p.name,
+  category: p.category,
+  price: p.price,
+  color: FAMILY_COLORS[p.category] ?? "#c9772b",
+  image: p.image,
+});
 
 const BOXES: GiftBox[] = [
   { id: "midnight-blue", name: "Midnight Blue Gift Box", price: 399, color: "#1d2a44" },
@@ -63,7 +72,6 @@ const BOXES: GiftBox[] = [
   { id: "sage-green", name: "Sage Green Gift Box", price: 399, color: "#8fa58f" },
 ];
 
-// The 4 sizes (same as the men's card). Price of each size = 10ml price x mult.
 const SIZE_STEPS = [
   { ml: 10, mult: 1 },
   { ml: 30, mult: 2.25 },
@@ -77,16 +85,16 @@ const sizePrice = (p: Product, ml: number) =>
 const sizeOptions = (p: Product) => SIZE_STEPS.map((s) => ({ ml: s.ml, price: sizePrice(p, s.ml) }));
 const pKey = (id: string, ml: number) => `${id}__${ml}`;
 
-function lineItems(perfumes: Record<string, number>): LineItem[] {
+function lineItems(perfumes: Record<string, number>, products: Product[]): LineItem[] {
   const out: LineItem[] = [];
   for (const [key, qty] of Object.entries(perfumes)) {
     const [id, mlStr] = key.split("__");
-    const product = PRODUCTS.find((x) => x.id === id);
+    const product = products.find((x) => x.id === id);
     const ml = Number(mlStr);
     if (product && qty > 0) out.push({ key, product, ml, qty, unit: sizePrice(product, ml) });
   }
   return out.sort(
-    (a, b) => PRODUCTS.indexOf(a.product) - PRODUCTS.indexOf(b.product) || a.ml - b.ml
+    (a, b) => products.indexOf(a.product) - products.indexOf(b.product) || a.ml - b.ml
   );
 }
 
@@ -99,7 +107,6 @@ const MAX_PERFUME_QTY = 20;
 const MAX_CART_QTY = 10;
 const money = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const IMAGE_EXT = "jpg";
-const perfumeImg = (id: string) => `/images/gift/perfumes/${id}.${IMAGE_EXT}`;
 const boxImg = (id: string) => `/images/gift/boxes/${id}.${IMAGE_EXT}`;
 
 const MAX_MESSAGE = 200;
@@ -151,10 +158,12 @@ function BoxArt({ color }: { color: string }) {
   );
 }
 
-function PerfumeImage({ id, name, color, small = false }: { id: string; name: string; color: string; small?: boolean }) {
+// The photo you uploaded in admin. If there is none (or it fails to load), a drawn bottle is shown.
+function PerfumeImage({ image, name, color, small = false }: { image?: string; name: string; color: string; small?: boolean }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <Bottle color={color} small={small} />;
-  return <Image src={perfumeImg(id)} alt={name} width={800} height={800} onError={() => setFailed(true)} className="h-full w-full object-cover" />;
+  if (!image || failed) return <Bottle color={color} small={small} />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={image} alt={name} onError={() => setFailed(true)} className="h-full w-full object-cover" />;
 }
 
 function BoxImage({ id, name, color }: { id: string; name: string; color: string }) {
@@ -165,14 +174,15 @@ function BoxImage({ id, name, color }: { id: string; name: string; color: string
 
 /* ───────────────────────── Components ───────────────────────── */
 
-function Hero({ onShop }: { onShop: () => void }) {
+function Hero({ onShop, products }: { onShop: () => void; products: Product[] }) {
+  const picks = products.slice(0, 2);
   const items: { art: ReactNode; text: string }[] = [
     {
       art: (
         <div className="grid h-full w-full grid-cols-2 gap-2 bg-[#F6EEE0] p-2 sm:p-4">
-          {PRODUCTS.slice(0, 2).map((p) => (
-            <PerfumeImage key={p.id} id={p.id} name={p.name} color={p.color} />
-          ))}
+          {picks.length > 0
+            ? picks.map((p) => <PerfumeImage key={p.id} image={p.image} name={p.name} color={p.color} />)
+            : [0, 1].map((i) => <Bottle key={i} color="#c9772b" />)}
         </div>
       ),
       text: "Choose your perfumes",
@@ -220,7 +230,6 @@ function ProgressIndicator({ step, maxReached, onGo }: { step: StepId; maxReache
                 </span>
                 <span className={`text-[11px] leading-tight sm:text-xs ${active ? "font-semibold text-[#9C5A2B]" : MUTED}`}>{s.label}</span>
               </button>
-              {/* The line runs from one circle edge to the next circle edge */}
               {i < STEPS.length - 1 && <span className={`pointer-events-none -mx-6 mt-4 h-px flex-1 sm:-mx-10 ${done ? "bg-[#9C5A2B]" : "bg-[#9C5A2B]/30"}`} aria-hidden />}
             </li>
           );
@@ -233,15 +242,12 @@ function ProgressIndicator({ step, maxReached, onGo }: { step: StepId; maxReache
 interface CardProps {
   id: string; name: string; subtitle: string; price: number; art: ReactNode;
   qty: number; canAdd: boolean; multi: boolean; onAdd: () => void; onRemove: () => void;
-  // Optional: the 4 size options (perfumes only)
   sizes?: { ml: number; price: number }[];
   selectedMl?: number;
   onSizeChange?: (ml: number) => void;
-  // Optional: the product page opened by the image and the name (perfumes only, same tab)
   href?: string;
 }
 
-/* Same look as the men's product card: curved corners, centred serif name, 4 sizes, curved buttons */
 function SelectCard({ id, name, subtitle, price, art, qty, canAdd, multi, onAdd, onRemove, sizes, selectedMl, onSizeChange, href }: CardProps) {
   const selected = qty > 0;
   return (
@@ -250,7 +256,6 @@ function SelectCard({ id, name, subtitle, price, art, qty, canAdd, multi, onAdd,
       style={{ borderColor: selected ? COPPER : CARD_BORDER, fontFamily: sans }}
       aria-label={name}
     >
-      {/* Image (links to the product page when href is given) */}
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px] bg-[#F6EEE0]">
         {href ? (
           <Link
@@ -265,7 +270,6 @@ function SelectCard({ id, name, subtitle, price, art, qty, canAdd, multi, onAdd,
         )}
       </div>
 
-      {/* Details */}
       <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
         <h3
           className="m-0 line-clamp-2 font-medium leading-[1.2]"
@@ -282,7 +286,6 @@ function SelectCard({ id, name, subtitle, price, art, qty, canAdd, multi, onAdd,
         <p className="m-0 mt-1 text-[11px] leading-snug text-[#111111]/60 md:text-[13px]">{subtitle}</p>
         <p className="m-0 mt-2 text-[13px] font-semibold md:mt-3 md:text-[17px]" style={{ color: COPPER }}>{money(price)}</p>
 
-        {/* Sizes in ONE line: 10ml 30ml 50ml 100ml */}
         {sizes && sizes.length > 0 && (
           <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
             <legend className="sr-only">Choose a size</legend>
@@ -316,7 +319,6 @@ function SelectCard({ id, name, subtitle, price, art, qty, canAdd, multi, onAdd,
           </fieldset>
         )}
 
-        {/* Button (pushed to the bottom so every card lines up) */}
         <div className="mt-auto w-full pt-3 md:w-[90%] md:pt-4">
           {multi && selected ? (
             <div className="flex items-center justify-between rounded-[6px] border border-[#9C5A2B] text-[#9C5A2B]">
@@ -339,7 +341,6 @@ function SelectCard({ id, name, subtitle, price, art, qty, canAdd, multi, onAdd,
   );
 }
 
-/* Perfume card: remembers the chosen size, shows that size's price and quantity */
 function PerfumeCard({
   p, perfumes, canAdd, onAdd, onRemove,
 }: {
@@ -357,7 +358,7 @@ function PerfumeCard({
       name={p.name}
       subtitle={p.category}
       price={sizePrice(p, ml)}
-      art={<PerfumeImage id={p.id} name={p.name} color={p.color} />}
+      art={<PerfumeImage image={p.image} name={p.name} color={p.color} />}
       qty={perfumes[key] ?? 0}
       multi
       canAdd={canAdd}
@@ -366,7 +367,6 @@ function PerfumeCard({
       sizes={sizeOptions(p)}
       selectedMl={ml}
       onSizeChange={setMl}
-      // The id is already a slug, so "oud-woody" opens /product/oud-woody
       href={productHref({ slug: p.id, name: p.name })}
     />
   );
@@ -412,14 +412,14 @@ function GiftCardEditor({ message, onChange }: { message: string | null; onChang
 }
 
 interface SummaryProps {
-  step: StepId; sel: Selection; perfumeCount: number; subtotal: number; error: string | null;
+  step: StepId; sel: Selection; products: Product[]; perfumeCount: number; subtotal: number; error: string | null;
   onClear: () => void; onNext: () => void; onBack: () => void;
   onRemovePerfume: (key: string) => void; onRemoveBox: () => void; onRemoveMessage: () => void; onAddToCart: () => void;
 }
 
 function BundleSummary(p: SummaryProps) {
   const box = BOXES.find((x) => x.id === p.sel.box);
-  const perfumes = lineItems(p.sel.perfumes);
+  const perfumes = lineItems(p.sel.perfumes, p.products);
   const note = p.sel.message?.trim() ? p.sel.message.trim() : null;
   const count = p.perfumeCount + (box ? 1 : 0) + (note ? 1 : 0);
   const Row = ({ art, label, sub, onRemove }: { art: ReactNode; label: string; sub: string; onRemove: () => void }) => (
@@ -447,7 +447,7 @@ function BundleSummary(p: SummaryProps) {
           {perfumes.map((m) => (
             <Row
               key={m.key}
-              art={<PerfumeImage id={m.product.id} name={m.product.name} color={m.product.color} small />}
+              art={<PerfumeImage image={m.product.image} name={m.product.name} color={m.product.color} small />}
               label={`${m.product.name} · ${m.ml}ml`}
               sub={`${m.qty} × ${money(m.unit)} = ${money(m.unit * m.qty)}`}
               onRemove={() => p.onRemovePerfume(m.key)}
@@ -531,6 +531,10 @@ function CartDrawer({ open, items, onClose, onQty, onRemove }: { open: boolean; 
 /* ───────────────────────── Page ───────────────────────── */
 
 export default function GiftPage() {
+  // Perfumes ticked "Gift Sets" in admin (sold-out ones are left out)
+  const { products: apiProducts, loaded, error: loadError } = useSectionProducts("gift-sets");
+  const products = useMemo(() => apiProducts.filter((p) => p.inStock).map(toGiftProduct), [apiProducts]);
+
   const builderRef = useRef<HTMLElement>(null);
   const [step, setStep] = useState<StepId>(1);
   const [maxReached, setMaxReached] = useState<StepId>(1);
@@ -543,10 +547,10 @@ export default function GiftPage() {
 
   const perfumeCount = useMemo(() => Object.values(sel.perfumes).reduce((a, b) => a + b, 0), [sel.perfumes]);
   const subtotal = useMemo(() => {
-    const perfumes = lineItems(sel.perfumes).reduce((t, l) => t + l.unit * l.qty, 0);
+    const perfumes = lineItems(sel.perfumes, products).reduce((t, l) => t + l.unit * l.qty, 0);
     const box = BOXES.find((b) => b.id === sel.box)?.price ?? 0;
     return perfumes + box;
-  }, [sel]);
+  }, [sel, products]);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
   const bundleCount = perfumeCount + (sel.box ? 1 : 0) + (sel.message?.trim() ? 1 : 0);
 
@@ -569,7 +573,7 @@ export default function GiftPage() {
   };
   const back = () => goTo((step - 1) as StepId);
 
-  // "key" is "<perfume id>__<ml>", so each size is counted separately
+  // "key" is "<perfume slug>__<ml>", so each size is counted separately
   const addPerfume = (key: string) => {
     if (perfumeCount >= MAX_PERFUME_QTY) return setError(`You can add up to ${MAX_PERFUME_QTY} perfumes per bundle.`);
     setError(null);
@@ -597,7 +601,7 @@ export default function GiftPage() {
     }
     const box = BOXES.find((b) => b.id === sel.box);
     if (!box) return;
-    const chosen = lineItems(sel.perfumes);
+    const chosen = lineItems(sel.perfumes, products);
     const key = chosen.map((m) => `${m.product.id}-${m.ml}x${m.qty}`).join("_");
     const note = sel.message?.trim() || null;
     const id = `${key}__${box.id}__${note ?? ""}`;
@@ -623,7 +627,7 @@ export default function GiftPage() {
 
   const summary = (
     <BundleSummary
-      step={step} sel={sel} perfumeCount={perfumeCount} subtotal={subtotal} error={error}
+      step={step} sel={sel} products={products} perfumeCount={perfumeCount} subtotal={subtotal} error={error}
       onClear={clear} onNext={next} onBack={back} onAddToCart={addToCart}
       onRemovePerfume={removePerfumeAll}
       onRemoveBox={() => setSel((s) => ({ ...s, box: null }))}
@@ -634,14 +638,13 @@ export default function GiftPage() {
 
   return (
     <div className="min-h-screen" style={{ background: IVORY, color: INK, fontFamily: sans }}>
-      {/* fonts + serif helper class */}
       <style>{`
         @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap");
         .mq-serif { font-family: ${serif}; }
       `}</style>
 
       <main>
-        <Hero onShop={scrollToBuilder} />
+        <Hero onShop={scrollToBuilder} products={products} />
 
         <section ref={builderRef} id="builder" aria-labelledby="builder-title" className="mx-auto max-w-7xl scroll-mt-4 px-4 py-8 pb-28 sm:px-6 sm:py-12 sm:pb-32 lg:pb-12">
           <ProgressIndicator step={step} maxReached={maxReached} onGo={goTo} />
@@ -654,19 +657,27 @@ export default function GiftPage() {
           <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
             <div className="min-w-0">
               {step === 1 ? (
-                <div className={GRID}>
-                  {PRODUCTS.map((p) => (
-                    <div key={p.id} className={GRID_ITEM}>
-                      <PerfumeCard
-                        p={p}
-                        perfumes={sel.perfumes}
-                        canAdd={perfumeCount < MAX_PERFUME_QTY}
-                        onAdd={addPerfume}
-                        onRemove={removePerfume}
-                      />
-                    </div>
-                  ))}
-                </div>
+                !loaded ? (
+                  <p className={`py-16 text-center ${MUTED}`}>Loading perfumes…</p>
+                ) : loadError ? (
+                  <p className={`py-16 text-center ${MUTED}`}>Could not load perfumes. Please refresh.</p>
+                ) : products.length === 0 ? (
+                  <p className={`py-16 text-center ${MUTED}`}>No gift perfumes are available right now.</p>
+                ) : (
+                  <div className={GRID}>
+                    {products.map((p) => (
+                      <div key={p.id} className={GRID_ITEM}>
+                        <PerfumeCard
+                          p={p}
+                          perfumes={sel.perfumes}
+                          canAdd={perfumeCount < MAX_PERFUME_QTY}
+                          onAdd={addPerfume}
+                          onRemove={removePerfume}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )
               ) : (
                 <div>
                   <div className={GRID}>
@@ -687,9 +698,7 @@ export default function GiftPage() {
               )}
             </div>
 
-            {/* Desktop summary */}
             <div className="hidden lg:block">{summary}</div>
-
           </div>
         </section>
       </main>

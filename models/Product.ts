@@ -20,6 +20,9 @@ export interface IProduct {
   badge: string;
   isFeatured: boolean;
   sales: number;
+  // NEW: where the product shows on the website
+  sections: string[]; // shop-all, men, women, unisex, luxury, oud-arabian, gift-sets, new-arrivals
+  collections: string[]; // oud-woody, fresh-aquatic, floral, citrus-fruity, amber-spicy, musk-powdery, sweet-gourmand
 }
 
 const ProductSchema = new Schema<IProduct>(
@@ -43,6 +46,10 @@ const ProductSchema = new Schema<IProduct>(
     badge: { type: String, default: "", maxlength: 40 },
     isFeatured: { type: Boolean, default: false },
     sales: { type: Number, default: 0, min: 0 },
+
+    // NEW
+    sections: { type: [String], default: ["shop-all"], index: true },
+    collections: { type: [String], default: [], index: true },
   },
   { timestamps: true }
 );
