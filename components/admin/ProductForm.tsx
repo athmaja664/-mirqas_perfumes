@@ -28,6 +28,7 @@ export type ProductData = {
   isBestSeller: boolean;
   sections?: string[];
   collections?: string[];
+  showInNewArrivals?: boolean;
 };
 
 const toRupees = (paise: number) => String(paise / 100);
@@ -69,9 +70,13 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [isBestSeller, setIsBestSeller] = useState(product?.isBestSeller ?? false);
 
-  // NEW: where the product shows on the website
-  const [sections, setSections] = useState<string[]>(product?.sections ?? ["shop-all"]);
+  // Where the product shows on the website.
+  // "new-arrivals" is not in this list. It has its own box (showInNewArrivals).
+  const [sections, setSections] = useState<string[]>(
+    (product?.sections ?? ["shop-all"]).filter((s) => s !== "new-arrivals")
+  );
   const [collections, setCollections] = useState<string[]>(product?.collections ?? []);
+  const [showInNewArrivals, setShowInNewArrivals] = useState(product?.showInNewArrivals ?? true);
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -182,6 +187,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       gender,
       sections,
       collections,
+      showInNewArrivals,
     };
 
     setSaving(true);
@@ -245,7 +251,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
           </div>
         </div>
 
-        {/* NEW: website sections + Collections menu (multiple choice) */}
+        {/* Website sections + Collections menu (multiple choice) */}
         <div className="grid gap-6 sm:grid-cols-2">
           <MultiSelect
             label="Show in website sections"
@@ -367,6 +373,10 @@ export default function ProductForm({ product }: { product?: ProductData }) {
           <label className="flex items-center gap-3">
             <input type="checkbox" className="h-5 w-5 accent-[#9C5A2B]" checked={isBestSeller} onChange={(e) => setIsBestSeller(e.target.checked)} />
             Best seller
+          </label>
+          <label className="flex items-center gap-3">
+            <input type="checkbox" className="h-5 w-5 accent-[#9C5A2B]" checked={showInNewArrivals} onChange={(e) => setShowInNewArrivals(e.target.checked)} />
+            Show in New Arrivals (for 30 days)
           </label>
         </div>
 

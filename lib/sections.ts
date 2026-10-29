@@ -7,7 +7,7 @@ export const SHOP_SECTIONS = [
   { value: "luxury", label: "Luxury Collection" },
   { value: "oud-arabian", label: "Oud & Arabian" },
   { value: "gift-sets", label: "Gift Sets" },
-  { value: "new-arrivals", label: "New Arrivals" },
+  // { value: "new-arrivals", label: "New Arrivals" },
 ];
 
 // The Collections mega menu (fragrance families)
@@ -21,5 +21,5 @@ export const COLLECTION_SECTIONS = [
   { value: "sweet-gourmand", label: "Sweet & Gourmand" },
 ];
 
-export const SECTION_VALUES = SHOP_SECTIONS.map((s) => s.value);
+export const SECTION_VALUES = [...SHOP_SECTIONS.map((s) => s.value), "new-arrivals"];
 export const COLLECTION_VALUES = COLLECTION_SECTIONS.map((s) => s.value);

@@ -30,6 +30,9 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           stock: p.stock,
           isActive: p.isActive,
           isBestSeller: p.isBestSeller,
+          sections: p.sections,
+          collections: p.collections,
+          showInNewArrivals: p.showInNewArrivals,
         }}
       />
     </AdminShell>
