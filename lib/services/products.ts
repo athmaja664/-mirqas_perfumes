@@ -18,6 +18,8 @@ type Lean = {
   _id: unknown; name: string; slug: string; brand: string; description: string;
   price: number; salePrice?: number | null; category: string; images: string[];
   video?: string; stock: number; isActive: boolean; isBestSeller: boolean;
+  gender?: string; occasion?: string[]; family?: string; notes?: string[];
+  badge?: string; isFeatured?: boolean; sales?: number;
   createdAt?: Date; updatedAt?: Date;
 };
 
@@ -38,6 +40,13 @@ export function toProduct(p: Lean) {
     inStock: p.stock > 0,
     isActive: p.isActive,
     isBestSeller: p.isBestSeller,
+    gender: p.gender ?? "Unisex",
+    occasion: p.occasion ?? [],
+    family: p.family ?? "",
+    notes: p.notes ?? [],
+    badge: p.badge ?? "",
+    isFeatured: p.isFeatured ?? false,
+    sales: p.sales ?? 0,
     createdAt: p.createdAt,
   };
 }
@@ -69,6 +78,9 @@ export async function listProducts(sp: URLSearchParams, activeOnly: boolean) {
   if (category) filter.category = String(category);
 
   if (sp.get("bestseller") === "true") filter.isBestSeller = true;
+
+  const gender = sp.get("gender");
+  if (gender) filter.gender = String(gender);
 
   const search = (sp.get("search") ?? "").trim().slice(0, 80);
   if (search) {

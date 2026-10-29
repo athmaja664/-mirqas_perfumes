@@ -8,7 +8,8 @@
   "start": "next start",
   "lint": "eslint",
   "seed:admin": "tsx --env-file=.env.local scripts/seed-admin.ts",
-  "seed:products": "tsx --env-file=.env.local scripts/seed-products.ts"
+  "seed:products": "tsx --env-file=.env.local scripts/seed-products.ts",
+  "seed:shop": "tsx --env-file=.env.local scripts/seed-shop.ts"
 },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",

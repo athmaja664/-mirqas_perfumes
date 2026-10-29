@@ -30,6 +30,13 @@ const shape = {
   stock: z.number().int().min(0).max(100000).optional(),
   isActive: z.boolean().optional(),
   isBestSeller: z.boolean().optional(),
+  gender: z.enum(["Men", "Women", "Unisex"]).optional(),
+  occasion: z.array(z.string().trim().max(40)).max(10).optional(),
+  family: z.string().trim().max(40).optional(),
+  notes: z.array(z.string().trim().max(40)).max(6).optional(),
+  badge: z.string().trim().max(40).optional(),
+  isFeatured: z.boolean().optional(),
+  sales: z.number().int().min(0).optional(),
 };
 
 export const SALE_MESSAGE = "Sale price must be lower than the price.";
