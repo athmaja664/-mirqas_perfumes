@@ -61,6 +61,64 @@ function getSizes(p: Perfume): SizeOption[] {
     }));
 }
 
+
+type WishItem = {
+    slug: string;
+    name: string;
+    image?: string;
+    hoverImage?: string;
+    notes?: string[];
+    sizes: SizeOption[];
+    soldOut?: boolean;
+};
+
+type CartLine = {
+    slug: string;
+    name: string;
+    image?: string;
+    notes?: string[];
+    sizes: SizeOption[];
+    ml: number;
+    qty: number;
+};
+
+const WISHLIST_KEY = "mirqas-wishlist";
+const CART_KEY = "mirqas-cart";
+
+function readList<T>(key: string): T[] {
+    if (typeof window === "undefined") return [];
+    try {
+        const value = window.localStorage.getItem(key);
+        const parsed: unknown = value ? JSON.parse(value) : [];
+        return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+        return [];
+    }
+}
+
+function writeList<T>(key: string, list: T[]) {
+    if (typeof window === "undefined") return;
+    try {
+        window.localStorage.setItem(key, JSON.stringify(list));
+        window.dispatchEvent(new Event("mirqas-storage"));
+    } catch (error) {
+        console.error(`Unable to save ${key} to localStorage`, error);
+    }
+}
+
+function addLineToCart(item: Omit<CartLine, "qty">, ml: number) {
+    const cart = readList<CartLine>(CART_KEY);
+    const existingIndex = cart.findIndex((line) => line.slug === item.slug && line.ml === ml);
+
+    if (existingIndex >= 0) {
+        cart[existingIndex] = { ...cart[existingIndex], qty: cart[existingIndex].qty + 1 };
+    } else {
+        cart.push({ ...item, ml, qty: 1 });
+    }
+
+    writeList(CART_KEY, cart);
+}
+
 // Prices look like: Rs. 556.00
 const money = (n: number) =>
     "Rs. " + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -243,7 +301,18 @@ function ProductCard({
 
     const addToCart = () => {
         if (unavailable) return;
-        // TODO: connect your cart here, e.g. addItem({ slug: p.slug, ml: current.ml, price: current.price })
+
+        addLineToCart(
+            {
+                slug: p.slug,
+                name: p.name,
+                image: IMG,
+                notes: p.notes,
+                sizes,
+                ml: current.ml,
+            },
+            current.ml
+        );
         setAdded(true);
     };
 
@@ -367,40 +436,40 @@ function ProductCard({
                 </div>
 
                 {/* Sizes in ONE line: 10ml 30ml 50ml 100ml */}
-                <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
-                    <legend className="sr-only">Choose a size</legend>
-                    {sizes.map((s) => {
-                        const checked = s.ml === selectedMl;
-                        const disabled = !p.inStock || !!s.soldOut;
-                        return (
-                            <label
-                                key={s.ml}
-                                className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
-                                    disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
-                                }`}
-                                style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
-                            >
-                                <input
-                                    type="radio"
-                                    name={radioName}
-                                    value={s.ml}
-                                    checked={checked}
-                                    disabled={disabled && !checked}
-                                    onChange={() => setSelectedMl(s.ml)}
-                                    className="peer sr-only"
-                                />
-                                <span
-                                    aria-hidden
-                                    className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px]"
-                                    style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
-                                >
-                                    {checked && <span className="h-[4px] w-[4px] rounded-full md:h-[6px] md:w-[6px]" style={{ background: COPPER }} />}
-                                </span>
-                                {s.ml}ml
-                            </label>
-                        );
-                    })}
-                </fieldset>
+<fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+    <legend className="sr-only">Choose a size</legend>
+    {sizes.map((s) => {
+        const checked = s.ml === selectedMl;
+        const disabled = !p.inStock || !!s.soldOut;
+        return (
+            <label
+                key={s.ml}
+                className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
+                    disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+                }`}
+                style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
+            >
+                <input
+                    type="radio"
+                    name={radioName}
+                    value={s.ml}
+                    checked={checked}
+                    disabled={disabled && !checked}
+                    onChange={() => setSelectedMl(s.ml)}
+                    className="peer sr-only"
+                />
+                <span
+                    aria-hidden
+                    className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
+                    style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
+                >
+                    {checked && <span className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]" style={{ background: COPPER }} />}
+                </span>
+                {s.ml}ml
+            </label>
+        );
+    })}
+</fieldset>
 
                 {/* Buttons (pushed to the bottom so every card lines up) */}
                 <div className="mt-auto flex w-full flex-col items-stretch gap-1.5 pt-3 md:w-[90%] md:gap-2 md:pt-4">
@@ -453,11 +522,55 @@ export default function MenShopPage() {
     const [filtersOpen, setFiltersOpen] = useState(false); // mobile drawer
     const [wishlist, setWishlist] = useState<string[]>([]);
 
+    // Load the saved wishlist and keep this page synchronized with the navbar,
+    // wishlist/cart pages, and other browser tabs.
+    useEffect(() => {
+        const syncWishlist = () => {
+            const saved = readList<WishItem>(WISHLIST_KEY);
+            setWishlist(saved.map((item) => item.slug));
+        };
+
+        syncWishlist();
+        window.addEventListener("mirqas-storage", syncWishlist);
+        window.addEventListener("storage", syncWishlist);
+
+        return () => {
+            window.removeEventListener("mirqas-storage", syncWishlist);
+            window.removeEventListener("storage", syncWishlist);
+        };
+    }, []);
+
     const toggleCat = (slug: string) =>
         setSelectedCats((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
 
-    const toggleWish = (slug: string) =>
-        setWishlist((w) => (w.includes(slug) ? w.filter((s) => s !== slug) : [...w, slug]));
+    const toggleWish = (slug: string) => {
+        const saved = readList<WishItem>(WISHLIST_KEY);
+        const alreadyWished = saved.some((item) => item.slug === slug);
+        let updated: WishItem[];
+
+        if (alreadyWished) {
+            updated = saved.filter((item) => item.slug !== slug);
+        } else {
+            const product = perfumes.find((item) => item.slug === slug);
+            if (!product) return;
+
+            updated = [
+                ...saved,
+                {
+                    slug: product.slug,
+                    name: product.name,
+                    image: IMG,
+                    hoverImage: IMG_HOVER,
+                    notes: product.notes,
+                    sizes: getSizes(product),
+                    soldOut: !product.inStock,
+                },
+            ];
+        }
+
+        writeList(WISHLIST_KEY, updated);
+        setWishlist(updated.map((item) => item.slug));
+    };
 
     const filtersActive =
         selectedCats.length > 0 || minPrice > 0 || maxPrice < PRICE_MAX || showInStock || showOutOfStock;

@@ -14,7 +14,7 @@ const brandStoryConfig = {
   description:
     "Some feelings are too beautiful for words. Discover fragrances that capture your memories, celebrate meaningful connections, and leave a lasting impression long after the moment has passed.",
   ctaLabel: "DISCOVER OUR STORY",
-  href: "/about", // change this if your story/about page has another route
+  href: "/shopallperfume", // change this if your story/about page has another route
 };
 
 const isValidSrc = (s: string) =>

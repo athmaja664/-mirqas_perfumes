@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { productHref } from "@/lib/productHref";
 
 // Brand colours (same as the other shop pages)
 const COPPER = "#9C5A2B";
@@ -387,7 +388,8 @@ function ProductCard({
     ? Math.round(((current.originalPrice! - current.price) / current.originalPrice!) * 100)
     : 0;
 
-  const detailHref = `/perfumes/${p.slug}`;
+  // Every card opens /product/<slug>, for example /product/nadeem
+  const detailHref = productHref(p);
   const buyHref = `${detailHref}?size=${current.ml}ml`;
 
   const addToCart = () => {
@@ -538,7 +540,7 @@ function ProductCard({
                 className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
                   disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
                 }`}
-                style={{ color: checked ? INK : CARD_SOFT, fontFamily: sans }}
+                style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
               >
                 <input
                   type="radio"
@@ -551,10 +553,15 @@ function ProductCard({
                 />
                 <span
                   aria-hidden
-                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px]"
+                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
                   style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
                 >
-                  {checked && <span className="h-[4px] w-[4px] rounded-full md:h-[6px] md:w-[6px]" style={{ background: COPPER }} />}
+                  {checked && (
+                    <span
+                      className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]"
+                      style={{ background: COPPER }}
+                    />
+                  )}
                 </span>
                 {s.ml}ml
               </label>

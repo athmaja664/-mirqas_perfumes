@@ -5,6 +5,7 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { productHref } from "@/lib/productHref";
 
 // Brand (same as the home page)
 const COPPER = "#9C5A2B";
@@ -51,6 +52,63 @@ type Perfume = {
     // Optional: notes line under the name, e.g. ["Fresh", "Marine", "Powdery"]
     notes?: string[];
 };
+
+type WishItem = {
+    slug: string;
+    name: string;
+    image?: string;
+    hoverImage?: string;
+    notes?: string[];
+    sizes: SizeOption[];
+    soldOut?: boolean;
+};
+
+type CartLine = {
+    slug: string;
+    name: string;
+    image?: string;
+    notes?: string[];
+    sizes: SizeOption[];
+    ml: number;
+    qty: number;
+};
+
+const WISHLIST_KEY = "mirqas-wishlist";
+const CART_KEY = "mirqas-cart";
+
+function readList<T>(key: string): T[] {
+    if (typeof window === "undefined") return [];
+    try {
+        const value = window.localStorage.getItem(key);
+        const parsed: unknown = value ? JSON.parse(value) : [];
+        return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+        return [];
+    }
+}
+
+function writeList<T>(key: string, list: T[]) {
+    if (typeof window === "undefined") return;
+    try {
+        window.localStorage.setItem(key, JSON.stringify(list));
+        window.dispatchEvent(new Event("mirqas-storage"));
+    } catch (error) {
+        console.error(`Unable to save ${key} to localStorage`, error);
+    }
+}
+
+function addLineToCart(item: Omit<CartLine, "qty">, ml: number) {
+    const cart = readList<CartLine>(CART_KEY);
+    const existingIndex = cart.findIndex((line) => line.slug === item.slug && line.ml === ml);
+
+    if (existingIndex >= 0) {
+        cart[existingIndex] = { ...cart[existingIndex], qty: cart[existingIndex].qty + 1 };
+    } else {
+        cart.push({ ...item, ml, qty: 1 });
+    }
+
+    writeList(CART_KEY, cart);
+}
 
 // If a perfume has no "sizes" yet, the other sizes are worked out from the 10ml price.
 const DEFAULT_STEPS = [
@@ -208,6 +266,7 @@ function ProductCard({
     const sizes = getSizes(p);
     const firstAvailable = sizes.find((s) => !s.soldOut) ?? sizes[0];
     const [selectedMl, setSelectedMl] = useState(firstAvailable.ml);
+    const [adding, setAdding] = useState(false);
     const [added, setAdded] = useState(false);
 
     // Phones / touch screens: flip to the second image while the card is in the middle of the screen
@@ -246,13 +305,28 @@ function ProductCard({
         ? Math.round(((current.originalPrice! - current.price) / current.originalPrice!) * 100)
         : 0;
 
-    const detailHref = `/product/${p.slug}`;
+    // Every card opens /product/<slug>, for example /product/celeste
+    const detailHref = productHref(p);
     const buyHref = `${detailHref}?size=${current.ml}ml`;
 
     const addToCart = () => {
-        if (unavailable) return;
-        // TODO: connect your cart here, e.g. addItem({ slug: p.slug, ml: current.ml, price: current.price })
-        setAdded(true);
+        if (unavailable || adding) return;
+
+        addLineToCart({
+            slug: p.slug,
+            name: p.name,
+            image: IMG,
+            notes: p.notes,
+            sizes,
+            ml: current.ml,
+        }, current.ml);
+
+        setAdding(true);
+        setAdded(false);
+        window.setTimeout(() => {
+            setAdding(false);
+            setAdded(true);
+        }, 500);
     };
 
     const radioName = `size-${p.slug}`;
@@ -399,10 +473,15 @@ function ProductCard({
                                 />
                                 <span
                                     aria-hidden
-                                    className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px]"
+                                    className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
                                     style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
                                 >
-                                    {checked && <span className="h-[4px] w-[4px] rounded-full md:h-[6px] md:w-[6px]" style={{ background: COPPER }} />}
+                                    {checked && (
+                                        <span
+                                            className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]"
+                                            style={{ background: COPPER }}
+                                        />
+                                    )}
                                 </span>
                                 {s.ml}ml
                             </label>
@@ -415,7 +494,7 @@ function ProductCard({
                     <button
                         type="button"
                         onClick={addToCart}
-                        disabled={unavailable}
+                        disabled={unavailable || adding}
                         aria-live="polite"
                         className={`flex items-center justify-center gap-1.5 rounded-[6px] border px-1 py-1.5 text-[8px] font-medium uppercase tracking-[0.1em] transition-colors duration-200 md:py-2.5 md:text-[12px] md:tracking-[0.12em] ${
                             unavailable
@@ -424,8 +503,24 @@ function ProductCard({
                         }`}
                         style={{ fontFamily: sans }}
                     >
-                        {unavailable ? "Sold out" : added ? "Added ✓" : "Add to cart"}
-                        {!added && !unavailable && <CartIcon />}
+                        {unavailable ? (
+                            "Sold out"
+                        ) : adding ? (
+                            <>
+                                <span
+                                    aria-hidden="true"
+                                    className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent md:h-4 md:w-4"
+                                />
+                                Adding...
+                            </>
+                        ) : added ? (
+                            "Added ✓"
+                        ) : (
+                            <>
+                                Add to cart
+                                <CartIcon />
+                            </>
+                        )}
                     </button>
 
                     {unavailable ? (
@@ -469,8 +564,50 @@ export default function WomenShopPage() {
     const toggleCat = (slug: string) =>
         setSelectedCats((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
 
-    const toggleWish = (slug: string) =>
-        setWishlist((w) => (w.includes(slug) ? w.filter((s) => s !== slug) : [...w, slug]));
+    useEffect(() => {
+        const syncWishlist = () => {
+            const saved = readList<WishItem>(WISHLIST_KEY);
+            setWishlist(saved.map((item) => item.slug));
+        };
+
+        syncWishlist();
+        window.addEventListener("mirqas-storage", syncWishlist);
+        window.addEventListener("storage", syncWishlist);
+
+        return () => {
+            window.removeEventListener("mirqas-storage", syncWishlist);
+            window.removeEventListener("storage", syncWishlist);
+        };
+    }, []);
+
+    const toggleWish = (slug: string) => {
+        const saved = readList<WishItem>(WISHLIST_KEY);
+        const alreadyWished = saved.some((item) => item.slug === slug);
+        let updated: WishItem[];
+
+        if (alreadyWished) {
+            updated = saved.filter((item) => item.slug !== slug);
+        } else {
+            const product = perfumes.find((item) => item.slug === slug);
+            if (!product) return;
+
+            updated = [
+                ...saved,
+                {
+                    slug: product.slug,
+                    name: product.name,
+                    image: IMG,
+                    hoverImage: IMG_HOVER,
+                    notes: product.notes,
+                    sizes: getSizes(product),
+                    soldOut: !product.inStock,
+                },
+            ];
+        }
+
+        writeList(WISHLIST_KEY, updated);
+        setWishlist(updated.map((item) => item.slug));
+    };
 
     const filtersActive =
         selectedCats.length > 0 || minPrice > 0 || maxPrice < PRICE_MAX || showInStock || showOutOfStock;

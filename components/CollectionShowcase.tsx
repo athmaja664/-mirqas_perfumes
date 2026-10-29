@@ -17,6 +17,7 @@ const sans = "Inter, system-ui, sans-serif";
 const CARD_RATIO = "16 / 9";
 
 // Only two collections: For Her and For Him
+// href = the page that opens when the card is clicked
 const collections = [
   {
     id: "women",
@@ -27,7 +28,7 @@ const collections = [
     alt: "Woman's signature Mirqas fragrance bottle with flowers",
     position: "right center",
     shift: 12, // % to move the picture to the right. Raise to move the bottle more, 0 = no move.
-    href: "/shop",
+    href: "/women",
   },
   {
     id: "men",
@@ -38,7 +39,7 @@ const collections = [
     alt: "Men's signature Mirqas fragrance bottle with flowers",
     position: "right center",
     shift: 0,
-    href: "/shop",
+    href: "/men",
   },
 ];
 
@@ -95,6 +96,7 @@ export default function CollectionShowcase() {
             <li key={c.id}>
               <Link
                 href={c.href}
+                aria-label={c.button}
                 className="cs-card relative block w-full overflow-hidden rounded-[6px]"
                 style={{ background: PASTEL, aspectRatio: CARD_RATIO }}
               >

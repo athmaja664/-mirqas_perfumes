@@ -1,15 +1,19 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { productHref } from "@/lib/productHref";
 
 /* ───────────────────────── Brand (same as Choose Your Bottle) ───────────────────────── */
 
 const COPPER = "#9C5A2B";
+const COPPER_SOFT = "rgba(156,90,43,0.45)";
 const IVORY = "#FCF8F0";
 const SAND = "#F6EEE0"; // image backgrounds / soft panels
 const INK = "#111111";
+const CARD_BORDER = "#EADFCC";
 
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
@@ -22,29 +26,35 @@ const MUTED = "text-[#111111]/60";
 const HEAD = "mq-serif font-medium text-[#9C5A2B]";
 const CAPS = "uppercase tracking-[0.12em] font-semibold";
 
+/* Card grid: wraps, and the last odd card is centred (2 columns on phone, 3 on large screens) */
+const GRID = "flex flex-wrap justify-center gap-3 sm:gap-4";
+const GRID_ITEM = "flex w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.667rem)]";
+
 /* ───────────────────────── Types ───────────────────────── */
 
 type StepId = 1 | 2;
 
+// price = the 10ml price. The other sizes are worked out from it (see SIZE_STEPS).
 interface Product { id: string; name: string; category: string; price: number; color: string }
 interface GiftBox { id: string; name: string; price: number; color: string }
 interface CartItem { id: string; title: string; lines: string[]; unitPrice: number; qty: number }
 interface Selection {
-  perfumes: Record<string, number>;
+  perfumes: Record<string, number>; // key = "<perfume id>__<ml>", value = quantity
   box: string | null;
   message: string | null;
 }
+interface LineItem { key: string; product: Product; ml: number; qty: number; unit: number }
 
 /* ───────────────────────── Data ───────────────────────── */
 
 const PRODUCTS: Product[] = [
-  { id: "oud-woody", name: "Oud & Woody", category: "Deep, smoky wood notes", price: 2899, color: "#4a3b34" },
-  { id: "fresh-aquatic", name: "Fresh & Aquatic", category: "Clean, cool sea-air notes", price: 2499, color: "#7fb3c8" },
-  { id: "floral", name: "Floral", category: "Soft, blooming petals", price: 2599, color: "#e3b5c4" },
-  { id: "citrus-fruity", name: "Citrus & Fruity", category: "Bright, juicy and zesty", price: 2399, color: "#f0b93a" },
-  { id: "amber-spicy", name: "Amber & Spicy", category: "Warm resin and spice", price: 2699, color: "#c9772b" },
-  { id: "musk-powdery", name: "Musk & Powdery", category: "Soft, skin-close and smooth", price: 2499, color: "#d8cfc8" },
-  { id: "sweet-gourmand", name: "Sweet & Gourmand", category: "Vanilla, caramel and cocoa", price: 2599, color: "#b5784a" },
+  { id: "oud-woody", name: "Oud & Woody", category: "Deep, smoky wood notes", price: 646, color: "#4a3b34" },
+  { id: "fresh-aquatic", name: "Fresh & Aquatic", category: "Clean, cool sea-air notes", price: 556, color: "#7fb3c8" },
+  { id: "floral", name: "Floral", category: "Soft, blooming petals", price: 556, color: "#e3b5c4" },
+  { id: "citrus-fruity", name: "Citrus & Fruity", category: "Bright, juicy and zesty", price: 596, color: "#f0b93a" },
+  { id: "amber-spicy", name: "Amber & Spicy", category: "Warm resin and spice", price: 646, color: "#c9772b" },
+  { id: "musk-powdery", name: "Musk & Powdery", category: "Soft, skin-close and smooth", price: 556, color: "#d8cfc8" },
+  { id: "sweet-gourmand", name: "Sweet & Gourmand", category: "Vanilla, caramel and cocoa", price: 596, color: "#b5784a" },
 ];
 
 const BOXES: GiftBox[] = [
@@ -53,8 +63,35 @@ const BOXES: GiftBox[] = [
   { id: "sage-green", name: "Sage Green Gift Box", price: 399, color: "#8fa58f" },
 ];
 
+// The 4 sizes (same as the men's card). Price of each size = 10ml price x mult.
+const SIZE_STEPS = [
+  { ml: 10, mult: 1 },
+  { ml: 30, mult: 2.25 },
+  { ml: 50, mult: 3.4 },
+  { ml: 100, mult: 5.6 },
+];
+const DEFAULT_ML = 10;
+
+const sizePrice = (p: Product, ml: number) =>
+  Math.round(p.price * (SIZE_STEPS.find((s) => s.ml === ml)?.mult ?? 1));
+const sizeOptions = (p: Product) => SIZE_STEPS.map((s) => ({ ml: s.ml, price: sizePrice(p, s.ml) }));
+const pKey = (id: string, ml: number) => `${id}__${ml}`;
+
+function lineItems(perfumes: Record<string, number>): LineItem[] {
+  const out: LineItem[] = [];
+  for (const [key, qty] of Object.entries(perfumes)) {
+    const [id, mlStr] = key.split("__");
+    const product = PRODUCTS.find((x) => x.id === id);
+    const ml = Number(mlStr);
+    if (product && qty > 0) out.push({ key, product, ml, qty, unit: sizePrice(product, ml) });
+  }
+  return out.sort(
+    (a, b) => PRODUCTS.indexOf(a.product) - PRODUCTS.indexOf(b.product) || a.ml - b.ml
+  );
+}
+
 const STEPS: { id: StepId; label: string; title: string; hint: string }[] = [
-  { id: 1, label: "Choose Your Perfumes", title: "Choose your perfumes", hint: "Pick as many fragrances as you like. Repeat a favourite with the + button." },
+  { id: 1, label: "Choose Your Perfumes", title: "Choose your perfumes", hint: "Pick a size, then add as many fragrances as you like. Repeat a favourite with the + button." },
   { id: 2, label: "Choose Your Box", title: "Choose a gift box", hint: "Pick the box your perfumes arrive in." },
 ];
 
@@ -89,7 +126,7 @@ const ICONS = {
 
 function Bottle({ color, small = false }: { color: string; small?: boolean }) {
   return (
-    <svg viewBox="0 0 120 150" className="h-full w-full" role="img" aria-label="Perfume bottle">
+    <svg viewBox="0 0 120 150" className="h-full w-full" role="img" aria-label="Perfume bottle" preserveAspectRatio="xMidYMid slice">
       <rect width="120" height="150" fill={SAND} />
       <ellipse cx="60" cy="136" rx="30" ry="5" fill="#0001" />
       <rect x="50" y="14" width="20" height={small ? 18 : 22} rx="2" fill={COPPER} />
@@ -105,7 +142,7 @@ function Bottle({ color, small = false }: { color: string; small?: boolean }) {
 
 function BoxArt({ color }: { color: string }) {
   return (
-    <svg viewBox="0 0 120 120" className="h-full w-full" role="img" aria-label="Gift box">
+    <svg viewBox="0 0 120 120" className="h-full w-full" role="img" aria-label="Gift box" preserveAspectRatio="xMidYMid slice">
       <rect width="120" height="120" fill={SAND} />
       <rect x="18" y="42" width="84" height="58" rx="3" fill={color} stroke="#0002" />
       <rect x="12" y="32" width="96" height="16" rx="3" fill={color} stroke="#0002" />
@@ -177,13 +214,14 @@ function ProgressIndicator({ step, maxReached, onGo }: { step: StepId; maxReache
           const reachable = s.id <= maxReached;
           return (
             <li key={s.id} className="flex flex-1 items-start last:flex-none">
-              <button type="button" disabled={!reachable} onClick={() => onGo(s.id)} aria-current={active ? "step" : undefined} className="flex w-20 flex-col items-center gap-2 text-center disabled:cursor-not-allowed sm:w-28">
-                <span className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm ${active || done ? "border-[#9C5A2B] bg-[#9C5A2B] text-white" : "border-[#9C5A2B]/40 text-[#9C5A2B]/60"}`}>
+              <button type="button" disabled={!reachable} onClick={() => onGo(s.id)} aria-current={active ? "step" : undefined} className="relative z-10 flex w-20 flex-col items-center gap-2 text-center disabled:cursor-not-allowed sm:w-28">
+                <span className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm ${active || done ? "border-[#9C5A2B] bg-[#9C5A2B] text-white" : "border-[#9C5A2B]/40 bg-[#FCF8F0] text-[#9C5A2B]/60"}`}>
                   {done ? <Icon d={ICONS.check} size={16} /> : s.id}
                 </span>
                 <span className={`text-[11px] leading-tight sm:text-xs ${active ? "font-semibold text-[#9C5A2B]" : MUTED}`}>{s.label}</span>
               </button>
-              {i < STEPS.length - 1 && <span className={`mt-4 h-px flex-1 ${done ? "bg-[#9C5A2B]" : "bg-[#9C5A2B]/30"}`} aria-hidden />}
+              {/* The line runs from one circle edge to the next circle edge */}
+              {i < STEPS.length - 1 && <span className={`pointer-events-none -mx-6 mt-4 h-px flex-1 sm:-mx-10 ${done ? "bg-[#9C5A2B]" : "bg-[#9C5A2B]/30"}`} aria-hidden />}
             </li>
           );
         })}
@@ -195,34 +233,142 @@ function ProgressIndicator({ step, maxReached, onGo }: { step: StepId; maxReache
 interface CardProps {
   id: string; name: string; subtitle: string; price: number; art: ReactNode;
   qty: number; canAdd: boolean; multi: boolean; onAdd: () => void; onRemove: () => void;
+  // Optional: the 4 size options (perfumes only)
+  sizes?: { ml: number; price: number }[];
+  selectedMl?: number;
+  onSizeChange?: (ml: number) => void;
+  // Optional: the product page opened by the image and the name (perfumes only, same tab)
+  href?: string;
 }
 
-function SelectCard({ name, subtitle, price, art, qty, canAdd, multi, onAdd, onRemove }: CardProps) {
+/* Same look as the men's product card: curved corners, centred serif name, 4 sizes, curved buttons */
+function SelectCard({ id, name, subtitle, price, art, qty, canAdd, multi, onAdd, onRemove, sizes, selectedMl, onSizeChange, href }: CardProps) {
   const selected = qty > 0;
   return (
-    <article className={`flex flex-col border p-2 transition sm:p-3 ${selected ? "border-[#9C5A2B] bg-white shadow-sm" : `${LINE} bg-white/60 hover:border-[#9C5A2B]/60`}`} aria-label={name}>
-      <div className="aspect-square overflow-hidden bg-[#F6EEE0]">{art}</div>
-      <h3 className="mq-serif mt-2 text-lg font-medium leading-snug sm:mt-3 sm:text-2xl text-[#9C5A2B]">{name}</h3>
-      <p className={`text-xs sm:text-sm ${MUTED}`}>{subtitle}</p>
-      <p className="mt-1 text-sm font-medium">{money(price)}</p>
-      <div className="mt-3">
-        {multi && selected ? (
-          <div className="flex items-center justify-between border border-[#9C5A2B] text-[#9C5A2B]">
-            <button type="button" aria-label={`Remove one ${name}`} onClick={onRemove} className="p-3"><Icon d={ICONS.minus} size={16} /></button>
-            <span aria-live="polite" className="text-sm font-semibold">{qty}</span>
-            <button type="button" aria-label={`Add one more ${name}`} onClick={onAdd} disabled={!canAdd} className="p-3 disabled:opacity-30"><Icon d={ICONS.plus} size={16} /></button>
-          </div>
-        ) : !multi && selected ? (
-          <button type="button" onClick={onRemove} aria-pressed className={`${BTN} ${CAPS} flex w-full items-center justify-center gap-2 py-3 text-[11px] sm:text-[13px]`}>
-            <Icon d={ICONS.check} size={16} /> Selected
-          </button>
+    <article
+      className={`group flex h-full w-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)] ${selected ? "border-[#9C5A2B]" : ""}`}
+      style={{ borderColor: selected ? COPPER : CARD_BORDER, fontFamily: sans }}
+      aria-label={name}
+    >
+      {/* Image (links to the product page when href is given) */}
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px] bg-[#F6EEE0]">
+        {href ? (
+          <Link
+            href={href}
+            aria-label={`View ${name}`}
+            className="block h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#9C5A2B]"
+          >
+            {art}
+          </Link>
         ) : (
-          <button type="button" onClick={onAdd} disabled={!canAdd} className={`${BTN_LINE} ${CAPS} w-full py-3 text-[11px] sm:text-[13px] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:text-[#111111]/30 disabled:hover:bg-transparent disabled:hover:text-[#111111]/30`}>
-            Add to Box
-          </button>
+          art
         )}
       </div>
+
+      {/* Details */}
+      <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
+        <h3
+          className="m-0 line-clamp-2 font-medium leading-[1.2]"
+          style={{
+            fontFamily: serif,
+            color: COPPER,
+            fontSize: "clamp(1.05rem, 2vw, 1.5rem)",
+            fontVariantNumeric: "lining-nums",
+            fontFeatureSettings: '"lnum" 1',
+          }}
+        >
+          {href ? <Link href={href}>{name}</Link> : name}
+        </h3>
+        <p className="m-0 mt-1 text-[11px] leading-snug text-[#111111]/60 md:text-[13px]">{subtitle}</p>
+        <p className="m-0 mt-2 text-[13px] font-semibold md:mt-3 md:text-[17px]" style={{ color: COPPER }}>{money(price)}</p>
+
+        {/* Sizes in ONE line: 10ml 30ml 50ml 100ml */}
+        {sizes && sizes.length > 0 && (
+          <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+            <legend className="sr-only">Choose a size</legend>
+            {sizes.map((s) => {
+              const checked = s.ml === selectedMl;
+              return (
+                <label
+                  key={s.ml}
+                  className="flex cursor-pointer items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px]"
+                  style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
+                >
+                  <input
+                    type="radio"
+                    name={`size-${id}`}
+                    value={s.ml}
+                    checked={checked}
+                    onChange={() => onSizeChange?.(s.ml)}
+                    className="peer sr-only"
+                  />
+                  <span
+                    aria-hidden
+                    className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
+                    style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
+                  >
+                    {checked && <span className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]" style={{ background: COPPER }} />}
+                  </span>
+                  {s.ml}ml
+                </label>
+              );
+            })}
+          </fieldset>
+        )}
+
+        {/* Button (pushed to the bottom so every card lines up) */}
+        <div className="mt-auto w-full pt-3 md:w-[90%] md:pt-4">
+          {multi && selected ? (
+            <div className="flex items-center justify-between rounded-[6px] border border-[#9C5A2B] text-[#9C5A2B]">
+              <button type="button" aria-label={`Remove one ${name}`} onClick={onRemove} className="flex h-10 w-10 items-center justify-center md:h-11 md:w-11"><Icon d={ICONS.minus} size={16} /></button>
+              <span aria-live="polite" className="text-sm font-semibold">{qty}</span>
+              <button type="button" aria-label={`Add one more ${name}`} onClick={onAdd} disabled={!canAdd} className="flex h-10 w-10 items-center justify-center disabled:opacity-30 md:h-11 md:w-11"><Icon d={ICONS.plus} size={16} /></button>
+            </div>
+          ) : !multi && selected ? (
+            <button type="button" onClick={onRemove} aria-pressed className={`${BTN} flex h-10 w-full items-center justify-center gap-1.5 rounded-[6px] text-[10px] font-semibold uppercase tracking-[0.1em] md:h-11 md:text-[12px] md:tracking-[0.12em]`}>
+              <Icon d={ICONS.check} size={14} /> Selected
+            </button>
+          ) : (
+            <button type="button" onClick={onAdd} disabled={!canAdd} className={`${BTN_LINE} flex h-10 w-full items-center justify-center rounded-[6px] bg-white text-[10px] font-semibold uppercase tracking-[0.1em] md:h-11 md:text-[12px] md:tracking-[0.12em] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:text-[#111111]/30 disabled:hover:bg-white disabled:hover:text-[#111111]/30`}>
+              Add to Box
+            </button>
+          )}
+        </div>
+      </div>
     </article>
+  );
+}
+
+/* Perfume card: remembers the chosen size, shows that size's price and quantity */
+function PerfumeCard({
+  p, perfumes, canAdd, onAdd, onRemove,
+}: {
+  p: Product;
+  perfumes: Record<string, number>;
+  canAdd: boolean;
+  onAdd: (key: string) => void;
+  onRemove: (key: string) => void;
+}) {
+  const [ml, setMl] = useState(DEFAULT_ML);
+  const key = pKey(p.id, ml);
+  return (
+    <SelectCard
+      id={p.id}
+      name={p.name}
+      subtitle={p.category}
+      price={sizePrice(p, ml)}
+      art={<PerfumeImage id={p.id} name={p.name} color={p.color} />}
+      qty={perfumes[key] ?? 0}
+      multi
+      canAdd={canAdd}
+      onAdd={() => onAdd(key)}
+      onRemove={() => onRemove(key)}
+      sizes={sizeOptions(p)}
+      selectedMl={ml}
+      onSizeChange={setMl}
+      // The id is already a slug, so "oud-woody" opens /product/oud-woody
+      href={productHref({ slug: p.id, name: p.name })}
+    />
   );
 }
 
@@ -268,12 +414,12 @@ function GiftCardEditor({ message, onChange }: { message: string | null; onChang
 interface SummaryProps {
   step: StepId; sel: Selection; perfumeCount: number; subtotal: number; error: string | null;
   onClear: () => void; onNext: () => void; onBack: () => void;
-  onRemovePerfume: (id: string) => void; onRemoveBox: () => void; onRemoveMessage: () => void; onAddToCart: () => void;
+  onRemovePerfume: (key: string) => void; onRemoveBox: () => void; onRemoveMessage: () => void; onAddToCart: () => void;
 }
 
 function BundleSummary(p: SummaryProps) {
   const box = BOXES.find((x) => x.id === p.sel.box);
-  const perfumes = PRODUCTS.filter((x) => (p.sel.perfumes[x.id] ?? 0) > 0);
+  const perfumes = lineItems(p.sel.perfumes);
   const note = p.sel.message?.trim() ? p.sel.message.trim() : null;
   const count = p.perfumeCount + (box ? 1 : 0) + (note ? 1 : 0);
   const Row = ({ art, label, sub, onRemove }: { art: ReactNode; label: string; sub: string; onRemove: () => void }) => (
@@ -299,7 +445,13 @@ function BundleSummary(p: SummaryProps) {
       ) : (
         <ul className="my-4 divide-y divide-[#9C5A2B]/15">
           {perfumes.map((m) => (
-            <Row key={m.id} art={<PerfumeImage id={m.id} name={m.name} color={m.color} small />} label={m.name} sub={`${p.sel.perfumes[m.id]} × ${money(m.price)} = ${money(m.price * p.sel.perfumes[m.id])}`} onRemove={() => p.onRemovePerfume(m.id)} />
+            <Row
+              key={m.key}
+              art={<PerfumeImage id={m.product.id} name={m.product.name} color={m.product.color} small />}
+              label={`${m.product.name} · ${m.ml}ml`}
+              sub={`${m.qty} × ${money(m.unit)} = ${money(m.unit * m.qty)}`}
+              onRemove={() => p.onRemovePerfume(m.key)}
+            />
           ))}
           {box && <Row art={<BoxImage id={box.id} name={box.name} color={box.color} />} label={box.name} sub={money(box.price)} onRemove={p.onRemoveBox} />}
           {note && <Row art={<div className="mq-serif flex h-full w-full items-center justify-center bg-[#F6EEE0] text-xl italic text-[#9C5A2B]">“</div>} label="Gift card" sub={note.length > 36 ? `${note.slice(0, 36)}…` : note} onRemove={p.onRemoveMessage} />}
@@ -391,7 +543,7 @@ export default function GiftPage() {
 
   const perfumeCount = useMemo(() => Object.values(sel.perfumes).reduce((a, b) => a + b, 0), [sel.perfumes]);
   const subtotal = useMemo(() => {
-    const perfumes = PRODUCTS.reduce((t, p) => t + p.price * (sel.perfumes[p.id] ?? 0), 0);
+    const perfumes = lineItems(sel.perfumes).reduce((t, l) => t + l.unit * l.qty, 0);
     const box = BOXES.find((b) => b.id === sel.box)?.price ?? 0;
     return perfumes + box;
   }, [sel]);
@@ -417,21 +569,22 @@ export default function GiftPage() {
   };
   const back = () => goTo((step - 1) as StepId);
 
-  const addPerfume = (id: string) => {
+  // "key" is "<perfume id>__<ml>", so each size is counted separately
+  const addPerfume = (key: string) => {
     if (perfumeCount >= MAX_PERFUME_QTY) return setError(`You can add up to ${MAX_PERFUME_QTY} perfumes per bundle.`);
     setError(null);
-    setSel((s) => ({ ...s, perfumes: { ...s.perfumes, [id]: (s.perfumes[id] ?? 0) + 1 } }));
+    setSel((s) => ({ ...s, perfumes: { ...s.perfumes, [key]: (s.perfumes[key] ?? 0) + 1 } }));
   };
-  const removePerfume = (id: string) => {
+  const removePerfume = (key: string) => {
     setError(null);
     setSel((s) => {
-      const q = (s.perfumes[id] ?? 0) - 1;
+      const q = (s.perfumes[key] ?? 0) - 1;
       const perfumes = { ...s.perfumes };
-      if (q <= 0) delete perfumes[id]; else perfumes[id] = q;
+      if (q <= 0) delete perfumes[key]; else perfumes[key] = q;
       return { ...s, perfumes };
     });
   };
-  const removePerfumeAll = (id: string) => setSel((s) => { const perfumes = { ...s.perfumes }; delete perfumes[id]; return { ...s, perfumes }; });
+  const removePerfumeAll = (key: string) => setSel((s) => { const perfumes = { ...s.perfumes }; delete perfumes[key]; return { ...s, perfumes }; });
 
   const clear = () => { setSel(EMPTY); setError(null); setStep(1); setMaxReached(1); };
 
@@ -444,11 +597,15 @@ export default function GiftPage() {
     }
     const box = BOXES.find((b) => b.id === sel.box);
     if (!box) return;
-    const chosen = PRODUCTS.filter((p) => (sel.perfumes[p.id] ?? 0) > 0);
-    const key = chosen.map((m) => `${m.id}x${sel.perfumes[m.id]}`).join("_");
+    const chosen = lineItems(sel.perfumes);
+    const key = chosen.map((m) => `${m.product.id}-${m.ml}x${m.qty}`).join("_");
     const note = sel.message?.trim() || null;
     const id = `${key}__${box.id}__${note ?? ""}`;
-    const lines = [...chosen.map((m) => `${sel.perfumes[m.id]} × ${m.name}`), box.name, ...(note ? [`Card: “${note}”`] : [])];
+    const lines = [
+      ...chosen.map((m) => `${m.qty} × ${m.product.name} (${m.ml}ml)`),
+      box.name,
+      ...(note ? [`Card: “${note}”`] : []),
+    ];
     setCart((c) => {
       const found = c.find((i) => i.id === id);
       if (found) return c.map((i) => (i.id === id ? { ...i, qty: Math.min(MAX_CART_QTY, i.qty + 1) } : i));
@@ -490,38 +647,39 @@ export default function GiftPage() {
           <ProgressIndicator step={step} maxReached={maxReached} onGo={goTo} />
           <div className="mt-10 text-center">
             <h2 id="builder-title" className={`${HEAD}`} style={{ fontSize: "clamp(2rem, 4vw, 3rem)" }}>{cur.title}</h2>
-            <p className={`mt-1 text-sm ${MUTED}`}>{cur.hint}</p>
+            <p className={`mx-auto mt-1 max-w-md text-sm ${MUTED}`}>{cur.hint}</p>
             {step === 1 && <p className="mt-2 text-sm font-medium text-[#9C5A2B]" aria-live="polite">{perfumeCount} {perfumeCount === 1 ? "perfume" : "perfumes"} selected</p>}
           </div>
 
           <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
-            <div>
+            <div className="min-w-0">
               {step === 1 ? (
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
+                <div className={GRID}>
                   {PRODUCTS.map((p) => (
-                    <SelectCard
-                      key={p.id} id={p.id}
-                      name={p.name} subtitle={p.category}
-                      price={p.price}
-                      art={<PerfumeImage id={p.id} name={p.name} color={p.color} />}
-                      qty={sel.perfumes[p.id] ?? 0} multi
-                      canAdd={perfumeCount < MAX_PERFUME_QTY}
-                      onAdd={() => addPerfume(p.id)}
-                      onRemove={() => removePerfume(p.id)}
-                    />
+                    <div key={p.id} className={GRID_ITEM}>
+                      <PerfumeCard
+                        p={p}
+                        perfumes={sel.perfumes}
+                        canAdd={perfumeCount < MAX_PERFUME_QTY}
+                        onAdd={addPerfume}
+                        onRemove={removePerfume}
+                      />
+                    </div>
                   ))}
                 </div>
               ) : (
                 <div>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
+                  <div className={GRID}>
                     {BOXES.map((b) => (
-                      <SelectCard
-                        key={b.id} id={b.id} name={b.name} subtitle="Fits your whole selection"
-                        price={b.price} art={<BoxImage id={b.id} name={b.name} color={b.color} />}
-                        qty={sel.box === b.id ? 1 : 0} multi={false} canAdd
-                        onAdd={() => { setSel((s) => ({ ...s, box: b.id })); setError(null); }}
-                        onRemove={() => setSel((s) => ({ ...s, box: null }))}
-                      />
+                      <div key={b.id} className={GRID_ITEM}>
+                        <SelectCard
+                          id={b.id} name={b.name} subtitle="Fits your whole selection"
+                          price={b.price} art={<BoxImage id={b.id} name={b.name} color={b.color} />}
+                          qty={sel.box === b.id ? 1 : 0} multi={false} canAdd
+                          onAdd={() => { setSel((s) => ({ ...s, box: b.id })); setError(null); }}
+                          onRemove={() => setSel((s) => ({ ...s, box: null }))}
+                        />
+                      </div>
                     ))}
                   </div>
                   <GiftCardEditor message={sel.message} onChange={(m) => { setSel((x) => ({ ...x, message: m })); setError(null); }} />

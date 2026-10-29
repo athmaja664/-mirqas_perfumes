@@ -51,6 +51,38 @@ const navLine =
 const creamLine =
   "pointer-events-none absolute -bottom-1 left-0 h-px w-full origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100 group-focus-visible:scale-x-100";
 
+// ---- Wishlist / cart counts (read from the same localStorage the pages use) ----
+const WISHLIST_KEY = "mirqas-wishlist";
+const CART_KEY = "mirqas-cart";
+const SYNC_EVENT = "mirqas-storage";
+
+function readCounts() {
+  try {
+    const wish = JSON.parse(localStorage.getItem(WISHLIST_KEY) || "[]") as unknown[];
+    const cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]") as { qty?: number }[];
+    return {
+      wishlist: Array.isArray(wish) ? wish.length : 0,
+      cart: Array.isArray(cart) ? cart.reduce((n, i) => n + (i.qty ?? 1), 0) : 0,
+    };
+  } catch {
+    return { wishlist: 0, cart: 0 };
+  }
+}
+
+// Small copper circle with the number, shown on the corner of the icon
+function CountBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute right-0 top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white md:right-0.5 md:top-1"
+      style={{ background: COPPER }}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function SearchIcon({ size = 22 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} className="fill-none stroke-current" strokeWidth="1.4" aria-hidden>
@@ -70,6 +102,7 @@ export default function Navbar() {
   const [query, setQuery] = useState("");
   const [hidden, setHidden] = useState(false); // navbar hidden while scrolling down
   const [accountHref, setAccountHref] = useState("/login"); // changes when someone is signed in
+  const [counts, setCounts] = useState({ wishlist: 0, cart: 0 }); // numbers on the wishlist and bag icons
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -151,6 +184,19 @@ export default function Navbar() {
       cancelled = true;
     };
   }, [pathname]);
+
+  // Keep the wishlist and bag numbers up to date: right away on this page
+  // (the cards fire "mirqas-storage") and also when another tab changes them
+  useEffect(() => {
+    const update = () => setCounts(readCounts());
+    update();
+    window.addEventListener("storage", update);
+    window.addEventListener(SYNC_EVENT, update);
+    return () => {
+      window.removeEventListener("storage", update);
+      window.removeEventListener(SYNC_EVENT, update);
+    };
+  }, []);
 
   const submitSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -286,22 +332,24 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/wishlist"
-                aria-label="Wishlist"
-                className="flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
+                aria-label={`Wishlist, ${counts.wishlist} ${counts.wishlist === 1 ? "item" : "items"}`}
+                className="relative flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
               >
                 <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4" aria-hidden>
                   <path d="M12 20.5s-7.5-4.6-9-9.3C2 7.9 4 5 7 5c1.9 0 3.5 1 5 3 1.5-2 3.1-3 5-3 3 0 5 2.9 4 6.2-1.5 4.7-9 9.3-9 9.3z" />
                 </svg>
+                <CountBadge count={counts.wishlist} />
               </Link>
               <Link
                 href="/cart"
-                aria-label="Shopping bag"
-                className="flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
+                aria-label={`Shopping bag, ${counts.cart} ${counts.cart === 1 ? "item" : "items"}`}
+                className="relative flex h-10 w-10 items-center justify-center transition-opacity hover:opacity-60 md:h-11 md:w-11"
               >
-                <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4">
+                <svg viewBox="0 0 24 24" width="22" height="22" className="fill-none stroke-current" strokeWidth="1.4" aria-hidden>
                   <path d="M5 8h14l-1 13H6L5 8z" />
                   <path d="M9 8V6a3 3 0 016 0v2" />
                 </svg>
+                <CountBadge count={counts.cart} />
               </Link>
             </div>
           </div>

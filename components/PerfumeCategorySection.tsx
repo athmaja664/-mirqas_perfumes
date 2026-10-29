@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { CATEGORIES, Category, Product, products as allProducts } from "@/data/products";
+import { productHref } from "@/lib/productHref";
 
 const CREAM = "#FFF9F3";
 
@@ -35,10 +36,12 @@ type SizeOption = {
 };
 
 // Optional extra fields. If a product in "@/data/products" has them, they are used.
+//   slug:    "silky-oudh"  (if missing, it is made from the name)
 //   sizes:   [{ ml: 10, price: 799, originalPrice: 1598 }, { ml: 30, ... }, { ml: 50, ... }, { ml: 100, ... }]
 //   notes:   ["Fresh", "Marine", "Powdery"]
 //   soldOut: true
 type ProductEx = Product & {
+  slug?: string;
   sizes?: SizeOption[];
   notes?: string[];
   soldOut?: boolean;
@@ -60,6 +63,71 @@ function getSizes(p: ProductEx): SizeOption[] {
     price: Math.round(p.price * mult),
     originalPrice: p.originalPrice ? Math.round(p.originalPrice * mult) : undefined,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// WISHLIST + CART STORAGE
+// Same keys and item shape as app/wishlist/page.tsx and app/cart/page.tsx.
+// After every change we fire "mirqas-storage" so the pages and the navbar update.
+// ---------------------------------------------------------------------------
+const WISHLIST_KEY = "mirqas-wishlist";
+const CART_KEY = "mirqas-cart";
+const SYNC_EVENT = "mirqas-storage";
+
+type WishItem = {
+  slug: string;
+  name: string;
+  image?: string;
+  notes?: string[];
+  sizes: SizeOption[];
+  soldOut?: boolean;
+};
+
+type CartLine = {
+  slug: string;
+  name: string;
+  image?: string;
+  notes?: string[];
+  sizes: SizeOption[];
+  ml: number;
+  qty: number;
+};
+
+function readList<T>(key: string): T[] {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeList<T>(key: string, list: T[]) {
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+    window.dispatchEvent(new Event(SYNC_EVENT));
+  } catch {
+    // storage full or blocked: ignore
+  }
+}
+
+function addLineToCart(item: WishItem, ml: number) {
+  const cart = readList<CartLine>(CART_KEY);
+  const i = cart.findIndex((c) => c.slug === item.slug && c.ml === ml);
+  if (i >= 0) {
+    cart[i] = { ...cart[i], qty: cart[i].qty + 1 };
+  } else {
+    cart.push({
+      slug: item.slug,
+      name: item.name,
+      image: item.image,
+      notes: item.notes,
+      sizes: item.sizes,
+      ml,
+      qty: 1,
+    });
+  }
+  writeList(CART_KEY, cart);
 }
 
 // ---- Icons ----
@@ -84,6 +152,13 @@ const CartIcon = () => (
     <circle cx="8" cy="21" r="1" />
     <circle cx="19" cy="21" r="1" />
     <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+  </svg>
+);
+
+const Spinner = () => (
+  <svg className="h-3 w-3 animate-spin md:h-4 md:w-4" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
   </svg>
 );
 
@@ -191,7 +266,9 @@ function ProductCard({
   const firstAvailable = sizes.find((s) => !s.soldOut) ?? sizes[0];
   const [selectedMl, setSelectedMl] = useState(firstAvailable.ml);
   const [wished, setWished] = useState(false);
-  const [added, setAdded] = useState(false);
+  const [status, setStatus] = useState<"idle" | "adding" | "added">("idle");
+
+  const slug = p.slug ?? slugOf(p.name);
 
   const current = sizes.find((s) => s.ml === selectedMl) ?? firstAvailable;
   const unavailable = !!p.soldOut || !!current.soldOut;
@@ -201,14 +278,50 @@ function ProductCard({
     ? Math.round(((current.originalPrice! - current.price) / current.originalPrice!) * 100)
     : 0;
 
-  const base = p.href ?? (p.id ? `/product/${p.id}` : "/shop");
-  const buyHref = `${base}${base.includes("?") ? "&" : "?"}size=${current.ml}ml`;
+  // Every card now opens /product/<slug>, for example /product/silky-oudh
+  const base = productHref(p);
+  const buyHref = `${base}?size=${current.ml}ml`;
 
+  // What gets saved into the wishlist / cart pages
+  const storedItem: WishItem = {
+    slug,
+    name: p.name,
+    image: p.image,
+    notes: p.notes,
+    sizes,
+    soldOut: p.soldOut,
+  };
+
+  // The heart follows the saved wishlist (also when it changes on another page or tab)
+  useEffect(() => {
+    const sync = () => setWished(readList<WishItem>(WISHLIST_KEY).some((i) => i.slug === slug));
+    sync();
+    window.addEventListener("storage", sync);
+    window.addEventListener(SYNC_EVENT, sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener(SYNC_EVENT, sync);
+    };
+  }, [slug]);
+
+  const toggleWish = () => {
+    const list = readList<WishItem>(WISHLIST_KEY);
+    const next = list.some((i) => i.slug === slug)
+      ? list.filter((i) => i.slug !== slug)
+      : [...list, storedItem];
+    writeList(WISHLIST_KEY, next);
+  };
+
+  // Spinner for a moment, then the item goes into the cart page's list
   const handleAdd = () => {
-    if (unavailable) return;
-    onAddToCart?.({ productId: p.id, name: p.name, ml: current.ml, price: current.price });
-    setAdded(true);
-    window.setTimeout(() => setAdded(false), 1600);
+    if (unavailable || status !== "idle") return;
+    setStatus("adding");
+    window.setTimeout(() => {
+      addLineToCart(storedItem, current.ml);
+      onAddToCart?.({ productId: p.id, name: p.name, ml: current.ml, price: current.price });
+      setStatus("added");
+      window.setTimeout(() => setStatus("idle"), 1500);
+    }, 700);
   };
 
   const radioName = `size-${p.id ?? p.name}`;
@@ -230,7 +343,7 @@ function ProductCard({
 
         <button
           type="button"
-          onClick={() => setWished((w) => !w)}
+          onClick={toggleWish}
           aria-pressed={wished}
           aria-label={wished ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
           className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-sm transition-transform hover:scale-105 md:right-3 md:top-3 md:h-9 md:w-9"
@@ -320,10 +433,15 @@ function ProductCard({
                 />
                 <span
                   aria-hidden
-                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px]"
+                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
                   style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
                 >
-                  {checked && <span className="h-[4px] w-[4px] rounded-full md:h-[6px] md:w-[6px]" style={{ background: COPPER }} />}
+                  {checked && (
+                    <span
+                      className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]"
+                      style={{ background: COPPER }}
+                    />
+                  )}
                 </span>
                 {s.ml}ml
               </label>
@@ -334,20 +452,31 @@ function ProductCard({
         {/* Buttons (pushed to the bottom so every card lines up) */}
         <div className="mt-auto flex w-full flex-col items-stretch gap-1.5 pt-3 md:w-[90%] md:gap-2 md:pt-4">
           <button
-  type="button"
-  onClick={handleAdd}
-  disabled={unavailable}
-  className={`flex items-center justify-center gap-1.5 rounded-[6px] border px-1 py-1.5 text-[8px] font-medium uppercase tracking-[0.1em] transition-colors duration-200 md:py-2.5 md:text-[12px] md:tracking-[0.12em] ${
-    unavailable
-      ? "cursor-not-allowed border-[#D9CDBA] bg-white text-[#B9AD9A]"
-      : "border-[#9C5A2B] bg-white text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"
-  }`}
-  style={{ fontFamily: sans }}
->
-  {unavailable ? "Sold out" : added ? "Added ✓" : "Add to cart"}
-  {!added && <CartIcon />}
-</button>
-           
+            type="button"
+            onClick={handleAdd}
+            disabled={unavailable || status === "adding"}
+            aria-live="polite"
+            className={`flex items-center justify-center gap-1.5 rounded-[6px] border px-1 py-1.5 text-[8px] font-medium uppercase tracking-[0.1em] transition-colors duration-200 md:py-2.5 md:text-[12px] md:tracking-[0.12em] ${
+              unavailable
+                ? "cursor-not-allowed border-[#D9CDBA] bg-white text-[#B9AD9A]"
+                : "border-[#9C5A2B] bg-white text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white disabled:cursor-wait"
+            }`}
+            style={{ fontFamily: sans }}
+          >
+            {unavailable ? (
+              "Sold out"
+            ) : status === "adding" ? (
+              <>
+                <Spinner /> Adding
+              </>
+            ) : status === "added" ? (
+              "Added ✓"
+            ) : (
+              <>
+                Add to cart <CartIcon />
+              </>
+            )}
+          </button>
 
           {unavailable ? (
             <button
@@ -375,7 +504,7 @@ function ProductCard({
 
 interface Props {
   products?: Product[];
-  // Connect this to your cart. It receives the product, the chosen size (ml) and the price.
+  // Optional: called after an item is added to the cart (the cart page is already updated).
   onAddToCart?: (item: CartItem) => void;
 }
 
@@ -459,10 +588,16 @@ export default function PerfumeCategorySection({ products = allProducts, onAddTo
         else setActive((i) => Math.max(i - 1, 0));
         break;
       case "Home":
-        if (open) { e.preventDefault(); setActive(0); }
+        if (open) {
+          e.preventDefault();
+          setActive(0);
+        }
         break;
       case "End":
-        if (open) { e.preventDefault(); setActive(last); }
+        if (open) {
+          e.preventDefault();
+          setActive(last);
+        }
         break;
       case "Enter":
       case " ":

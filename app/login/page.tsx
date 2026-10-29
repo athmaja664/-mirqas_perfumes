@@ -1,12 +1,23 @@
 "use client";
 
+// app/login/page.tsx
+// Login / Register page in the same style as the rest of the site:
+// cream background, copper buttons, Cormorant Garamond headings, Inter text,
+// 14px rounded card, 6px rounded fields and buttons.
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { loginRequest, registerRequest } from "@/lib/authApi";
 
-const CREAM = "#FEF8F2";
-const PLUM = "#7A4A4A"; // active tab / primary button
+// Brand colours (same as Shop All)
+const COPPER = "#9C5A2B";
+const CREAM = "#FFF9F3";
+const INK = "#111111";
+const MUTED = "rgba(17,17,17,0.6)";
+const CARD_LINE = "#EADFCC";
+const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
+const sans = "Inter, system-ui, sans-serif";
 
 type Tab = "login" | "register";
 
@@ -19,6 +30,13 @@ function EyeIcon({ off }: { off: boolean }) {
     </svg>
   );
 }
+
+const Spinner = () => (
+  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
 
 function Field({
   label, id, type = "text", value, onChange, autoComplete, placeholder, inputMode, toggle,
@@ -35,7 +53,11 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-[12px] uppercase tracking-[0.2em] text-black/55">
+      <label
+        htmlFor={id}
+        className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em]"
+        style={{ color: MUTED }}
+      >
         {label}
       </label>
       <div className="relative">
@@ -48,16 +70,18 @@ function Field({
           autoComplete={autoComplete}
           inputMode={inputMode}
           placeholder={placeholder}
-          className={`h-[60px] w-full border border-black/20 bg-white px-5 text-[17px] text-[#111] outline-none transition-colors placeholder:text-black/35 focus:border-[#111] ${
-            toggle ? "pr-14" : ""
+          className={`h-12 w-full rounded-[6px] border bg-white px-4 text-[15px] outline-none transition-colors placeholder:text-black/35 focus:border-[#9C5A2B] ${
+            toggle ? "pr-12" : ""
           }`}
+          style={{ borderColor: CARD_LINE, color: INK, fontFamily: sans }}
         />
         {toggle && (
           <button
             type="button"
             onClick={toggle.onToggle}
             aria-label={toggle.shown ? "Hide password" : "Show password"}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-[#111] transition-opacity hover:opacity-60"
+            className="absolute right-4 top-1/2 -translate-y-1/2 transition-colors hover:text-[#7d4720]"
+            style={{ color: COPPER }}
           >
             <EyeIcon off={!toggle.shown} />
           </button>
@@ -146,55 +170,74 @@ export default function LoginPage() {
     }
   };
 
+  // Tabs: copper when active, white with a copper outline when not (same as the Add to cart button)
   const tabBtn = (t: Tab, label: string) => (
     <button
       type="button"
       role="tab"
       aria-selected={tab === t}
       onClick={() => switchTab(t)}
-      className={`h-14 flex-1 text-[13px] font-semibold uppercase tracking-[0.25em] transition-colors ${
-        tab === t ? "text-[#FCF8F0]" : "bg-white text-[#111] hover:bg-black/[0.03]"
+      className={`h-11 flex-1 rounded-[6px] text-[12px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+        tab === t ? "text-white" : "text-[#9C5A2B] hover:bg-[#9C5A2B]/10"
       }`}
-      style={tab === t ? { background: PLUM } : undefined}
+      style={tab === t ? { background: COPPER } : undefined}
     >
       {label}
     </button>
   );
 
   return (
-    <main className="grid min-h-[calc(100dvh-92px)] grid-cols-1 lg:grid-cols-2" style={{ background: CREAM }}>
+    <main
+      className="grid min-h-[calc(100dvh-92px)] grid-cols-1 lg:grid-cols-2"
+      style={{ background: CREAM, color: INK, fontFamily: sans }}
+    >
+      <style>{`
+        @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600&family=Inter:wght@400;500;600&display=swap");
+      `}</style>
+
       {/* Left: image (hidden on phones to keep the form first) */}
       <div className="relative hidden lg:block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="https://images.pexels.com/photos/4735908/pexels-photo-4735908.jpeg"
+          src="/images/login.png"
           alt="Spraying a Mirqas perfume"
           className="absolute inset-0 h-full w-full object-cover"
         />
       </div>
 
-      {/* Right: form */}
-      <section className="flex items-start justify-center px-5 py-10 sm:px-10 lg:py-14">
-        <div className="w-full max-w-[580px]">
-          <h1 className="text-center text-[28px] font-light uppercase tracking-[0.2em] text-[#111] sm:text-[32px]">
+      {/* Right: form in a rounded card */}
+      <section className="flex items-center justify-center px-4 py-10 sm:px-8 lg:py-14">
+        <div
+          className="w-full max-w-[540px] rounded-[14px] border bg-white p-6 shadow-[0_10px_30px_rgba(120,80,30,0.08)] sm:p-9"
+          style={{ borderColor: CARD_LINE }}
+        >
+          <h1
+            className="m-0 text-center text-4xl font-medium leading-tight sm:text-[2.6rem]"
+            style={{ fontFamily: serif, color: COPPER }}
+          >
             {tab === "login" ? "Welcome Back" : "Create Your Account"}
           </h1>
-          <p className="mb-8 mt-3 text-center text-[16px] text-black/60">
+          <p className="mb-7 mt-2 text-center text-[14px]" style={{ color: MUTED }}>
             {tab === "login"
               ? "Sign in to view your orders and check out faster."
               : "Join Mirqas to save favourites and check out faster."}
           </p>
 
-          <div role="tablist" aria-label="Login or register" className="flex border border-black/20">
+          <div
+            role="tablist"
+            aria-label="Login or register"
+            className="flex gap-1.5 rounded-[8px] border p-1.5"
+            style={{ borderColor: CARD_LINE, background: CREAM }}
+          >
             {tabBtn("login", "Login")}
             {tabBtn("register", "Register")}
           </div>
 
-          <form onSubmit={onSubmit} noValidate className="mt-8 flex flex-col gap-6">
+          <form onSubmit={onSubmit} noValidate className="mt-7 flex flex-col gap-5">
             {error && (
               <div
                 role="alert"
-                className="border border-red-400 bg-red-50 px-5 py-4 text-[15px] text-red-700"
+                className="rounded-[10px] border border-red-300 bg-red-50 px-4 py-3 text-[14px] text-red-700"
               >
                 {error}
               </div>
@@ -203,7 +246,8 @@ export default function LoginPage() {
             {success && (
               <div
                 role="status"
-                className="border border-green-500 bg-green-50 px-5 py-4 text-[15px] text-green-800"
+                className="rounded-[10px] border px-4 py-3 text-[14px]"
+                style={{ background: "#E3F2E6", borderColor: "#B7DBC0", color: "#1F7A3A" }}
               >
                 {success}
               </div>
@@ -256,31 +300,37 @@ export default function LoginPage() {
             )}
 
             {tab === "login" ? (
-              <div className="flex items-center justify-between text-[14px] text-black/70">
+              <div className="flex items-center justify-between text-[13px]" style={{ color: "rgba(17,17,17,0.75)" }}>
                 <label className="flex cursor-pointer items-center gap-2">
                   <input
                     type="checkbox"
                     checked={remember}
                     onChange={(e) => setRemember(e.target.checked)}
-                    className="h-4 w-4 accent-[#7A4A4A]"
+                    className="h-4 w-4 accent-[#9C5A2B]"
                   />
                   Remember me
                 </label>
-                <Link href="/forgot-password" className="underline-offset-4 hover:underline">
+                <Link
+                  href="/forgot-password"
+                  className="underline-offset-4 transition-colors hover:text-[#9C5A2B] hover:underline"
+                >
                   Forgot password?
                 </Link>
               </div>
             ) : (
-              <label className="flex cursor-pointer items-start gap-2 text-[14px] text-black/70">
+              <label
+                className="flex cursor-pointer items-start gap-2 text-[13px]"
+                style={{ color: "rgba(17,17,17,0.75)" }}
+              >
                 <input
                   type="checkbox"
                   checked={terms}
                   onChange={(e) => setTerms(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-[#7A4A4A]"
+                  className="mt-0.5 h-4 w-4 accent-[#9C5A2B]"
                 />
                 <span>
                   I agree to the{" "}
-                  <Link href="/terms" className="underline underline-offset-4">
+                  <Link href="/terms" className="underline underline-offset-4 hover:text-[#9C5A2B]">
                     Terms &amp; Conditions
                   </Link>
                 </span>
@@ -290,18 +340,27 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="h-[60px] w-full text-[13px] font-semibold uppercase tracking-[0.25em] text-[#FCF8F0] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: PLUM }}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-[6px] text-[12px] font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-[#7d4720] disabled:cursor-wait disabled:opacity-70"
+              style={{ background: COPPER }}
             >
-              {loading ? "Please wait…" : tab === "login" ? "Sign In" : "Create Account"}
+              {loading ? (
+                <>
+                  <Spinner /> Please wait
+                </>
+              ) : tab === "login" ? (
+                "Sign In"
+              ) : (
+                "Create Account"
+              )}
             </button>
 
-            <p className="text-center text-[14px] text-black/65">
+            <p className="m-0 text-center text-[13px]" style={{ color: MUTED }}>
               {tab === "login" ? "Don't have an account? " : "Already have an account? "}
               <button
                 type="button"
                 onClick={() => switchTab(tab === "login" ? "register" : "login")}
-                className="font-semibold text-[#111] underline underline-offset-4"
+                className="font-semibold underline underline-offset-4 transition-colors hover:text-[#7d4720]"
+                style={{ color: COPPER }}
               >
                 {tab === "login" ? "Create Account" : "Sign In"}
               </button>
