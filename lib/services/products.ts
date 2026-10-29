@@ -97,6 +97,11 @@ export async function listProducts(sp: URLSearchParams, activeOnly: boolean) {
   if (collection && COLLECTION_VALUES.includes(collection)) {
     filter.collections = collection;
   }
+    // NEW: new arrivals = products created in the last 30 days (automatic)
+  if (sp.get("newArrival") === "true") {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    filter.createdAt = { $gte: since };
+  }
 
   const search = (sp.get("search") ?? "").trim().slice(0, 80);
   if (search) {
