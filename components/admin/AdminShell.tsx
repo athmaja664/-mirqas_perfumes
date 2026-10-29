@@ -13,6 +13,7 @@ export default function AdminShell({
   children,
 }: {
   active: string;
+  userName?: string; // accepted so pages can pass it; AdminChrome decides how the layout looks
   children: React.ReactNode;
 }) {
   return (

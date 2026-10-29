@@ -14,11 +14,10 @@ const sans = "Inter, system-ui, sans-serif";
 const NAV: { label: string; href?: string }[] = [
   { label: "Dashboard", href: "/admin/dashboard" },
   { label: "Products", href: "/admin/products" },
-  { label: "Customers" },
+  { label: "Customers", href: "/admin/customers" },
   { label: "Orders" },
   { label: "Profile", href: "/admin/profile" },
 ];
-
 export default function AdminChrome({
   active,
   logout,
