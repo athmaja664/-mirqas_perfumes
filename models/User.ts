@@ -6,6 +6,8 @@ export interface IUser {
   phone: string;
   passwordHash: string;
   role: "customer" | "admin";
+  // true only for the main admin (the owner). Only the owner can add or remove admins.
+  isOwner: boolean;
   isActive: boolean;
 }
 
@@ -16,6 +18,7 @@ const UserSchema = new Schema<IUser>(
     phone: { type: String, default: "", trim: true },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ["customer", "admin"], default: "customer" },
+    isOwner: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

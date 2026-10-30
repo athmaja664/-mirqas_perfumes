@@ -9,3 +9,12 @@ export async function requireAdmin() {
     return { error: NextResponse.json({ message: "Admin access required." }, { status: 403 }) };
   return { admin: user };
 }
+
+// Same as requireAdmin, but only the main admin (the owner) passes.
+export async function requireOwner() {
+  const result = await requireAdmin();
+  if ("error" in result) return result;
+  if (!result.admin.isOwner)
+    return { error: NextResponse.json({ message: "Only the main admin can do this." }, { status: 403 }) };
+  return result;
+}

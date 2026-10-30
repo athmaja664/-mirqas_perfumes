@@ -33,7 +33,15 @@ export async function getCurrentUser() {
   if (!session) return null;
   const u = await User.findById(session.userId).lean();
   if (!u || !u.isActive) return null;
-  return { id: String(u._id), name: u.name, email: u.email, phone: u.phone, role: u.role };
+  return {
+    id: String(u._id),
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    role: u.role,
+    // Old accounts have no isOwner field, so only a real true counts
+    isOwner: u.role === "admin" && u.isOwner === true,
+  };
 }
 
 export async function destroySession() {
