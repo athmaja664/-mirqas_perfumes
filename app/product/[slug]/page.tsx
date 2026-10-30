@@ -18,6 +18,7 @@ import {
 } from "@/lib/shopStorage";
 import ProductReviews, { RatingSummary } from "@/components/product/Reviews";
 import RelatedProducts from "@/components/product/RelatedProducts";
+// import BundleOffer from "@/components/product/BundleOffer";
 
 type ApiProduct = {
   slug: string;
@@ -355,14 +356,25 @@ function ProductDetail() {
               <p className="mt-3 text-sm text-[rgba(17,17,17,0.6)]">{product.notes.join(" · ")}</p>
             )}
 
-            {/* Price (same number as on the card for the same size) */}
-            <div className="mt-5 flex items-baseline gap-3">
-              <span className="text-2xl font-semibold">{formatPrice(price)}</span>
+                       {/* Price (same number as on the card for the same size) */}
+            <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              {discount > 0 && (
+                <span className="text-xl font-semibold text-[#9C5A2B]">↓ {discount}%</span>
+              )}
               {mrp && mrp > price && (
                 <span className="text-base text-[rgba(17,17,17,0.6)] line-through">{formatPrice(mrp)}</span>
               )}
+              <span className="text-3xl font-semibold">{formatPrice(price)}</span>
             </div>
+            {mrp && mrp > price && (
+              <p className="mt-1 text-sm font-medium text-[#9C5A2B]">
+                You save {formatPrice(mrp - price)}
+              </p>
+            )}
             <p className="mt-1 text-xs text-[rgba(17,17,17,0.6)]">Inclusive of all taxes</p>
+
+            {/* Bundle offer: changes when the size changes */}
+            {/* <BundleOffer price={price} mrp={mrp} qty={qty} /> */}
 
             <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-[rgba(17,17,17,0.8)]">
               {product.description}
