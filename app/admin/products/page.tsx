@@ -11,7 +11,7 @@ export default async function AdminProductsPage() {
 
   return (
     <AdminShell active="Products">
-      <ProductsTable />
+      <ProductsTable isOwner={user.isOwner === true} />
     </AdminShell>
   );
 }

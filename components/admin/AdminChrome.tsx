@@ -11,24 +11,29 @@ const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
 // Items without an href are not built yet, so they show "Soon" instead of a broken link.
-const NAV: { label: string; href?: string }[] = [
+// Items with manage: true are shown only to the owner and to admins the owner has allowed.
+const NAV: { label: string; href?: string; manage?: boolean }[] = [
   { label: "Dashboard", href: "/admin/dashboard" },
   { label: "Products", href: "/admin/products" },
   { label: "Customers", href: "/admin/customers" },
   { label: "Orders", href: "/admin/orders" },
+  { label: "Admins", href: "/admin/admins", manage: true },
   { label: "Profile", href: "/admin/profile" },
 ];
 export default function AdminChrome({
   active,
   logout,
+  canManageAdmins,
   children,
 }: {
   active: string;
   logout: () => Promise<void>;
+  canManageAdmins: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const items = NAV.filter((item) => !item.manage || canManageAdmins);
 
   // Close the menu after moving to another page.
   useEffect(() => {
@@ -120,7 +125,7 @@ export default function AdminChrome({
         </div>
 
         <nav aria-label="Admin" className="flex flex-1 flex-col gap-1">
-          {NAV.map((item) => {
+          {items.map((item) => {
             const isActive = item.label === active;
             if (!item.href) {
               return (

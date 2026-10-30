@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import ConfirmDeleteButton from "@/components/admin/ConfirmDeleteButton";
 
 const COPPER = "#9C5A2B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
@@ -21,6 +22,15 @@ type Item = {
 type ListResponse = { items: Item[]; page: number; total: number; pages: number };
 
 const rupees = (paise: number) => "\u20B9" + (paise / 100).toLocaleString("en-IN");
+
+function deleteMessage(name: string) {
+  return (
+    `Delete "${name}" for good?\n\n` +
+    "Its reviews will be removed, and it will be removed from all carts and wishlists. " +
+    "Old orders keep their own copy of the name, price and image.\n\n" +
+    "This cannot be undone."
+  );
+}
 
 function Price({ p }: { p: Item }) {
   return p.salePrice ? (
@@ -54,7 +64,7 @@ function Thumb({ url }: { url?: string }) {
   );
 }
 
-export default function ProductsTable() {
+export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }) {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
@@ -63,6 +73,7 @@ export default function ProductsTable() {
   const [data, setData] = useState<ListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState("");
 
   // Wait a moment after typing before searching.
@@ -103,6 +114,7 @@ export default function ProductsTable() {
     if (item.isActive && !window.confirm(`Deactivate "${item.name}"? Customers will no longer see it.`)) return;
     setBusyId(item.id);
     setError("");
+    setNotice("");
     try {
       const res = item.isActive
         ? await fetch(`/api/admin/products/${item.id}`, { method: "DELETE" })
@@ -118,6 +130,26 @@ export default function ProductsTable() {
       setError(e instanceof Error ? e.message : "Could not update the product.");
     } finally {
       setBusyId("");
+    }
+  }
+
+  // Permanent delete (owner only; the server checks again).
+  async function deleteForever(item: Item) {
+    setBusyId(item.id);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch(`/api/admin/products/${item.id}?permanent=true`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.message || `Could not delete the product (error ${res.status}).`);
+      setNotice(json.message || "Product deleted.");
+      if (data && data.items.length === 1 && page > 1) setPage((n) => n - 1);
+      setReload((n) => n + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete the product.");
+    } finally {
+      setBusyId("");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }
 
@@ -165,8 +197,13 @@ export default function ProductsTable() {
       </div>
 
       {error && (
-        <p role="alert" className="mt-4 border border-red-300 bg-red-50 px-4 py-3 text-[14px] text-red-800">
+        <p role="alert" className="mt-4 border border-[#A32A1F]/30 bg-[#F8E3E0] px-4 py-3 text-[14px] text-[#A32A1F]">
           {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="mt-4 border border-[#1F7A3A]/30 bg-[#E3F2E6] px-4 py-3 text-[14px] text-[#1F7A3A]">
+          {notice}
         </p>
       )}
 
@@ -196,10 +233,10 @@ export default function ProductsTable() {
                       </div>
                     </div>
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-3 text-[12px] uppercase tracking-[0.15em]">
+                  <div className="mt-4 flex items-center gap-3 text-[12px] uppercase tracking-[0.15em]">
                     <Link
                       href={`/admin/products/${p.id}`}
-                      className="border px-3 py-3 text-center font-semibold"
+                      className="flex-1 border px-3 py-3 text-center font-semibold"
                       style={{ borderColor: COPPER, color: COPPER }}
                     >
                       Edit
@@ -208,10 +245,18 @@ export default function ProductsTable() {
                       type="button"
                       onClick={() => toggle(p)}
                       disabled={busyId === p.id}
-                      className="border border-black/25 px-3 py-3 font-semibold uppercase tracking-[0.15em] disabled:opacity-40"
+                      className="flex-1 border border-black/25 px-3 py-3 font-semibold uppercase tracking-[0.15em] disabled:opacity-40"
                     >
                       {busyId === p.id ? "Saving..." : p.isActive ? "Deactivate" : "Activate"}
                     </button>
+                    {isOwner && (
+                      <ConfirmDeleteButton
+                        label={`Delete ${p.name} permanently`}
+                        message={deleteMessage(p.name)}
+                        onConfirm={() => deleteForever(p)}
+                        disabled={busyId === p.id}
+                      />
+                    )}
                   </div>
                 </li>
               ))}
@@ -251,7 +296,7 @@ export default function ProductsTable() {
                         <Badge active={p.isActive} />
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-4 text-[12px] uppercase tracking-[0.15em]">
+                        <div className="flex items-center gap-4 text-[12px] uppercase tracking-[0.15em]">
                           <Link href={`/admin/products/${p.id}`} className="underline underline-offset-4" style={{ color: COPPER }}>
                             Edit
                           </Link>
@@ -263,6 +308,14 @@ export default function ProductsTable() {
                           >
                             {busyId === p.id ? "Saving..." : p.isActive ? "Deactivate" : "Activate"}
                           </button>
+                          {isOwner && (
+                            <ConfirmDeleteButton
+                              label={`Delete ${p.name} permanently`}
+                              message={deleteMessage(p.name)}
+                              onConfirm={() => deleteForever(p)}
+                              disabled={busyId === p.id}
+                            />
+                          )}
                         </div>
                       </td>
                     </tr>

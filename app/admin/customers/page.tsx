@@ -3,10 +3,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { isValidObjectId } from "mongoose";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireOwner } from "@/lib/auth/require-admin";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { Session } from "@/models/Session";
+import { deleteCustomer } from "@/lib/services/purge";
 import AdminShell from "@/components/admin/AdminShell";
+import ConfirmDeleteButton from "@/components/admin/ConfirmDeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +18,12 @@ const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const PAGE_SIZE = 10;
 
 type Row = { _id: unknown; name: string; email: string; phone: string; isActive: boolean; createdAt: Date };
+
+const ERRORS: Record<string, string> = {
+  forbidden: "Only the main admin can delete customers.",
+  "not-found": "That customer was not found.",
+  "open-orders": "This customer has open orders. Cancel or finish them first.",
+};
 
 async function toggleActive(formData: FormData) {
   "use server";
@@ -31,6 +40,19 @@ async function toggleActive(formData: FormData) {
   revalidatePath("/admin/customers");
 }
 
+// A form post can be sent by anyone, so the owner is checked again here on the server.
+async function deleteCustomerAction(formData: FormData) {
+  "use server";
+  const owner = await requireOwner();
+  if ("error" in owner && owner.error) redirect("/admin/customers?error=forbidden");
+
+  const id = String(formData.get("id") ?? "");
+  const result = await deleteCustomer(id);
+
+  revalidatePath("/admin/customers");
+  redirect(result.ok ? "/admin/customers?done=deleted" : "/admin/customers?error=" + result.code);
+}
+
 export default async function AdminCustomersPage({
   searchParams,
 }: {
@@ -41,6 +63,8 @@ export default async function AdminCustomersPage({
 
   const sp = await searchParams;
   const page = Math.max(1, Math.floor(Number(sp.page)) || 1);
+  const errorText =
+    typeof sp.error === "string" && Object.prototype.hasOwnProperty.call(ERRORS, sp.error) ? ERRORS[sp.error] : "";
 
   const filter: Record<string, unknown> = { role: "customer" };
   if (sp.status === "active") filter.isActive = true;
@@ -73,6 +97,17 @@ export default async function AdminCustomersPage({
       <h1 className="mb-8 mt-0 font-medium leading-tight" style={{ fontFamily: serif, color: COPPER, fontSize: "clamp(2rem, 4vw, 3rem)" }}>
         Customers
       </h1>
+
+      {sp.done === "deleted" && (
+        <p role="status" className="mb-4 px-3 py-2 text-[13px]" style={{ background: "#E3F2E6", color: "#1F7A3A" }}>
+          Customer deleted.
+        </p>
+      )}
+      {errorText && (
+        <p role="alert" className="mb-4 px-3 py-2 text-[13px]" style={{ background: "#F8E3E0", color: "#A32A1F" }}>
+          {errorText}
+        </p>
+      )}
 
       <form method="get" className="mb-5 flex flex-wrap gap-3">
         <input name="search" defaultValue={search} placeholder="Search by name, email or phone"
@@ -107,7 +142,7 @@ export default async function AdminCustomersPage({
                 <tr key={String(c._id)} className="border-b border-black/5 last:border-0">
                   <td className="px-4 py-3">{c.name}</td>
                   <td className="px-4 py-3">{c.email}</td>
-                  <td className="px-4 py-3">{c.phone || "—"}</td>
+                  <td className="px-4 py-3">{c.phone || "-"}</td>
                   <td className="px-4 py-3">{new Date(c.createdAt).toLocaleDateString("en-IN")}</td>
                   <td className="px-4 py-3">{c.isActive ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3">
@@ -119,6 +154,17 @@ export default async function AdminCustomersPage({
                           {c.isActive ? "Deactivate" : "Activate"}
                         </button>
                       </form>
+                      {user.isOwner && (
+                        <form action={deleteCustomerAction}>
+                          <input type="hidden" name="id" value={String(c._id)} />
+                          <ConfirmDeleteButton
+                            label={"Delete " + c.name}
+                            message={
+                              "Delete " + c.name + " for good? Their orders, reviews, cart, wishlist and saved address are deleted too. This cannot be undone."
+                            }
+                          />
+                        </form>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -129,7 +175,7 @@ export default async function AdminCustomersPage({
       </div>
 
       <div className="mt-5 flex items-center justify-between text-[13px] text-black/60">
-        <span>{total} customers · page {Math.min(page, pages)} of {pages}</span>
+        <span>{total} customers - page {Math.min(page, pages)} of {pages}</span>
         <div className="flex gap-4">
           {page > 1 && <Link href={link(page - 1)} className="underline underline-offset-4">Previous</Link>}
           {page < pages && <Link href={link(page + 1)} className="underline underline-offset-4">Next</Link>}

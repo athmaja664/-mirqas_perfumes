@@ -18,3 +18,12 @@ export async function requireOwner() {
     return { error: NextResponse.json({ message: "Only the main admin can do this." }, { status: 403 }) };
   return result;
 }
+
+// The owner, or an admin the owner has allowed to manage admins.
+export async function requireAdminManager() {
+  const result = await requireAdmin();
+  if ("error" in result) return result;
+  if (!result.admin.canManageAdmins)
+    return { error: NextResponse.json({ message: "You are not allowed to manage admins." }, { status: 403 }) };
+  return result;
+}

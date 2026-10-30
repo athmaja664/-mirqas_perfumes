@@ -33,6 +33,7 @@ export async function getCurrentUser() {
   if (!session) return null;
   const u = await User.findById(session.userId).lean();
   if (!u || !u.isActive) return null;
+  const isAdmin = u.role === "admin";
   return {
     id: String(u._id),
     name: u.name,
@@ -40,7 +41,9 @@ export async function getCurrentUser() {
     phone: u.phone,
     role: u.role,
     // Old accounts have no isOwner field, so only a real true counts
-    isOwner: u.role === "admin" && u.isOwner === true,
+    isOwner: isAdmin && u.isOwner === true,
+    // The owner can always manage admins. Another admin can only if the owner allowed it.
+    canManageAdmins: isAdmin && (u.isOwner === true || u.canManageAdmins === true),
   };
 }
 

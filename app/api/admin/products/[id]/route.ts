@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isValidObjectId } from "mongoose";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { requireAdmin, requireOwner } from "@/lib/auth/require-admin";
 import { guardRequest, readJson } from "@/lib/security";
 import { connectDB } from "@/lib/db";
 import { Product } from "@/models/Product";
 import { updateProductSchema, SALE_MESSAGE } from "@/lib/validations/product";
 import { findProduct, toProduct, uniqueSlug } from "@/lib/services/products";
+import { deleteProduct } from "@/lib/services/purge";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -46,14 +47,26 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   return NextResponse.json({ product: toProduct(product.toObject()) });
 }
 
-// Deactivates instead of deleting, so old orders can still show the product.
+// Without ?permanent=true this deactivates (any admin).
+// With ?permanent=true it deletes the product for good (main admin only).
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const blocked = guardRequest(req, "admin-products", 200);
   if (blocked) return blocked;
+
+  const { id } = await params;
+  const permanent = req.nextUrl.searchParams.get("permanent") === "true";
+
+  if (permanent) {
+    const owner = await requireOwner();
+    if ("error" in owner && owner.error) return owner.error;
+    const result = await deleteProduct(id);
+    if (!result.ok) return NextResponse.json({ message: result.message }, { status: result.status });
+    return NextResponse.json({ message: "Product deleted." });
+  }
+
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 
-  const { id } = await params;
   if (!isValidObjectId(id)) return NextResponse.json({ message: "Product not found." }, { status: 404 });
 
   await connectDB();

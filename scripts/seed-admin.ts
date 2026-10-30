@@ -15,8 +15,16 @@ async function main() {
   if (await User.exists({ email })) {
     console.log("An account with this email already exists. Nothing changed.");
   } else {
-    await User.create({ name, email, phone: "", passwordHash: await bcrypt.hash(password, 12), role: "admin" });
-    console.log("Admin created:", email);
+    // The first admin made by this script is the owner (main admin).
+    await User.create({
+      name,
+      email,
+      phone: "",
+      passwordHash: await bcrypt.hash(password, 12),
+      role: "admin",
+      isOwner: true,
+    });
+    console.log("Owner admin created:", email);
   }
   await mongoose.disconnect();
 }

@@ -25,6 +25,13 @@ export async function PATCH(req: NextRequest) {
   if (!(await bcrypt.compare(parsed.data.currentPassword, doc.passwordHash)))
     return NextResponse.json({ message: "Current password is incorrect." }, { status: 403 });
 
+  // The current password is correct here, so a new password that is the same is a mistake.
+  if (parsed.data.newPassword === parsed.data.currentPassword)
+    return NextResponse.json(
+      { message: "New password must be different from your current password." },
+      { status: 400 }
+    );
+
   doc.passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
   await doc.save();
 

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { destroySession } from "@/lib/auth/session";
+import { destroySession, getCurrentUser } from "@/lib/auth/session";
 import AdminChrome from "@/components/admin/AdminChrome";
 
 async function logout() {
@@ -8,7 +8,7 @@ async function logout() {
   redirect("/login");
 }
 
-export default function AdminShell({
+export default async function AdminShell({
   active,
   children,
 }: {
@@ -16,8 +16,9 @@ export default function AdminShell({
   userName?: string; // accepted so pages can pass it; AdminChrome decides how the layout looks
   children: React.ReactNode;
 }) {
+  const user = await getCurrentUser();
   return (
-    <AdminChrome active={active} logout={logout}>
+    <AdminChrome active={active} logout={logout} canManageAdmins={user?.canManageAdmins === true}>
       {children}
     </AdminChrome>
   );
