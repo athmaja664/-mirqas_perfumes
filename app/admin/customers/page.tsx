@@ -146,21 +146,27 @@ export default async function AdminCustomersPage({
                   <td className="px-4 py-3">{new Date(c.createdAt).toLocaleDateString("en-IN")}</td>
                   <td className="px-4 py-3">{c.isActive ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-4">
-                      <Link href={`/admin/customers/${String(c._id)}`} className="underline underline-offset-4">View</Link>
-                      <form action={toggleActive}>
+                                        <div className="flex h-8 items-center gap-4">
+                      <Link
+                        href={`/admin/customers/${String(c._id)}`}
+                        className="flex h-8 w-10 items-center leading-none underline underline-offset-4"
+                      >
+                        View
+                      </Link>
+                      <form action={toggleActive} className="m-0 flex h-8 w-[92px] items-center">
                         <input type="hidden" name="id" value={String(c._id)} />
-                        <button type="submit" className="underline underline-offset-4">
+                        <button type="submit" className="leading-none underline underline-offset-4">
                           {c.isActive ? "Deactivate" : "Activate"}
                         </button>
                       </form>
                       {user.isOwner && (
-                        <form action={deleteCustomerAction}>
+                        <form action={deleteCustomerAction} className="m-0 flex h-8 items-center">
                           <input type="hidden" name="id" value={String(c._id)} />
                           <ConfirmDeleteButton
                             label={"Delete " + c.name}
+                            title="Delete customer?"
                             message={
-                              "Delete " + c.name + " for good? Their orders, reviews, cart, wishlist and saved address are deleted too. This cannot be undone."
+                              "Delete " + c.name + " for good?\n\nTheir orders, reviews, cart, wishlist and saved address are deleted too.\n\nThis cannot be undone."
                             }
                           />
                         </form>

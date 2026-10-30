@@ -1,13 +1,16 @@
 import { z } from "zod";
 
-// Only files uploaded through /api/reviews/uploads can be used (random 32-letter names).
+// Only files uploaded through /api/reviews/uploads can be used.
+// They live in our Vercel Blob store, in the "reviews" folder, with random 32-letter names.
 // This stops anyone from putting an outside link into a review.
+const BLOB_HOST = "https:\\/\\/[a-z0-9-]+\\.public\\.blob\\.vercel-storage\\.com\\/reviews\\/";
+
 const imageUrl = z
   .string()
-  .regex(/^\/api\/uploads\/[a-f0-9]{32}\.(jpg|png|webp)$/, "One of the images is not valid.");
+  .regex(new RegExp("^" + BLOB_HOST + "[a-f0-9]{32}\\.(jpg|png|webp)$"), "One of the images is not valid.");
 const videoUrl = z
   .string()
-  .regex(/^\/api\/uploads\/[a-f0-9]{32}\.(mp4|webm)$/, "The video is not valid.");
+  .regex(new RegExp("^" + BLOB_HOST + "[a-f0-9]{32}\\.(mp4|webm)$"), "The video is not valid.");
 
 export const reviewSchema = z.object({
   rating: z

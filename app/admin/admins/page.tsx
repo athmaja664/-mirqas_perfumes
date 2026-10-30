@@ -44,7 +44,7 @@ export default async function AdminsPage({
   const admins = await listAdmins();
 
   const btn =
-    "px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors";
+    "h-8 w-full px-3 text-center text-[11px] font-semibold uppercase leading-none tracking-[0.15em] transition-colors";
 
   return (
     <AdminShell active="Admins">
@@ -73,7 +73,7 @@ export default async function AdminsPage({
       </div>
 
       <div className="overflow-x-auto border border-black/10 bg-white">
-        <table className="w-full min-w-[640px] border-collapse text-left text-[14px]">
+        <table className="w-full min-w-[760px] border-collapse text-left text-[14px]">
           <thead>
             <tr className="border-b border-black/10 text-[11px] uppercase tracking-[0.15em] text-black/60">
               <th className="px-4 py-3 font-medium">Name</th>
@@ -114,26 +114,31 @@ export default async function AdminsPage({
                     {a.createdAt ? new Date(a.createdAt).toLocaleDateString("en-GB") : "-"}
                   </td>
                   <td className="px-4 py-3">
-                    {/* <div className="flex flex-wrap justify-end gap-2"> */}
-            <div className="flex flex-wrap items-center justify-end gap-2">
-                      {user.isOwner && !a.isOwner && (
-                        <form action={setManagerAction}>
-                          <input type="hidden" name="id" value={a.id} />
-                          <input type="hidden" name="allow" value={a.canManageAdmins ? "false" : "true"} />
-                          <button
-                            type="submit"
-                            className={btn + " border border-[#9C5A2B] text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"}
-                          >
-                            {a.canManageAdmins ? "Remove permission" : "Allow to manage admins"}
-                          </button>
-                        </form>
-                      )}
-                      {canRemove && (
-                        <form action={removeAdminAction}>
-                          <input type="hidden" name="id" value={a.id} />
-                          <RemoveAdminButton name={a.name} />
-                        </form>
-                      )}
+                    <div className="flex h-8 items-center justify-end gap-3">
+                      {/* Slot 1: permission button (fixed width, so every row lines up) */}
+                      <div className="flex h-8 w-[210px] items-center">
+                        {user.isOwner && !a.isOwner && (
+                          <form action={setManagerAction} className="m-0 w-full">
+                            <input type="hidden" name="id" value={a.id} />
+                            <input type="hidden" name="allow" value={a.canManageAdmins ? "false" : "true"} />
+                            <button
+                              type="submit"
+                              className={btn + " border border-[#9C5A2B] text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"}
+                            >
+                              {a.canManageAdmins ? "Remove permission" : "Allow to manage admins"}
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                      {/* Slot 2: bin icon (always the same place, at the right) */}
+                      <div className="flex h-8 w-8 items-center justify-center">
+                        {canRemove && (
+                          <form action={removeAdminAction} className="m-0 flex h-8 items-center">
+                            <input type="hidden" name="id" value={a.id} />
+                            <RemoveAdminButton name={a.name} />
+                          </form>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>

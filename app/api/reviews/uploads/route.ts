@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { put } from "@vercel/blob";
 import { getCurrentUser } from "@/lib/auth/session";
 import { guardRequest } from "@/lib/security";
 import {
-  UPLOAD_DIR,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
   detectImageType,
@@ -14,6 +12,15 @@ import {
 
 export const runtime = "nodejs";
 
+const CONTENT_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  mp4: "video/mp4",
+  webm: "video/webm",
+};
+
 // Photos and one video for a customer review. Signed-in customers only.
 export async function POST(req: NextRequest) {
   const blocked = guardRequest(req, "review-uploads", 20);
@@ -21,6 +28,9 @@ export async function POST(req: NextRequest) {
 
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ message: "Please log in to upload." }, { status: 401 });
+
+  if (!process.env.BLOB_READ_WRITE_TOKEN)
+    return NextResponse.json({ message: "File storage is not set up." }, { status: 500 });
 
   let form: FormData;
   try {
@@ -40,7 +50,6 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
 
-  await mkdir(UPLOAD_DIR, { recursive: true });
   const urls: string[] = [];
 
   for (const file of files) {
@@ -66,8 +75,16 @@ export async function POST(req: NextRequest) {
       );
 
     const name = `${randomBytes(16).toString("hex")}.${type}`;
-    await writeFile(path.join(UPLOAD_DIR, name), buf);
-    urls.push(`/api/uploads/${name}`);
+    try {
+      const blob = await put(`reviews/${name}`, buf, {
+        access: "public",
+        contentType: CONTENT_TYPES[type] ?? "application/octet-stream",
+        addRandomSuffix: false,
+      });
+      urls.push(blob.url);
+    } catch {
+      return NextResponse.json({ message: "Could not save the file. Please try again." }, { status: 502 });
+    }
   }
 
   return NextResponse.json({ urls }, { status: 201 });
