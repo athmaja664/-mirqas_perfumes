@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 // Brand colours (same as Shop All)
 const COPPER = "#9C5A2B";
@@ -278,6 +279,7 @@ function CartCard({
 // PAGE
 // ---------------------------------------------------------------------------
 export default function CartPage() {
+    const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
   const [note, setNote] = useState("");
@@ -322,11 +324,16 @@ export default function CartPage() {
   const subtotal = items.reduce((n, it) => n + unitOf(it).price * it.qty, 0);
   const total = subtotal;
 
-  const handleCheckout = () => {
+  // const handleCheckout = () => {
+  //   if (checkingOut) return;
+  //   setCheckingOut(true);
+  //   // TODO: connect your real checkout here, e.g. router.push("/checkout")
+  //   setTimeout(() => setCheckingOut(false), 1200);
+  // };
+    const handleCheckout = () => {
     if (checkingOut) return;
     setCheckingOut(true);
-    // TODO: connect your real checkout here, e.g. router.push("/checkout")
-    setTimeout(() => setCheckingOut(false), 1200);
+    router.push("/checkout");
   };
 
   return (
@@ -361,7 +368,7 @@ export default function CartPage() {
               Your cart is empty.
             </p>
             <Link
-              href="/shop"
+              href="/"
               className="mt-5 inline-block rounded-[6px] px-6 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-[#7d4720]"
               style={{ background: COPPER }}
             >

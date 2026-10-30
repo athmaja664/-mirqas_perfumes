@@ -80,7 +80,7 @@ export default async function AdminOrderDetailPage({
 
   return (
     <AdminShell active="Orders">
-      <h1 className="mb-3 mt-0 text-4xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
+      <h1 className="mb-3 mt-0 text-4xl font-medium lining-nums" style={{ fontFamily: serif, color: COPPER }}>
         {o.orderNumber}
       </h1>
       <div className="mb-8 flex flex-wrap items-center gap-3 text-[14px] text-black/60">
