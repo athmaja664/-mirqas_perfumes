@@ -15,7 +15,7 @@ const NAV: { label: string; href?: string }[] = [
   { label: "Dashboard", href: "/admin/dashboard" },
   { label: "Products", href: "/admin/products" },
   { label: "Customers", href: "/admin/customers" },
-  { label: "Orders" },
+  { label: "Orders", href: "/admin/orders" },
   { label: "Profile", href: "/admin/profile" },
 ];
 export default function AdminChrome({
