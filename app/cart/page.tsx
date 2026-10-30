@@ -22,10 +22,6 @@ const sans = "Inter, system-ui, sans-serif";
 const CART_KEY = "mirqas-cart";
 const SYNC_EVENT = "mirqas-storage"; // tells other components (navbar count) that storage changed
 
-// Offer: buy any 2 products, get Rs. 150 off
-const OFFER_QTY = 2;
-const OFFER_OFF = 150;
-
 type SizeOption = {
   ml: number;
   price: number;
@@ -324,11 +320,7 @@ export default function CartPage() {
 
   const count = items.reduce((n, it) => n + it.qty, 0);
   const subtotal = items.reduce((n, it) => n + unitOf(it).price * it.qty, 0);
-  const offerUnlocked = count >= OFFER_QTY;
-  const remaining = Math.max(0, OFFER_QTY - count);
-  const progress = Math.min(100, (count / OFFER_QTY) * 100);
-  const discount = offerUnlocked ? OFFER_OFF : 0;
-  const total = Math.max(0, subtotal - discount);
+  const total = subtotal;
 
   const handleCheckout = () => {
     if (checkingOut) return;
@@ -352,7 +344,7 @@ export default function CartPage() {
             Your cart
           </h1>
           <Link
-            href="/shop"
+            href="/"
             className="text-sm underline underline-offset-4 transition-colors hover:text-[#9C5A2B]"
           >
             Continue shopping
@@ -379,116 +371,79 @@ export default function CartPage() {
         )}
 
         {items.length > 0 && (
-          <>
-            {/* Offer bar */}
-            <div
-              className="mb-8 rounded-[14px] border border-dashed bg-white p-5"
-              style={{ borderColor: COPPER_SOFT }}
+          <div className="grid gap-8 lg:grid-cols-[1fr_380px] lg:items-start lg:gap-10">
+            {/* Items */}
+            <div className="flex min-w-0 flex-col gap-4">
+              {items.map((it, i) => (
+                <CartCard
+                  key={`${it.slug}-${it.ml}`}
+                  item={it}
+                  onSize={(ml) => changeSize(i, ml)}
+                  onQty={(q) => changeQty(i, q)}
+                  onRemove={() => removeAt(i)}
+                />
+              ))}
+            </div>
+
+            {/* Summary box */}
+            <aside
+              className="rounded-[14px] border bg-white p-5 sm:p-6 lg:sticky lg:top-40"
+              style={{ borderColor: CARD_LINE }}
             >
-              <div className="flex flex-wrap items-center gap-3">
-                <span
-                  className="rounded-[4px] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-white"
-                  style={{ background: COPPER }}
-                >
-                  Offer 1
+              <h2 className="m-0 text-2xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
+                Order summary
+              </h2>
+
+              <div className="mt-4 space-y-2 text-sm" style={{ color: MUTED }}>
+                <div className="flex justify-between">
+                  <span>
+                    Subtotal ({count} {count === 1 ? "item" : "items"})
+                  </span>
+                  <span style={{ color: INK }}>{formatPrice(subtotal)}</span>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-baseline justify-between border-t pt-4" style={{ borderColor: CARD_LINE }}>
+                <span className="text-xl" style={{ fontFamily: serif }}>
+                  Estimated total
                 </span>
-                <p className="m-0 text-base font-semibold" style={{ color: COPPER }}>
-                  Buy any {OFFER_QTY} products, get {formatPrice(OFFER_OFF).replace(".00", "")} off
-                </p>
+                <span className="text-2xl font-semibold" style={{ color: COPPER }}>
+                  {formatPrice(total)}
+                </span>
               </div>
-              <p className="m-0 mt-2 text-sm" style={{ color: MUTED }}>
-                {offerUnlocked
-                  ? `Offer unlocked. You save ${formatPrice(OFFER_OFF)}.`
-                  : `Add ${remaining} more ${remaining === 1 ? "product" : "products"} to save ${formatPrice(OFFER_OFF)}.`}
+              <p className="m-0 mt-1 text-xs" style={{ color: MUTED }}>
+                Taxes included. Shipping calculated at checkout.
               </p>
-              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#EADFCC]">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%`, background: COPPER }}
-                />
-              </div>
-            </div>
 
-            <div className="grid gap-8 lg:grid-cols-[1fr_380px] lg:items-start lg:gap-10">
-              {/* Items */}
-              <div className="flex min-w-0 flex-col gap-4">
-                {items.map((it, i) => (
-                  <CartCard
-                    key={`${it.slug}-${it.ml}`}
-                    item={it}
-                    onSize={(ml) => changeSize(i, ml)}
-                    onQty={(q) => changeQty(i, q)}
-                    onRemove={() => removeAt(i)}
-                  />
-                ))}
-              </div>
-
-              {/* Summary box */}
-              <aside
-                className="rounded-[14px] border bg-white p-5 sm:p-6 lg:sticky lg:top-40"
+              <label htmlFor="order-note" className="mt-5 block text-sm font-medium">
+                Order special instructions
+              </label>
+              <textarea
+                id="order-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+                className="mt-2 w-full rounded-[10px] border bg-white p-3 text-sm outline-none focus:border-[#9C5A2B]"
                 style={{ borderColor: CARD_LINE }}
+              />
+
+              <button
+                type="button"
+                onClick={handleCheckout}
+                disabled={checkingOut}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#7d4720] disabled:cursor-wait disabled:opacity-80"
+                style={{ background: COPPER }}
               >
-                <h2 className="m-0 text-2xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
-                  Order summary
-                </h2>
-
-                <div className="mt-4 space-y-2 text-sm" style={{ color: MUTED }}>
-                  <div className="flex justify-between">
-                    <span>
-                      Subtotal ({count} {count === 1 ? "item" : "items"})
-                    </span>
-                    <span style={{ color: INK }}>{formatPrice(subtotal)}</span>
-                  </div>
-                  {discount > 0 && (
-                    <div className="flex justify-between">
-                      <span>Offer discount</span>
-                      <span style={{ color: "#1F7A3A" }}>− {formatPrice(discount)}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-4 flex items-baseline justify-between border-t pt-4" style={{ borderColor: CARD_LINE }}>
-                  <span className="text-xl" style={{ fontFamily: serif }}>
-                    Estimated total
-                  </span>
-                  <span className="text-2xl font-semibold" style={{ color: COPPER }}>
-                    {formatPrice(total)}
-                  </span>
-                </div>
-                <p className="m-0 mt-1 text-xs" style={{ color: MUTED }}>
-                  Taxes included. Shipping calculated at checkout.
-                </p>
-
-                <label htmlFor="order-note" className="mt-5 block text-sm font-medium">
-                  Order special instructions
-                </label>
-                <textarea
-                  id="order-note"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={3}
-                  className="mt-2 w-full rounded-[10px] border bg-white p-3 text-sm outline-none focus:border-[#9C5A2B]"
-                  style={{ borderColor: CARD_LINE }}
-                />
-
-                <button
-                  type="button"
-                  onClick={handleCheckout}
-                  disabled={checkingOut}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#7d4720] disabled:cursor-wait disabled:opacity-80"
-                  style={{ background: COPPER }}
-                >
-                  {checkingOut ? (
-                    <>
-                      <Spinner /> Please wait
-                    </>
-                  ) : (
-                    "Buy now"
-                  )}
-                </button>
-              </aside>
-            </div>
-          </>
+                {checkingOut ? (
+                  <>
+                    <Spinner /> Please wait
+                  </>
+                ) : (
+                  "Buy now"
+                )}
+              </button>
+            </aside>
+          </div>
         )}
       </div>
     </main>
