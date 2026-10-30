@@ -303,19 +303,14 @@ export default function LoginPage() {
               <div className="flex items-center justify-between text-[13px]" style={{ color: "rgba(17,17,17,0.75)" }}>
                 <label className="flex cursor-pointer items-center gap-2">
                   <input
-                    type="checkbox"
+                    type=""
                     checked={remember}
                     onChange={(e) => setRemember(e.target.checked)}
                     className="h-4 w-4 accent-[#9C5A2B]"
                   />
-                  Remember me
+                 
                 </label>
-                <Link
-                  href="/forgot-password"
-                  className="underline-offset-4 transition-colors hover:text-[#9C5A2B] hover:underline"
-                >
-                  Forgot password?
-                </Link>
+                
               </div>
             ) : (
               <label
