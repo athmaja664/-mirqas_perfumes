@@ -1,9 +1,14 @@
 "use client";
 
-// Shop All Perfumes. Products now come from MongoDB through /api/products.
+// Shop All Perfumes. Products come from MongoDB through /api/products.
+// Card media: the first image is the thumbnail. On hover (laptop) or when the card is
+// scrolled into the middle of the screen (phone) the card plays the admin's video,
+// or changes to the admin's hover image, or (if neither was chosen) to the 2nd image.
 
 import Link from "next/link";
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { COLLECTION_SECTIONS } from "@/lib/sections";
 import { productHref } from "@/lib/productHref";
 
 // Brand colours (same as the other shop pages)
@@ -32,6 +37,9 @@ const PAGE_SIZE = 6;
 // Top of the price slider, in rupees. Raise it if you add a more expensive perfume.
 const PRICE_MAX = 20000;
 
+// A link ending in .mp4 or .webm is a video. Any other link is an image.
+const isVideoUrl = (url: string) => /\.(mp4|webm)(\?.*)?$/i.test(url);
+
 // ---------------------------------------------------------------------------
 // TYPES
 // ---------------------------------------------------------------------------
@@ -50,8 +58,9 @@ type Perfume = {
   originalPrice?: number; // rupees
   sizes?: SizeOption[];
   notes?: string[];
-  image?: string;
-  hoverImage?: string;
+  image?: string; // thumbnail
+  hoverImage?: string; // shown on hover / scroll (instead of a video)
+  hoverVideo?: string; // plays on hover / scroll
   badge?: string;
   soldOut?: boolean;
   featured?: boolean;
@@ -69,6 +78,7 @@ type ApiProduct = {
   price: number;
   salePrice: number | null;
   images: string[];
+  video?: string; // the admin's "card hover media": one video OR one image
   badge: string;
   isFeatured: boolean;
   sales: number;
@@ -332,16 +342,25 @@ function ProductCard({
   const [selectedMl, setSelectedMl] = useState(firstAvailable.ml);
   const [added, setAdded] = useState(false);
 
-  // Mobile / touch: show the second image while the card is in the middle of the screen
+  // Phone / tablet: true while the card is in the middle of the screen
   const [inView, setInView] = useState(false);
-  const imgBoxRef = useRef<HTMLDivElement>(null);
+  // Laptop: true while the mouse is over the picture
+  const [hovering, setHovering] = useState(false);
+  // The video is shown only after it really started playing (no black flash)
+  const [videoReady, setVideoReady] = useState(false);
 
+  const imgBoxRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const hasHoverMedia = !!p.hoverImage || !!p.hoverVideo;
+  const active = hovering || inView;
+
+  // Phones / tablets (cannot hover): watch when the card is in the middle of the screen
   useEffect(() => {
-    if (!p.hoverImage) return;
+    if (!hasHoverMedia) return;
     const el = imgBoxRef.current;
     if (!el) return;
 
-    // Only on devices that cannot hover (phones / tablets). Desktop keeps the normal hover.
     const noHover = window.matchMedia("(hover: none), (pointer: coarse)").matches;
     if (!noHover) return;
 
@@ -351,7 +370,21 @@ function ProductCard({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [p.hoverImage]);
+  }, [hasHoverMedia]);
+
+  // Play the video while the card is active, pause it when not
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (active) {
+      v.muted = true;
+      v.play().catch(() => {
+        // The browser blocked it (for example battery saver). The thumbnail stays.
+      });
+    } else {
+      v.pause();
+    }
+  }, [active, p.hoverVideo]);
 
   // "Added" confirmation goes back to normal after 1.6 seconds
   useEffect(() => {
@@ -385,8 +418,13 @@ function ProductCard({
       className="group flex h-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)]"
       style={{ borderColor: CARD_LINE, fontFamily: sans }}
     >
-      {/* image + wishlist heart */}
-      <div ref={imgBoxRef} className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px] bg-[#F6EEE0]">
+      {/* image / video + wishlist heart */}
+      <div
+        ref={imgBoxRef}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+        className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px] bg-[#F6EEE0]"
+      >
         <Link
           href={detailHref}
           aria-label={`View ${p.name}`}
@@ -394,6 +432,7 @@ function ProductCard({
         >
           {p.image ? (
             <>
+              {/* Thumbnail (the first image). It fades out when a hover image takes its place. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={p.image}
@@ -401,9 +440,13 @@ function ProductCard({
                 className={`absolute inset-0 h-full w-full object-cover transition duration-700 ${
                   p.hoverImage
                     ? `group-hover:opacity-0 ${inView ? "opacity-0" : "opacity-100"}`
+                    : p.hoverVideo
+                    ? ""
                     : "group-hover:scale-105"
                 }`}
               />
+
+              {/* Hover image: fades in on hover (laptop) or when scrolled into view (phone) */}
               {p.hoverImage && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -411,6 +454,24 @@ function ProductCard({
                   alt={`${p.name} alternate view`}
                   className={`absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105 group-hover:opacity-100 ${
                     inView ? "scale-105 opacity-100" : "opacity-0"
+                  }`}
+                />
+              )}
+
+              {/* Hover video: plays on hover (laptop) or when scrolled into view (phone) */}
+              {p.hoverVideo && (
+                <video
+                  ref={videoRef}
+                  src={p.hoverVideo}
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  disablePictureInPicture
+                  aria-hidden
+                  onPlaying={() => setVideoReady(true)}
+                  className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+                    active && videoReady ? "opacity-100" : "opacity-0"
                   }`}
                 />
               )}
@@ -588,7 +649,16 @@ function ProductCard({
   );
 }
 
-export default function ShopAllPerfumesPage() {
+function ShopAllPerfumes() {
+  // The home page "See more" button sends ?collection=oud-woody or ?bestseller=true
+  const params = useSearchParams();
+  const collectionSlug = params.get("collection") ?? "";
+  const bestOnly = params.get("bestseller") === "true";
+  const collectionLabel = COLLECTION_SECTIONS.find((c) => c.value === collectionSlug)?.label ?? "";
+  const apiQuery = new URLSearchParams({ limit: "48" });
+  if (collectionLabel) apiQuery.set("collection", collectionSlug);
+  if (bestOnly) apiQuery.set("bestseller", "true");
+  const apiQueryString = apiQuery.toString();
   const [sort, setSort] = useState("featured");
   const [selected, setSelected] = useState<Record<FilterKey, string[]>>({ gender: [], occasion: [], family: [] });
   const [minPrice, setMinPrice] = useState(0);
@@ -598,20 +668,30 @@ export default function ShopAllPerfumesPage() {
   const [filtersOpen, setFiltersOpen] = useState(false); // mobile drawer
   const [wishlist, setWishlist] = useState<string[]>([]);
 
-  // The perfumes now come from the database
+  // The perfumes come from the database
   const [perfumes, setPerfumes] = useState<Perfume[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/products?limit=48")
+    fetch(`/api/products?${apiQueryString}`)
       .then((r) => r.json())
       .then((d: { items: ApiProduct[] }) => {
         if (cancelled) return;
         setPerfumes(
           d.items.map((a): Perfume => {
             const onSale = a.salePrice != null;
+
+            // Card media rule:
+            //  - the admin chose a VIDEO  -> the card plays it
+            //  - the admin chose an IMAGE -> the card changes to it
+            //  - nothing chosen           -> the card uses the 2nd gallery image (if there is one)
+            const media = (a.video ?? "").trim();
+            const mediaIsVideo = media !== "" && isVideoUrl(media);
+            const hoverVideo = mediaIsVideo ? media : undefined;
+            const hoverImage = media === "" ? a.images[1] : mediaIsVideo ? undefined : media;
+
             return {
               slug: a.slug,
               name: a.name,
@@ -620,7 +700,8 @@ export default function ShopAllPerfumesPage() {
               originalPrice: onSale ? a.price / 100 : undefined,
               notes: a.notes.length ? a.notes : undefined,
               image: a.images[0],
-              hoverImage: a.images[1],
+              hoverImage,
+              hoverVideo,
               badge: a.badge || undefined,
               soldOut: !a.inStock,
               featured: a.isFeatured,
@@ -643,7 +724,7 @@ export default function ShopAllPerfumesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiQueryString]);
 
   const countFor = (key: FilterKey, option: string) =>
     perfumes.filter((p) => (key === "occasion" ? p.occasion.includes(option) : p[key] === option)).length;
@@ -883,9 +964,19 @@ export default function ShopAllPerfumesPage() {
 
         {/* Top bar: count, sort, and the mobile Filters button */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-[#111111]/60">
-            {PAGE_LABEL} &nbsp;|&nbsp; {filtered.length} Products
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="m-0 text-sm text-[#111111]/60">
+              {PAGE_LABEL} &nbsp;|&nbsp; {filtered.length} Products
+            </p>
+            {(collectionLabel || bestOnly) && (
+              <Link
+                href="/shopallperfume"
+                className="inline-flex items-center gap-2 border border-[#9C5A2B] px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white"
+              >
+                {collectionLabel || "Best Sellers"} <span aria-hidden>✕</span>
+              </Link>
+            )}
+          </div>
 
           <div className="flex items-center gap-3">
             <SortDropdown value={sort} onChange={setSort} options={SORTS} />
@@ -1077,5 +1168,13 @@ export default function ShopAllPerfumesPage() {
         </aside>
       </div>
     </main>
+  );
+}
+
+export default function ShopAllPerfumesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ShopAllPerfumes />
+    </Suspense>
   );
 }

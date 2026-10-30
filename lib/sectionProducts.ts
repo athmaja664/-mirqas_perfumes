@@ -220,3 +220,44 @@ function useStored<T>(key: string): T[] {
 
 export const useWishlistSlugs = () => useStored<WishItem>(WISHLIST_KEY).map((i) => i.slug);
 export const useStoredCart = () => useStored<CartLine>(CART_KEY);
+
+// Loads the products of one home page tab: a collection slug like "oud-woody", or "best-sellers".
+// It asks for one more than we show, so the page knows if a "See more" button is needed.
+export function useCollectionProducts(slug: string, show = 4) {
+  const [state, setState] = useState<{
+    slug: string;
+    products: ShopProduct[];
+    total: number;
+    error: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const q = slug === "best-sellers" ? "bestseller=true" : `collection=${encodeURIComponent(slug)}`;
+
+    fetch(`/api/products?${q}&limit=${show + 1}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Could not load products");
+        return res.json();
+      })
+      .then((d: { items: ApiProduct[]; total: number }) => {
+        if (!cancelled)
+          setState({ slug, products: d.items.slice(0, show).map(toShopProduct), total: d.total, error: false });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ slug, products: [], total: 0, error: true });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, show]);
+
+  const ready = state?.slug === slug;
+  return {
+    products: ready ? state!.products : [],
+    total: ready ? state!.total : 0,
+    loaded: ready,
+    error: ready ? state!.error : false,
+  };
+}

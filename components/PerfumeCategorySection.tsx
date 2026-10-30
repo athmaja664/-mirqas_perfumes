@@ -1,13 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
-import { CATEGORIES, Category, Product, products as allProducts } from "@/data/products";
+import { KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { productHref } from "@/lib/productHref";
+import { COLLECTION_SECTIONS } from "@/lib/sections";
+import {
+  ShopProduct,
+  addToCart,
+  sizesOf,
+  toggleWishlist,
+  useCollectionProducts,
+  useWishlistSlugs,
+} from "@/lib/sectionProducts";
 
 const CREAM = "#FFF9F3";
-
-// ---- Fonts and colours: same as the "Choose Your Bottle" section ----
 const COPPER = "#9C5A2B";
 const COPPER_SOFT = "rgba(156,90,43,0.45)";
 const INK = "#111111";
@@ -16,119 +22,16 @@ const BORDER = "#EADFCC";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
-// Size of the heading "You are in Best Sellers" (same as the other section headings)
 const HEADING_SIZE = "clamp(2rem, 4vw, 3rem)";
 
-// Prices look like the reference: Rs. 799.00
+// How many cards show on the home page. More products go to "See more".
+const SHOW = 4;
+
+// The tabs: Best Sellers + the 7 collections (same names as the admin form and the navbar)
+const TABS = [{ value: "best-sellers", label: "Best Sellers" }, ...COLLECTION_SECTIONS];
+
 const money = (n: number) =>
   "Rs. " + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-
-// "Musk & Powdery" -> "musk-powdery" (matches the slugs used in the navbar)
-const slugOf = (name: string) =>
-  name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-
-// ---- Sizes ----
-type SizeOption = {
-  ml: number;
-  price: number;
-  originalPrice?: number;
-  soldOut?: boolean;
-};
-
-// Optional extra fields. If a product in "@/data/products" has them, they are used.
-//   slug:    "silky-oudh"  (if missing, it is made from the name)
-//   sizes:   [{ ml: 10, price: 799, originalPrice: 1598 }, { ml: 30, ... }, { ml: 50, ... }, { ml: 100, ... }]
-//   notes:   ["Fresh", "Marine", "Powdery"]
-//   soldOut: true
-type ProductEx = Product & {
-  slug?: string;
-  sizes?: SizeOption[];
-  notes?: string[];
-  soldOut?: boolean;
-};
-
-// If a product has no "sizes" yet, its normal price is treated as the 10ml price
-// and the other sizes are worked out from it. Add real prices to the data when you have them.
-const DEFAULT_STEPS = [
-  { ml: 10, mult: 1 },
-  { ml: 30, mult: 2.25 },
-  { ml: 50, mult: 3.4 },
-  { ml: 100, mult: 5.6 },
-];
-
-function getSizes(p: ProductEx): SizeOption[] {
-  if (p.sizes && p.sizes.length > 0) return p.sizes;
-  return DEFAULT_STEPS.map(({ ml, mult }) => ({
-    ml,
-    price: Math.round(p.price * mult),
-    originalPrice: p.originalPrice ? Math.round(p.originalPrice * mult) : undefined,
-  }));
-}
-
-// ---------------------------------------------------------------------------
-// WISHLIST + CART STORAGE
-// Same keys and item shape as app/wishlist/page.tsx and app/cart/page.tsx.
-// After every change we fire "mirqas-storage" so the pages and the navbar update.
-// ---------------------------------------------------------------------------
-const WISHLIST_KEY = "mirqas-wishlist";
-const CART_KEY = "mirqas-cart";
-const SYNC_EVENT = "mirqas-storage";
-
-type WishItem = {
-  slug: string;
-  name: string;
-  image?: string;
-  notes?: string[];
-  sizes: SizeOption[];
-  soldOut?: boolean;
-};
-
-type CartLine = {
-  slug: string;
-  name: string;
-  image?: string;
-  notes?: string[];
-  sizes: SizeOption[];
-  ml: number;
-  qty: number;
-};
-
-function readList<T>(key: string): T[] {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeList<T>(key: string, list: T[]) {
-  try {
-    localStorage.setItem(key, JSON.stringify(list));
-    window.dispatchEvent(new Event(SYNC_EVENT));
-  } catch {
-    // storage full or blocked: ignore
-  }
-}
-
-function addLineToCart(item: WishItem, ml: number) {
-  const cart = readList<CartLine>(CART_KEY);
-  const i = cart.findIndex((c) => c.slug === item.slug && c.ml === ml);
-  if (i >= 0) {
-    cart[i] = { ...cart[i], qty: cart[i].qty + 1 };
-  } else {
-    cart.push({
-      slug: item.slug,
-      name: item.name,
-      image: item.image,
-      notes: item.notes,
-      sizes: item.sizes,
-      ml,
-      qty: 1,
-    });
-  }
-  writeList(CART_KEY, cart);
-}
 
 // ---- Icons ----
 const iconProps = {
@@ -163,10 +66,8 @@ const Spinner = () => (
 );
 
 /**
- * Shows the product VIDEO directly (no image thumbnail on top of it).
- * - autoplays muted + inline, which phones allow
- * - plays while on screen and pauses when scrolled away (saves battery and data)
- * - the image is only a last-resort fallback if a product has no video, or the video fails to load
+ * Shows the product VIDEO directly. The image is only a fallback
+ * if the product has no video, or the video fails to load.
  */
 function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: string }) {
   const boxRef = useRef<HTMLDivElement>(null);
@@ -181,7 +82,6 @@ function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: s
     const box = boxRef.current;
     if (!v || !box) return;
 
-    // React does not always write the "muted" attribute, and phones refuse to autoplay without it
     v.muted = true;
     v.defaultMuted = true;
     v.setAttribute("muted", "");
@@ -193,7 +93,7 @@ function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: s
     const play = () => {
       if (reduce || !visible) return;
       v.play().catch(() => {
-        // Blocked (e.g. battery saver): it will retry on the first touch below
+        // Blocked: it will retry on the first touch below
       });
     };
 
@@ -207,7 +107,6 @@ function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: s
     );
     io.observe(box);
 
-    // Some phones only allow playback after the first touch: retry once then
     window.addEventListener("touchstart", play, { once: true, passive: true });
     v.addEventListener("loadeddata", play);
 
@@ -246,104 +145,58 @@ function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: s
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-center text-[12px] text-black/45">
-          Video unavailable
+          No image yet
         </div>
       )}
     </div>
   );
 }
 
-type CartItem = { productId: string | number | undefined; name: string; ml: number; price: number };
-
-function ProductCard({
-  p,
-  onAddToCart,
-}: {
-  p: ProductEx;
-  onAddToCart?: (item: CartItem) => void;
-}) {
-  const sizes = getSizes(p);
-  const firstAvailable = sizes.find((s) => !s.soldOut) ?? sizes[0];
-  const [selectedMl, setSelectedMl] = useState(firstAvailable.ml);
-  const [wished, setWished] = useState(false);
+function ProductCard({ p, wished }: { p: ShopProduct; wished: boolean }) {
+  const sizes = sizesOf(p);
+  const [selectedMl, setSelectedMl] = useState(sizes[0].ml);
   const [status, setStatus] = useState<"idle" | "adding" | "added">("idle");
 
-  const slug = p.slug ?? slugOf(p.name);
-
-  const current = sizes.find((s) => s.ml === selectedMl) ?? firstAvailable;
-  const unavailable = !!p.soldOut || !!current.soldOut;
+  const current = sizes.find((s) => s.ml === selectedMl) ?? sizes[0];
+  const unavailable = !p.inStock;
 
   const discounted = current.originalPrice !== undefined && current.originalPrice > current.price;
   const pct = discounted
     ? Math.round(((current.originalPrice! - current.price) / current.originalPrice!) * 100)
     : 0;
 
-  // Every card now opens /product/<slug>, for example /product/silky-oudh
   const base = productHref(p);
   const buyHref = `${base}?size=${current.ml}ml`;
 
-  // What gets saved into the wishlist / cart pages
-  const storedItem: WishItem = {
-    slug,
-    name: p.name,
-    image: p.image,
-    notes: p.notes,
-    sizes,
-    soldOut: p.soldOut,
-  };
-
-  // The heart follows the saved wishlist (also when it changes on another page or tab)
-  useEffect(() => {
-    const sync = () => setWished(readList<WishItem>(WISHLIST_KEY).some((i) => i.slug === slug));
-    sync();
-    window.addEventListener("storage", sync);
-    window.addEventListener(SYNC_EVENT, sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener(SYNC_EVENT, sync);
-    };
-  }, [slug]);
-
-  const toggleWish = () => {
-    const list = readList<WishItem>(WISHLIST_KEY);
-    const next = list.some((i) => i.slug === slug)
-      ? list.filter((i) => i.slug !== slug)
-      : [...list, storedItem];
-    writeList(WISHLIST_KEY, next);
-  };
-
-  // Spinner for a moment, then the item goes into the cart page's list
   const handleAdd = () => {
     if (unavailable || status !== "idle") return;
     setStatus("adding");
     window.setTimeout(() => {
-      addLineToCart(storedItem, current.ml);
-      onAddToCart?.({ productId: p.id, name: p.name, ml: current.ml, price: current.price });
+      addToCart(p, current.ml);
       setStatus("added");
       window.setTimeout(() => setStatus("idle"), 1500);
     }, 700);
   };
 
-  const radioName = `size-${p.id ?? p.name}`;
+  const radioName = `size-${p.slug}`;
 
   return (
     <li
       className="group flex h-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)]"
       style={{ borderColor: BORDER }}
     >
-      {/* Video / image with a heart on top. Soft curved corners. */}
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px]">
         <Link
           href={base}
           aria-label={`View ${p.name}`}
           className="block h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#9C5A2B]"
         >
-          <ProductMedia src={p.image} video={p.video} alt={p.name} />
+          <ProductMedia src={p.image ?? ""} video={p.video} alt={p.name} />
         </Link>
 
         <button
           type="button"
-          onClick={toggleWish}
+          onClick={() => toggleWishlist(p)}
           aria-pressed={wished}
           aria-label={wished ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
           className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-sm transition-transform hover:scale-105 md:right-3 md:top-3 md:h-9 md:w-9"
@@ -353,7 +206,6 @@ function ProductCard({
         </button>
       </div>
 
-      {/* Details (no brand heading) */}
       <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
         <h3
           className="m-0 line-clamp-2 font-medium leading-[1.2]"
@@ -368,8 +220,7 @@ function ProductCard({
           <Link href={base}>{p.name}</Link>
         </h3>
 
-        {/* Notes: Fresh • Marine • Powdery (only if the product has notes) */}
-        {p.notes && p.notes.length > 0 && (
+        {p.notes.length > 0 && (
           <p
             className="m-0 mt-1 flex flex-wrap items-center justify-center gap-x-1 text-[9px] font-medium tracking-[0.06em] md:mt-1.5 md:gap-x-2 md:text-[12px]"
             style={{ color: INK, fontFamily: sans }}
@@ -385,7 +236,6 @@ function ProductCard({
           </p>
         )}
 
-        {/* Price */}
         <div
           className="mt-2 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 md:mt-3 md:gap-x-2"
           style={{ fontFamily: sans }}
@@ -408,12 +258,11 @@ function ProductCard({
           )}
         </div>
 
-        {/* Sizes in ONE line: 10ml 30ml 50ml 100ml */}
         <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
           <legend className="sr-only">Choose a size</legend>
           {sizes.map((s) => {
             const checked = s.ml === selectedMl;
-            const disabled = !!p.soldOut || !!s.soldOut;
+            const disabled = !p.inStock;
             return (
               <label
                 key={s.ml}
@@ -449,7 +298,6 @@ function ProductCard({
           })}
         </fieldset>
 
-        {/* Buttons (pushed to the bottom so every card lines up) */}
         <div className="mt-auto flex w-full flex-col items-stretch gap-1.5 pt-3 md:w-[90%] md:gap-2 md:pt-4">
           <button
             type="button"
@@ -502,14 +350,8 @@ function ProductCard({
   );
 }
 
-interface Props {
-  products?: Product[];
-  // Optional: called after an item is added to the cart (the cart page is already updated).
-  onAddToCart?: (item: CartItem) => void;
-}
-
-export default function PerfumeCategorySection({ products = allProducts, onAddToCart }: Props) {
-  const [selected, setSelected] = useState<Category>("Best Sellers");
+export default function PerfumeCategorySection() {
+  const [selected, setSelected] = useState<string>("best-sellers");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const sectionRef = useRef<HTMLElement>(null);
@@ -517,24 +359,27 @@ export default function PerfumeCategorySection({ products = allProducts, onAddTo
   const btnRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
 
-  // Only 4 cards: the 4th product is removed and the 5th product takes its place.
-  const visible = useMemo(() => {
-    const list =
-      selected === "Best Sellers"
-        ? products.filter((p) => p.isBestSeller)
-        : products.filter((p) => p.category === selected);
-    return list.length >= 5 ? [list[0], list[1], list[2], list[4]] : list.slice(0, 4);
-  }, [products, selected]);
+  // Products come from the database
+  const { products, total, loaded, error } = useCollectionProducts(selected, SHOW);
+  const wishlist = useWishlistSlugs();
 
-  // Jump here from the navbar: select the category and scroll to this section.
+  const selectedLabel = TABS.find((t) => t.value === selected)?.label ?? "Best Sellers";
+
+  // "See more" opens Shop All Perfume already filtered to this tab
+  const seeMoreHref =
+    selected === "best-sellers"
+      ? "/shopallperfume?bestseller=true#all-perfumes"
+      : `/shopallperfume?collection=${selected}#all-perfumes`;
+
+  // Jump here from the navbar: select the tab and scroll to this section.
   //  - from another page:  /?category=musk-powdery#perfume-categories
   //  - already on the homepage: the navbar sends a "select-category" event
   useEffect(() => {
     const apply = (slug: string | null) => {
       if (!slug) return;
-      const match = CATEGORIES.find((c) => slugOf(c) === slug);
+      const match = TABS.find((t) => t.value === slug);
       if (!match) return;
-      setSelected(match);
+      setSelected(match.value);
       setOpen(false);
       requestAnimationFrame(() => {
         sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -558,18 +403,18 @@ export default function PerfumeCategorySection({ products = allProducts, onAddTo
   }, [open]);
 
   const openMenu = () => {
-    setActive(CATEGORIES.indexOf(selected));
+    setActive(TABS.findIndex((t) => t.value === selected));
     setOpen(true);
   };
 
-  const choose = (c: Category) => {
-    setSelected(c);
+  const choose = (value: string) => {
+    setSelected(value);
     setOpen(false);
     btnRef.current?.focus();
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
-    const last = CATEGORIES.length - 1;
+    const last = TABS.length - 1;
     switch (e.key) {
       case "Escape":
         if (open) {
@@ -603,7 +448,7 @@ export default function PerfumeCategorySection({ products = allProducts, onAddTo
       case " ":
         if (open) {
           e.preventDefault();
-          choose(CATEGORIES[active]);
+          choose(TABS[active].value);
         }
         break;
       case "Tab":
@@ -621,7 +466,6 @@ export default function PerfumeCategorySection({ products = allProducts, onAddTo
       style={{ background: CREAM, fontFamily: sans }}
     >
       <div className="mx-auto max-w-[1600px] px-3 py-14 md:px-8 md:py-20 lg:px-12">
-        {/* Heading + dropdown: serif, copper, medium (same style as "Choose Your Bottle") */}
         <div className="flex flex-wrap items-baseline justify-center gap-x-3">
           <h2
             id={`${listId}-heading`}
@@ -638,12 +482,12 @@ export default function PerfumeCategorySection({ products = allProducts, onAddTo
               aria-haspopup="listbox"
               aria-expanded={open}
               aria-controls={listId}
-              aria-label={`Fragrance category: ${selected}. Change category`}
+              aria-label={`Fragrance category: ${selectedLabel}. Change category`}
               onClick={() => (open ? setOpen(false) : openMenu())}
               className="inline-flex items-center gap-2 border-b pb-0.5 font-medium leading-tight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9C5A2B]"
               style={{ fontFamily: serif, color: COPPER, borderColor: COPPER, fontSize: HEADING_SIZE }}
             >
-              {selected}
+              {selectedLabel}
               <svg
                 viewBox="0 0 24 24"
                 width="20"
@@ -666,16 +510,16 @@ export default function PerfumeCategorySection({ products = allProducts, onAddTo
               }`}
               style={{ borderColor: BORDER, fontFamily: sans }}
             >
-              {CATEGORIES.map((c, i) => {
-                const isSelected = c === selected;
+              {TABS.map((c, i) => {
+                const isSelected = c.value === selected;
                 return (
                   <li
-                    key={c}
+                    key={c.value}
                     id={`${listId}-opt-${i}`}
                     role="option"
                     aria-selected={isSelected}
                     onPointerEnter={() => setActive(i)}
-                    onClick={() => choose(c)}
+                    onClick={() => choose(c.value)}
                     className="cursor-pointer px-5 py-2.5 text-left text-[15px] tracking-[0.04em] transition-colors"
                     style={{
                       color: isSelected ? COPPER : INK,
@@ -683,7 +527,7 @@ export default function PerfumeCategorySection({ products = allProducts, onAddTo
                       background: i === active ? "#F6EDE3" : "transparent",
                     }}
                   >
-                    {c}
+                    {c.label}
                   </li>
                 );
               })}
@@ -691,14 +535,35 @@ export default function PerfumeCategorySection({ products = allProducts, onAddTo
           </div>
         </div>
 
-        {/* Products: 2 per row on phones (like the reference), 4 per row on large screens */}
         <div className="mt-10 md:mt-12" aria-live="polite">
-          {visible.length > 0 ? (
-            <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 md:grid-cols-4 md:gap-4 lg:gap-6">
-              {visible.map((p, i) => (
-                <ProductCard key={p.id ?? `${p.name}-${i}`} p={p as ProductEx} onAddToCart={onAddToCart} />
-              ))}
-            </ul>
+          {!loaded ? (
+            <p className="py-10 text-center text-[16px]" style={{ color: INK }}>
+              Loading perfumes…
+            </p>
+          ) : error ? (
+            <p className="py-10 text-center text-[16px]" style={{ color: INK }}>
+              Could not load perfumes. Please refresh.
+            </p>
+          ) : products.length > 0 ? (
+            <>
+              <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 md:grid-cols-4 md:gap-4 lg:gap-6">
+                {products.map((p) => (
+                  <ProductCard key={p.slug} p={p} wished={wishlist.includes(p.slug)} />
+                ))}
+              </ul>
+
+              {total > SHOW && (
+                <div className="mt-8 flex justify-center md:mt-10">
+                  <Link
+                    href={seeMoreHref}
+                    className="border border-[#9C5A2B] px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white"
+                    style={{ fontFamily: sans }}
+                  >
+                    See more
+                  </Link>
+                </div>
+              )}
+            </>
           ) : (
             <p className="py-10 text-center text-[16px]" style={{ color: INK }}>
               No perfumes found in this category.

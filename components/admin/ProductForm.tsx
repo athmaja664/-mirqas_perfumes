@@ -22,6 +22,8 @@ export type ProductData = {
   salePrice: number | null; // paise
   category: string;
   images: string[];
+  // The "card media": ONE video OR ONE image, shown on the product card when it is
+  // hovered (laptop) or scrolled into view (phone). It is saved in the same "video" field.
   video: string;
   stock: number;
   isActive: boolean;
@@ -31,7 +33,12 @@ export type ProductData = {
   showInNewArrivals?: boolean;
 };
 
+type CardMedia = "none" | "video" | "image";
+
 const toRupees = (paise: number) => String(paise / 100);
+
+// A saved link ending in .mp4 or .webm is a video. Any other link is an image.
+const isVideoUrl = (url: string) => /\.(mp4|webm)(\?.*)?$/i.test(url);
 
 // Shows one image. If the browser cannot load it, a message appears instead of a blank box.
 function Thumb({ url }: { url: string }) {
@@ -66,7 +73,13 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [salePrice, setSalePrice] = useState(product?.salePrice ? toRupees(product.salePrice) : "");
   const [stock, setStock] = useState(String(product?.stock ?? 0));
   const [images, setImages] = useState<string[]>(product?.images ?? []);
-  const [video, setVideo] = useState(product?.video ?? "");
+
+  // Card media: none, one video, or one image (saved in the "video" field)
+  const [media, setMedia] = useState(product?.video ?? "");
+  const [mediaType, setMediaType] = useState<CardMedia>(
+    !product?.video ? "none" : isVideoUrl(product.video) ? "video" : "image"
+  );
+
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [isBestSeller, setIsBestSeller] = useState(product?.isBestSeller ?? false);
 
@@ -81,7 +94,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.target;
@@ -120,36 +133,47 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     setImages((prev) => [url, ...prev.filter((u) => u !== url)]);
   }
 
-  async function onPickVideo(e: React.ChangeEvent<HTMLInputElement>) {
+  // Choosing a different card media type clears the old file, so only ONE kind is ever saved
+  function changeMediaType(t: CardMedia) {
+    if (t === mediaType) return;
+    setMediaType(t);
+    setMedia("");
+    setError("");
+  }
+
+  // Uploads the card media: one video (MP4/WebM) or one image, depending on the chosen type
+  async function onPickMedia(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.target;
     const file = input.files?.[0];
     input.value = "";
-    if (!file) return;
+    if (!file || mediaType === "none") return;
 
     setError("");
-    if (file.size > MAX_VIDEO_BYTES) return setError(`${file.name} is larger than 20 MB.`);
+    const isVideo = mediaType === "video";
+    const limit = isVideo ? MAX_VIDEO_BYTES : MAX_BYTES;
+    if (file.size > limit) return setError(`${file.name} is larger than ${limit / 1024 / 1024} MB.`);
 
     const body = new FormData();
-    body.append("kind", "video");
+    if (isVideo) body.append("kind", "video");
     body.append("files", file);
 
-    setUploadingVideo(true);
+    setUploadingMedia(true);
     try {
       const res = await fetch("/api/admin/uploads", { method: "POST", body });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Video upload failed.");
-      setVideo((json.urls as string[])[0]);
+      if (!res.ok) throw new Error(json.message || "Upload failed.");
+      setMedia((json.urls as string[])[0]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Video upload failed.");
+      setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
-      setUploadingVideo(false);
+      setUploadingMedia(false);
     }
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (uploading || uploadingVideo) return setError("Please wait for the uploads to finish.");
+    if (uploading || uploadingMedia) return setError("Please wait for the uploads to finish.");
 
     // Rupees typed by the admin become whole paise (₹1,499 -> 149900).
     const priceNum = Number(price);
@@ -167,6 +191,14 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     const stockNum = Number(stock);
     if (!Number.isInteger(stockNum) || stockNum < 0) return setError("Stock must be a whole number, 0 or more.");
 
+    if (images.length === 0) return setError("Add at least one image. The first image is the card thumbnail.");
+    if (mediaType !== "none" && !media)
+      return setError(
+        mediaType === "video"
+          ? "Upload the video, or choose “No hover media”."
+          : "Upload the hover image, or choose “No hover media”."
+      );
+
     // The gender follows the sections: only Men -> Men, only Women -> Women, anything else -> Unisex
     const isMen = sections.includes("men");
     const isWomen = sections.includes("women");
@@ -181,7 +213,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       salePrice: salePaise,
       stock: stockNum,
       images,
-      video: video.trim(),
+      video: mediaType === "none" ? "" : media.trim(),
       isActive,
       isBestSeller,
       gender,
@@ -214,6 +246,13 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const filePicker =
     "block w-full text-[14px] file:mr-4 file:border-0 file:bg-[#F3E7D5] file:px-4 file:py-3 file:text-[12px] file:font-semibold file:uppercase file:tracking-[0.15em] file:text-[#111] disabled:opacity-50 sm:file:py-2.5";
   const smallLink = "px-1 py-2 underline underline-offset-4";
+  const hint = "m-0 mb-3 text-[13px] leading-relaxed text-black/55";
+
+  const mediaOptions: { value: CardMedia; title: string; text: string }[] = [
+    { value: "none", title: "No hover media", text: "The card shows only the first image." },
+    { value: "video", title: "Video", text: "A video plays when the card is hovered or scrolled into view." },
+    { value: "image", title: "One image", text: "The card changes to this image when hovered or scrolled into view." },
+  ];
 
   return (
     <>
@@ -293,10 +332,15 @@ export default function ProductForm({ product }: { product?: ProductData }) {
           </div>
         </div>
 
+        {/* 1. Product images (many) */}
         <div>
           <label className={label} htmlFor="imageFiles">
-            Images (JPG, PNG or WebP, max 5 MB each, up to {MAX_IMAGES})
+            Product images (JPG, PNG or WebP, max 5 MB each, up to {MAX_IMAGES})
           </label>
+          <p className={hint}>
+            The <strong>Main</strong> image is the thumbnail on the product card. All the images show when a
+            customer opens the product to see more.
+          </p>
           <input
             id="imageFiles"
             type="file"
@@ -331,39 +375,88 @@ export default function ProductForm({ product }: { product?: ProductData }) {
           )}
         </div>
 
-        <div>
-          <label className={label} htmlFor="videoFile">
-            Hover video (MP4 or WebM, max 20 MB, optional)
-          </label>
-          <input
-            id="videoFile"
-            type="file"
-            accept="video/mp4,video/webm"
-            disabled={uploadingVideo}
-            onChange={onPickVideo}
-            className={filePicker}
-          />
-          {uploadingVideo && <p className="mb-0 mt-2 text-[13px] text-black/55">Uploading video…</p>}
+        {/* 2. Card media: ONE video OR ONE image */}
+        <fieldset className="m-0 min-w-0 border-0 p-0">
+          <legend className={label}>Card hover media (choose one, optional)</legend>
+          <p className={hint}>
+            This shows on the product card after the thumbnail. Choose a video <strong>or</strong> one image,
+            not both.
+          </p>
 
-          {video && (
-            <div className="mt-4 w-full max-w-[12rem] border border-black/10">
-              <video
-                key={video}
-                src={video}
-                muted
-                loop
-                autoPlay
-                playsInline
-                className="aspect-square w-full bg-[#F3E7D5] object-cover"
+          <div className="grid gap-3 sm:grid-cols-3">
+            {mediaOptions.map((o) => {
+              const active = mediaType === o.value;
+              return (
+                <label
+                  key={o.value}
+                  className={`flex cursor-pointer flex-col gap-1 border px-3 py-3 text-[13px] transition-colors ${
+                    active ? "border-[#9C5A2B] bg-[#9C5A2B]/5" : "border-black/10 hover:border-black/30"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 font-semibold">
+                    <input
+                      type="radio"
+                      name="cardMedia"
+                      value={o.value}
+                      checked={active}
+                      onChange={() => changeMediaType(o.value)}
+                      className="h-4 w-4 accent-[#9C5A2B]"
+                    />
+                    {o.title}
+                  </span>
+                  <span className="text-[12px] leading-snug text-black/55">{o.text}</span>
+                </label>
+              );
+            })}
+          </div>
+
+          {mediaType !== "none" && (
+            <div className="mt-4">
+              <label className={label} htmlFor="mediaFile">
+                {mediaType === "video"
+                  ? "Video (MP4 or WebM, max 20 MB)"
+                  : "Hover image (JPG, PNG or WebP, max 5 MB)"}
+              </label>
+              <input
+                id="mediaFile"
+                key={mediaType}
+                type="file"
+                accept={mediaType === "video" ? "video/mp4,video/webm" : "image/jpeg,image/png,image/webp"}
+                disabled={uploadingMedia}
+                onChange={onPickMedia}
+                className={filePicker}
               />
-              <div className="px-2 py-1 text-[11px] uppercase tracking-[0.12em]">
-                <button type="button" onClick={() => setVideo("")} className={smallLink}>
-                  Remove video
-                </button>
-              </div>
+              {uploadingMedia && (
+                <p className="mb-0 mt-2 text-[13px] text-black/55">
+                  {mediaType === "video" ? "Uploading video…" : "Uploading image…"}
+                </p>
+              )}
+
+              {media && (
+                <div className="mt-4 w-full max-w-[12rem] border border-black/10">
+                  {isVideoUrl(media) ? (
+                    <video
+                      key={media}
+                      src={media}
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                      className="aspect-square w-full bg-[#F3E7D5] object-cover"
+                    />
+                  ) : (
+                    <Thumb url={media} />
+                  )}
+                  <div className="px-2 py-1 text-[11px] uppercase tracking-[0.12em]">
+                    <button type="button" onClick={() => setMedia("")} className={smallLink}>
+                      {mediaType === "video" ? "Remove video" : "Remove image"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </fieldset>
 
         <div className="flex flex-col gap-4 text-[14px] sm:flex-row sm:flex-wrap sm:gap-8">
           <label className="flex items-center gap-3">
@@ -383,7 +476,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <button
             type="submit"
-            disabled={saving || uploading || uploadingVideo}
+            disabled={saving || uploading || uploadingMedia}
             className="w-full px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#7d4720] disabled:opacity-50 sm:w-auto sm:py-3"
             style={{ background: COPPER }}
           >
