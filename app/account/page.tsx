@@ -45,7 +45,14 @@ export default async function AccountPage() {
           ))}
         </dl>
 
-        <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+        <Link
+          href="/account/orders"
+          className="mt-8 flex h-[52px] items-center justify-center border border-[#9C5A2B] text-[12px] font-semibold uppercase tracking-[0.2em] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white"
+        >
+          My orders
+        </Link>
+
+        <div className="mt-4 flex flex-col gap-4 sm:flex-row">
           <Link
             href="/"
             className="flex h-[52px] flex-1 items-center justify-center border border-black/20 text-[12px] font-semibold uppercase tracking-[0.2em] text-[#111] transition-colors hover:bg-black/[0.03]"

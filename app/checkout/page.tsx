@@ -85,6 +85,8 @@ export default function CheckoutPage() {
   const [ready, setReady] = useState(false);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [form, setForm] = useState<Form>(EMPTY);
+  const [usingSaved, setUsingSaved] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(true);
   const [error, setError] = useState("");
   const [placing, setPlacing] = useState(false);
   const [placed, setPlaced] = useState<Placed | null>(null);
@@ -97,26 +99,48 @@ export default function CheckoutPage() {
     setReady(true);
   }, []);
 
-  // Ask the server who is signed in, and fill the name and phone
+  // Ask the server who is signed in. Then load the saved address (if there is one).
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
+
+    async function load() {
+      try {
+        const me = await fetch("/api/auth/me", { cache: "no-store" }).then((r) => r.json());
         if (cancelled) return;
-        const u = d?.user;
+        const u = me?.user;
         setSignedIn(!!u);
-        if (u) {
-          setForm((f) => ({
-            ...f,
-            name: f.name || (typeof u.name === "string" ? u.name : ""),
-            phone: f.phone || (typeof u.phone === "string" ? u.phone : ""),
-          }));
-        }
-      })
-      .catch(() => {
+        if (!u) return;
+
+        // First fill the name and phone from the account
+        setForm((f) => ({
+          ...f,
+          name: f.name || (typeof u.name === "string" ? u.name : ""),
+          phone: f.phone || (typeof u.phone === "string" ? u.phone : ""),
+        }));
+
+        // Then the saved address replaces them
+        const res = await fetch("/api/account/address", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data?.address) return;
+        const a = data.address;
+        setForm((f) => ({
+          ...f,
+          name: a.name ?? f.name,
+          phone: a.phone ?? f.phone,
+          line1: a.line1 ?? "",
+          line2: a.line2 ?? "",
+          city: a.city ?? "",
+          state: a.state ?? "",
+          pincode: a.pincode ?? "",
+        }));
+        setUsingSaved(true);
+      } catch {
         if (!cancelled) setSignedIn(false);
-      });
+      }
+    }
+
+    load();
     return () => {
       cancelled = true;
     };
@@ -135,21 +159,23 @@ export default function CheckoutPage() {
 
     if (!keyRef.current) keyRef.current = crypto.randomUUID();
 
+    const shipping = {
+      name: form.name,
+      phone: form.phone,
+      line1: form.line1,
+      line2: form.line2,
+      city: form.city,
+      state: form.state,
+      pincode: form.pincode,
+    };
+
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: items.map((l) => ({ slug: l.slug, ml: l.ml, qty: l.qty })),
-          shipping: {
-            name: form.name,
-            phone: form.phone,
-            line1: form.line1,
-            line2: form.line2,
-            city: form.city,
-            state: form.state,
-            pincode: form.pincode,
-          },
+          shipping,
           note: form.note,
           paymentMethod: "cod",
           idempotencyKey: keyRef.current,
@@ -171,6 +197,19 @@ export default function CheckoutPage() {
       writeList(CART_KEY, []);
       setItems([]);
       setPlaced(data.order as Placed);
+
+      // Save the address for next time. If this fails, the order is still fine.
+      if (saveAddress) {
+        try {
+          await fetch("/api/account/address", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(shipping),
+          });
+        } catch {
+          // ignore
+        }
+      }
     } catch {
       setError("Network problem. Please check your internet and try again.");
     } finally {
@@ -207,7 +246,7 @@ export default function CheckoutPage() {
           <p className="m-0" style={{ color: MUTED }}>Order number</p>
           <p className="m-0 mt-1 text-lg font-semibold">{placed.orderNumber}</p>
           <p className="m-0 mt-3" style={{ color: MUTED }}>
-            {placed.itemCount} {placed.itemCount === 1 ? "item" : "items"} · Total
+            {placed.itemCount} {placed.itemCount === 1 ? "item" : "items"} - Total
           </p>
           <p className="m-0 mt-1 text-xl font-semibold" style={{ color: COPPER }}>
             {formatPrice(placed.total)}
@@ -226,7 +265,7 @@ export default function CheckoutPage() {
 
   // ---------- Loading ----------
   if (!ready || signedIn === null) {
-    return shell(<p className="m-0 py-20 text-center text-sm" style={{ color: MUTED }}>Loading checkout…</p>);
+    return shell(<p className="m-0 py-20 text-center text-sm" style={{ color: MUTED }}>Loading checkout...</p>);
   }
 
   // ---------- Not logged in ----------
@@ -293,6 +332,11 @@ export default function CheckoutPage() {
           <h2 className="m-0 text-2xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
             Delivery address
           </h2>
+          {usingSaved && (
+            <p className="m-0 mt-2 text-sm" style={{ color: MUTED }}>
+              We filled in your saved address. You can change it for this order.
+            </p>
+          )}
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <Field label="Full name" name="name" value={form.name} onChange={set} autoComplete="name" maxLength={100} />
@@ -307,6 +351,16 @@ export default function CheckoutPage() {
             <Field label="State" name="state" value={form.state} onChange={set} autoComplete="address-level1" maxLength={80} />
             <Field label="Pincode" name="pincode" value={form.pincode} onChange={set} inputMode="numeric" autoComplete="postal-code" maxLength={6} />
           </div>
+
+          <label className="mt-4 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={saveAddress}
+              onChange={(e) => setSaveAddress(e.target.checked)}
+              className="h-4 w-4 accent-[#9C5A2B]"
+            />
+            Save this address for my next order
+          </label>
 
           <label className="mt-4 block text-sm font-medium">
             Order note <span className="font-normal" style={{ color: MUTED }}>(optional)</span>
@@ -344,7 +398,7 @@ export default function CheckoutPage() {
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{l.name}</span>
                   <span style={{ color: MUTED }}>
-                    {l.ml}ml × {l.qty}
+                    {l.ml}ml x {l.qty}
                   </span>
                 </span>
                 <span className="shrink-0">{formatPrice(unitOf(l).price * l.qty)}</span>

@@ -16,7 +16,8 @@ const line = z.object({
     .max(MAX_QTY_PER_LINE, `You can order at most ${MAX_QTY_PER_LINE} of one item.`),
 });
 
-const shipping = z.object({
+// Used by the order form and by the saved address
+export const shippingSchema = z.object({
   name: z.string().trim().min(2, "Please enter your full name.").max(100),
   phone: z
     .string()
@@ -31,7 +32,7 @@ const shipping = z.object({
 
 export const orderCreateSchema = z.object({
   items: z.array(line).min(1, "Your cart is empty.").max(20, "Too many items in one order."),
-  shipping,
+  shipping: shippingSchema,
   note: z.string().trim().max(500).default(""),
   paymentMethod: z.literal("cod"),
   // The checkout page makes one key per order. Double clicks cannot make two orders.

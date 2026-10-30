@@ -31,6 +31,12 @@ export interface IOrderShipping {
   pincode: string;
 }
 
+// One step in the tracking timeline: which status, and when it started
+export interface IStatusStep {
+  status: OrderStatus;
+  at: Date;
+}
+
 export interface IOrder {
   orderNumber: string;
   userId: Types.ObjectId;
@@ -40,6 +46,7 @@ export interface IOrder {
   shippingFee: number;
   total: number;
   status: OrderStatus;
+  statusHistory: IStatusStep[];
   payment: {
     method: PaymentMethod;
     status: PaymentStatus;
@@ -77,6 +84,14 @@ const ShippingSchema = new Schema<IOrderShipping>(
   { _id: false }
 );
 
+const StatusStepSchema = new Schema<IStatusStep>(
+  {
+    status: { type: String, enum: ORDER_STATUSES, required: true },
+    at: { type: Date, required: true, default: Date.now },
+  },
+  { _id: false }
+);
+
 const OrderSchema = new Schema<IOrder>(
   {
     orderNumber: { type: String, required: true, unique: true },
@@ -87,6 +102,7 @@ const OrderSchema = new Schema<IOrder>(
     shippingFee: { type: Number, default: 0, min: 0, validate: Number.isInteger },
     total: { type: Number, required: true, min: 0, validate: Number.isInteger },
     status: { type: String, enum: ORDER_STATUSES, default: "pending", index: true },
+    statusHistory: { type: [StatusStepSchema], default: [] },
     payment: {
       method: { type: String, enum: PAYMENT_METHODS, default: "cod" },
       status: { type: String, enum: PAYMENT_STATUSES, default: "pending" },

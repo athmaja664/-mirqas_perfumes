@@ -151,6 +151,7 @@ export async function createOrder(userId: string, input: OrderCreateInput): Prom
       shippingFee: SHIPPING_FEE_PAISE,
       total,
       status: "pending",
+      statusHistory: [{ status: "pending", at: new Date() }],
       payment: { method: "cod", status: "pending", razorpayOrderId: "", razorpayPaymentId: "" },
       note: input.note,
       idempotencyKey: input.idempotencyKey,

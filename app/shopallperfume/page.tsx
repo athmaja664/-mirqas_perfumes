@@ -4,12 +4,14 @@
 // Card media: the first image is the thumbnail. On hover (laptop) or when the card is
 // scrolled into the middle of the screen (phone) the card plays the admin's video,
 // or changes to the admin's hover image, or (if neither was chosen) to the 2nd image.
+// Heart and Add to cart save to the browser wishlist and cart (localStorage).
 
 import Link from "next/link";
 import { ReactNode, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { COLLECTION_SECTIONS } from "@/lib/sections";
 import { productHref } from "@/lib/productHref";
+import { CART_KEY, WISHLIST_KEY, SYNC_EVENT, readList, writeList, type CartLine } from "@/lib/shopStorage";
 
 // Brand colours (same as the other shop pages)
 const COPPER = "#9C5A2B";
@@ -36,6 +38,9 @@ const PAGE_SIZE = 6;
 
 // Top of the price slider, in rupees. Raise it if you add a more expensive perfume.
 const PRICE_MAX = 20000;
+
+// Most bottles of one perfume and size in the cart (same limit as the server)
+const MAX_QTY_PER_LINE = 10;
 
 // A link ending in .mp4 or .webm is a video. Any other link is an image.
 const isVideoUrl = (url: string) => /\.(mp4|webm)(\?.*)?$/i.test(url);
@@ -90,6 +95,17 @@ type ApiProduct = {
   notes: string[];
 };
 
+// One item in the browser wishlist (prices in rupees)
+type WishItem = {
+  slug: string;
+  name: string;
+  image?: string;
+  hoverImage?: string;
+  notes?: string[];
+  sizes: SizeOption[];
+  soldOut?: boolean;
+};
+
 // If a perfume has no "sizes" yet, its normal price is treated as the 10ml price
 // and the other sizes are worked out from it.
 const DEFAULT_STEPS = [
@@ -106,6 +122,58 @@ function getSizes(p: Perfume): SizeOption[] {
     price: Math.round(p.price * mult),
     originalPrice: p.originalPrice ? Math.round(p.originalPrice * mult) : undefined,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// BROWSER CART AND WISHLIST
+// ---------------------------------------------------------------------------
+const tellOthers = () => window.dispatchEvent(new Event(SYNC_EVENT));
+
+// Put one bottle in the browser cart. The same perfume and size adds 1 to the quantity.
+function addToBrowserCart(p: Perfume, ml: number): "ok" | "max" {
+  const list = readList<CartLine>(CART_KEY);
+  const at = list.findIndex((l) => l.slug === p.slug && l.ml === ml);
+
+  if (at >= 0) {
+    if (list[at].qty >= MAX_QTY_PER_LINE) return "max";
+    const next = list.map((l, i) => (i === at ? { ...l, qty: l.qty + 1 } : l));
+    writeList(CART_KEY, next);
+  } else {
+    const line: CartLine = {
+      slug: p.slug,
+      name: p.name,
+      image: p.image,
+      notes: p.notes,
+      sizes: getSizes(p),
+      ml,
+      qty: 1,
+    };
+    writeList(CART_KEY, [...list, line]);
+  }
+  tellOthers();
+  return "ok";
+}
+
+// Add the perfume to the browser wishlist, or remove it if it is already there
+function toggleBrowserWishlist(p: Perfume) {
+  const list = readList<WishItem>(WISHLIST_KEY);
+  const exists = list.some((w) => w.slug === p.slug);
+  const next = exists
+    ? list.filter((w) => w.slug !== p.slug)
+    : [
+        ...list,
+        {
+          slug: p.slug,
+          name: p.name,
+          image: p.image,
+          hoverImage: p.hoverImage,
+          notes: p.notes,
+          sizes: getSizes(p),
+          soldOut: p.soldOut,
+        },
+      ];
+  writeList(WISHLIST_KEY, next);
+  tellOthers();
 }
 
 // ---------------------------------------------------------------------------
@@ -335,12 +403,13 @@ function ProductCard({
 }: {
   p: Perfume;
   wished: boolean;
-  onToggleWish: (slug: string) => void;
+  onToggleWish: (p: Perfume) => void;
 }) {
   const sizes = getSizes(p);
   const firstAvailable = sizes.find((s) => !s.soldOut) ?? sizes[0];
   const [selectedMl, setSelectedMl] = useState(firstAvailable.ml);
   const [added, setAdded] = useState(false);
+  const [atMax, setAtMax] = useState(false);
 
   // Phone / tablet: true while the card is in the middle of the screen
   const [inView, setInView] = useState(false);
@@ -388,10 +457,13 @@ function ProductCard({
 
   // "Added" confirmation goes back to normal after 1.6 seconds
   useEffect(() => {
-    if (!added) return;
-    const t = setTimeout(() => setAdded(false), 1600);
+    if (!added && !atMax) return;
+    const t = setTimeout(() => {
+      setAdded(false);
+      setAtMax(false);
+    }, 1600);
     return () => clearTimeout(t);
-  }, [added]);
+  }, [added, atMax]);
 
   const current = sizes.find((s) => s.ml === selectedMl) ?? firstAvailable;
   const unavailable = !!p.soldOut || !!current.soldOut;
@@ -401,14 +473,19 @@ function ProductCard({
     ? Math.round(((current.originalPrice! - current.price) / current.originalPrice!) * 100)
     : 0;
 
-  // Every card opens /product/<slug>, for example /product/nadeem
-  const detailHref = productHref(p);
-  const buyHref = `${detailHref}?size=${current.ml}ml`;
+  // Every card opens /product/<slug>?size=<ml>ml, for example /product/nadeem?size=30ml
+  const detailHref = `${productHref(p)}?size=${current.ml}ml`;
 
   const addToCart = () => {
     if (unavailable) return;
-    // TODO: connect the cart here (cart stage)
-    setAdded(true);
+    const result = addToBrowserCart(p, current.ml);
+    if (result === "max") {
+      setAtMax(true);
+      setAdded(false);
+    } else {
+      setAdded(true);
+      setAtMax(false);
+    }
   };
 
   const radioName = `size-${p.slug}`;
@@ -501,7 +578,7 @@ function ProductCard({
         {/* Wishlist */}
         <button
           type="button"
-          onClick={() => onToggleWish(p.slug)}
+          onClick={() => onToggleWish(p)}
           aria-pressed={wished}
           aria-label={wished ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`}
           className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-sm transition-transform hover:scale-105 md:right-3 md:top-3 md:h-9 md:w-9"
@@ -621,8 +698,8 @@ function ProductCard({
             }`}
             style={{ fontFamily: sans }}
           >
-            {unavailable ? "Sold out" : added ? "Added ✓" : "Add to cart"}
-            {!added && !unavailable && <CartIcon />}
+            {unavailable ? "Sold out" : atMax ? "Limit reached" : added ? "Added ✓" : "Add to cart"}
+            {!added && !atMax && !unavailable && <CartIcon />}
           </button>
 
           {unavailable ? (
@@ -636,7 +713,7 @@ function ProductCard({
             </button>
           ) : (
             <Link
-              href={buyHref}
+              href={detailHref}
               className="rounded-[6px] px-1 py-1.5 text-center text-[8px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#7d4720] md:py-2.5 md:text-[12px] md:tracking-[0.12em]"
               style={{ background: COPPER, fontFamily: sans }}
             >
@@ -666,12 +743,26 @@ function ShopAllPerfumes() {
   const [showInStock, setShowInStock] = useState(false);
   const [showOutOfStock, setShowOutOfStock] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // mobile drawer
+  // Slugs that are in the browser wishlist
   const [wishlist, setWishlist] = useState<string[]>([]);
 
   // The perfumes come from the database
   const [perfumes, setPerfumes] = useState<Perfume[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+
+  // Read the browser wishlist, and read it again whenever it changes
+  // (this page, another tab, the wishlist page or the product page)
+  useEffect(() => {
+    const sync = () => setWishlist(readList<WishItem>(WISHLIST_KEY).map((w) => w.slug));
+    sync();
+    window.addEventListener(SYNC_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(SYNC_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -734,8 +825,8 @@ function ShopAllPerfumes() {
   const [limit, setLimit] = useState({ key: filterKey, count: PAGE_SIZE });
   const visibleCount = limit.key === filterKey ? limit.count : PAGE_SIZE;
 
-  const toggleWish = (slug: string) =>
-    setWishlist((w) => (w.includes(slug) ? w.filter((s) => s !== slug) : [...w, slug]));
+  // The heart: save to (or remove from) the browser wishlist. The sync event updates the hearts.
+  const toggleWish = (p: Perfume) => toggleBrowserWishlist(p);
 
   const toggleOption = (key: FilterKey, value: string) =>
     setSelected((s) => ({

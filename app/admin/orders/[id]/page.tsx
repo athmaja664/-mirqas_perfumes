@@ -6,7 +6,12 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { Order, type OrderStatus, type PaymentMethod, type PaymentStatus } from "@/models/Order";
-import { NEXT_STATUSES, changeOrderStatus, isOrderStatus } from "@/lib/services/order-status";
+import {
+  NEXT_STATUSES,
+  changeOrderStatus,
+  isOrderStatus,
+  restoreCancelledOrder,
+} from "@/lib/services/order-status";
 import { formatPaise } from "@/lib/money";
 import AdminShell from "@/components/admin/AdminShell";
 import { StatusBadge, label, paymentText } from "@/components/admin/OrderBadges";
@@ -45,6 +50,21 @@ async function updateStatus(formData: FormData) {
   if (!isValidObjectId(id) || !isOrderStatus(next)) redirect("/admin/orders");
 
   const result = await changeOrderStatus(id, next);
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${id}`);
+  redirect(`/admin/orders/${id}?${result.ok ? "updated=1" : `error=${encodeURIComponent(result.message)}`}`);
+}
+
+// Un-cancel. It also checks the admin again on the server.
+async function restoreOrder(formData: FormData) {
+  "use server";
+  const admin = await getCurrentUser();
+  if (!admin || admin.role !== "admin") redirect("/login");
+
+  const id = String(formData.get("id"));
+  if (!isValidObjectId(id)) redirect("/admin/orders");
+
+  const result = await restoreCancelledOrder(id);
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${id}`);
   redirect(`/admin/orders/${id}?${result.ok ? "updated=1" : `error=${encodeURIComponent(result.message)}`}`);
@@ -102,7 +122,25 @@ export default async function AdminOrderDetailPage({
       {/* Status buttons */}
       <section className={`${box} mb-6 p-6`}>
         <p className={`m-0 ${small}`}>Update status</p>
-        {nextList.length === 0 ? (
+
+        {o.status === "cancelled" ? (
+          <div className="mt-4">
+            <form action={restoreOrder}>
+              <input type="hidden" name="id" value={id} />
+              <button
+                type="submit"
+                className="px-5 py-3 text-[12px] font-semibold uppercase tracking-[0.16em] text-white hover:bg-[#7d4720]"
+                style={{ background: COPPER }}
+              >
+                Restore order
+              </button>
+            </form>
+            <p className="m-0 mt-3 text-[12px] text-black/50">
+              This order is cancelled. Restoring it takes the bottles from the stock again and moves the order back to
+              Pending. If there is not enough stock, nothing changes.
+            </p>
+          </div>
+        ) : nextList.length === 0 ? (
           <p className="m-0 mt-3 text-[14px] text-black/55">This order is {o.status}. No more changes are possible.</p>
         ) : (
           <div className="mt-4 flex flex-wrap gap-3">
