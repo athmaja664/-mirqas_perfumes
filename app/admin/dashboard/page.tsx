@@ -74,20 +74,22 @@ function StatCard({
   href?: string;
 }) {
   const body = (
-    <div className="h-full border border-black/10 bg-white p-5 transition-colors sm:p-6 hover:border-[#9C5A2B]/40">
-      <p className="m-0 text-[11px] uppercase tracking-[0.25em] text-black/50">{label}</p>
-            <p
+    <div className="h-full border border-black/10 bg-white p-4 transition-colors sm:p-6 hover:border-[#9C5A2B]/40">
+      <p className="m-0 text-[10px] uppercase tracking-[0.15em] text-black/50 sm:text-[11px] sm:tracking-[0.25em]">
+        {label}
+      </p>
+      <p
         className={
-          "mb-0 mt-4 break-words leading-none lining-nums " +
+          "mb-0 mt-3 break-words leading-none lining-nums sm:mt-4 " +
           (value.startsWith("Rs.")
-            ? "text-[26px] font-semibold sm:text-[30px]"
-            : "text-4xl font-medium sm:text-5xl")
+            ? "text-[24px] font-semibold sm:text-[30px]"
+            : "text-3xl font-medium sm:text-5xl")
         }
         style={{ fontFamily: serif, color: COPPER }}
       >
         {value}
       </p>
-      {note && <p className="mb-0 mt-3 text-[12px] text-black/45">{note}</p>}
+      {note && <p className="mb-0 mt-2 text-[11px] text-black/45 sm:mt-3 sm:text-[12px]">{note}</p>}
     </div>
   );
   return href ? (
@@ -111,12 +113,12 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={"border border-black/10 bg-white p-5 sm:p-6 " + className}>
-           <h2 className="m-0 text-2xl font-medium lining-nums sm:text-3xl" style={{ fontFamily: serif, color: COPPER }}>
+    <section className={"min-w-0 border border-black/10 bg-white p-4 sm:p-6 " + className}>
+      <h2 className="m-0 text-2xl font-medium lining-nums sm:text-3xl" style={{ fontFamily: serif, color: COPPER }}>
         {title}
       </h2>
       {note && <p className="mb-0 mt-1 text-[12px] text-black/45">{note}</p>}
-      <div className="mt-5">{children}</div>
+      <div className="mt-4 sm:mt-5">{children}</div>
     </section>
   );
 }
@@ -125,7 +127,7 @@ function StatusPill({ status }: { status: string }) {
   const c = PILL[status] ?? PILL.pending;
   return (
     <span
-      className="inline-block px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em]"
+      className="inline-block shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em]"
       style={{ background: c.bg, color: c.fg }}
     >
       {status}
@@ -246,17 +248,20 @@ export default async function AdminDashboard() {
 
   return (
     <AdminShell active="Dashboard">
-      <p className="m-0 text-[11px] uppercase tracking-[0.3em] text-black/50">Signed in as {user.name}</p>
+      <p className="m-0 text-[10px] uppercase tracking-[0.2em] text-black/50 sm:text-[11px] sm:tracking-[0.3em]">
+        Signed in as {user.name}
+      </p>
 
       <h1
-        className="mb-2 mt-3 font-medium leading-tight"
-        style={{ fontFamily: serif, color: COPPER, fontSize: "clamp(2rem, 4vw, 3rem)" }}
+        className="mb-2 mt-3 break-words font-medium leading-tight"
+        style={{ fontFamily: serif, color: COPPER, fontSize: "clamp(1.75rem, 4vw, 3rem)" }}
       >
         Welcome back, {user.name}
       </h1>
-      <p className="mb-8 mt-0 text-[15px] text-black/60 md:mb-10">Here is a quick look at your store.</p>
+      <p className="mb-6 mt-0 text-[14px] text-black/60 sm:text-[15px] md:mb-10">Here is a quick look at your store.</p>
 
-      <section aria-label="Store counts" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Counts: two per row on phones */}
+      <section aria-label="Store counts" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label="Customers" value={String(customerCount)} note="Registered accounts" href="/admin/customers" />
         <StatCard
           label="Products"
@@ -273,7 +278,11 @@ export default async function AdminDashboard() {
         />
       </section>
 
-      <section aria-label="Sales figures" className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {/* Sales: one per row on phones, because the amounts are wide */}
+      <section
+        aria-label="Sales figures"
+        className="mt-3 grid grid-cols-1 gap-3 sm:mt-4 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3"
+      >
         <StatCard label="Sales" value={formatPaise(sales.total)} note={"All orders except cancelled (" + sales.count + ")"} />
         <StatCard
           label="Collected"
@@ -291,13 +300,13 @@ export default async function AdminDashboard() {
         />
       </section>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-3">
         <Panel
           title="Sales, last 7 days"
           note={"Total " + formatPaise(weekTotal) + " (not cancelled). Number on top = orders."}
           className="lg:col-span-2"
         >
-          <div className="flex h-44 items-end gap-2 sm:gap-3" role="img" aria-label="Bar chart of sales for the last 7 days">
+          <div className="flex h-40 items-end gap-1.5 sm:h-44 sm:gap-3" role="img" aria-label="Bar chart of sales for the last 7 days">
             {days.map((d, i) => {
               const pct = d.total > 0 ? Math.max(4, Math.round((d.total / maxDay) * 100)) : 0;
               return (
@@ -312,11 +321,13 @@ export default async function AdminDashboard() {
               );
             })}
           </div>
-          <div className="mt-2 flex gap-2 sm:gap-3">
+          <div className="mt-2 flex gap-1.5 sm:gap-3">
             {days.map((d, i) => (
               <div key={i} className="min-w-0 flex-1 text-center">
-                <p className="m-0 text-[11px] uppercase tracking-[0.1em] text-black/60">{d.label}</p>
-                <p className="m-0 text-[11px] text-black/45 lining-nums">{compact(d.total)}</p>
+                <p className="m-0 text-[10px] uppercase tracking-[0.05em] text-black/60 sm:text-[11px] sm:tracking-[0.1em]">
+                  {d.label}
+                </p>
+                <p className="m-0 text-[10px] text-black/45 lining-nums sm:text-[11px]">{compact(d.total)}</p>
               </div>
             ))}
           </div>
@@ -343,7 +354,7 @@ export default async function AdminDashboard() {
         </Panel>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-2">
         <Panel title="Top selling perfumes" note="By units sold, cancelled orders not counted">
           {topRows.length === 0 ? (
             <p className="m-0 text-[14px] text-black/55">No sales yet.</p>
@@ -351,9 +362,9 @@ export default async function AdminDashboard() {
             <ol className="m-0 list-none p-0">
               {topRows.map((t, i) => (
                 <li key={t._id} className="flex items-center gap-3 border-b border-black/5 py-3 last:border-0">
-                  <span className="w-5 text-[13px] text-black/40 lining-nums">{i + 1}</span>
+                  <span className="w-5 shrink-0 text-[13px] text-black/40 lining-nums">{i + 1}</span>
                   <span className="min-w-0 flex-1 truncate text-[14px]">{t.name}</span>
-                  <span className="text-right text-[12px] text-black/55">
+                  <span className="shrink-0 text-right text-[12px] text-black/55">
                     <span className="lining-nums">{t.qty}</span> sold
                     <br />
                     <span className="lining-nums">{formatPaise(t.revenue)}</span>
@@ -373,7 +384,7 @@ export default async function AdminDashboard() {
                 <li key={String(p._id)} className="flex items-center justify-between gap-3 border-b border-black/5 py-3 last:border-0">
                   <span className="min-w-0 flex-1 truncate text-[14px]">{p.name}</span>
                   <span
-                    className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] lining-nums"
+                    className="shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] lining-nums"
                     style={
                       p.stock <= 0
                         ? { background: "#F8E3E0", color: "#A32A1F" }
@@ -386,82 +397,126 @@ export default async function AdminDashboard() {
               ))}
             </ul>
           )}
-          <Link href="/admin/products" className="mt-4 inline-block text-[12px] uppercase tracking-[0.15em] underline underline-offset-4" style={{ color: COPPER }}>
+          <Link href="/admin/products" className="mt-4 inline-block py-2 text-[12px] uppercase tracking-[0.15em] underline underline-offset-4" style={{ color: COPPER }}>
             Manage products
           </Link>
         </Panel>
       </div>
 
-      <section aria-labelledby="recent-orders-title" className="mt-10">
-        <h2 id="recent-orders-title" className="m-0 text-3xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
+      {/* Recent orders: cards on phones, table from tablet up */}
+      <section aria-labelledby="recent-orders-title" className="mt-8 md:mt-10">
+        <h2 id="recent-orders-title" className="m-0 text-2xl font-medium sm:text-3xl" style={{ fontFamily: serif, color: COPPER }}>
           Recent orders
         </h2>
-        <div className="mt-5 overflow-x-auto border border-black/10 bg-white">
+        <div className="mt-4 border border-black/10 bg-white sm:mt-5">
           {recentOrders.length === 0 ? (
-            <p className="m-0 p-6 text-[15px] text-black/55">No orders yet.</p>
+            <p className="m-0 p-5 text-[15px] text-black/55 sm:p-6">No orders yet.</p>
           ) : (
-            <table className="w-full min-w-[560px] border-collapse text-left text-[14px]" style={{ color: INK }}>
-              <thead>
-                <tr className="border-b border-black/10 text-[11px] uppercase tracking-[0.2em] text-black/50">
-                  <th className={th}>Order</th>
-                  <th className={th}>Customer</th>
-                  <th className={th}>Total</th>
-                  <th className={th}>Status</th>
-                  <th className={th}>Date</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              <ul className="m-0 list-none p-0 md:hidden">
                 {recentOrders.map((o) => (
-                  <tr key={String(o._id)} className="border-b border-black/5 last:border-0">
-                    <td className={td}>
+                  <li key={String(o._id)} className="border-b border-black/5 p-4 last:border-0">
+                    <div className="flex items-center justify-between gap-3">
                       <Link
                         href={"/admin/orders/" + String(o._id)}
-                        className="underline underline-offset-4 lining-nums"
+                        className="min-w-0 truncate text-[14px] underline underline-offset-4 lining-nums"
                         style={{ color: COPPER }}
                       >
                         {o.orderNumber}
                       </Link>
-                    </td>
-                    <td className={td}>{o.shipping?.name ?? "-"}</td>
-                    <td className={td + " lining-nums"}>{formatPaise(o.total)}</td>
-                    <td className={td}>
                       <StatusPill status={o.status} />
-                    </td>
-                    <td className={td + " lining-nums"}>{new Date(o.createdAt).toLocaleDateString("en-IN")}</td>
-                  </tr>
+                    </div>
+                    <p className="m-0 mt-2 truncate text-[14px]">{o.shipping?.name ?? "-"}</p>
+                    <div className="mt-1 flex items-center justify-between gap-3 text-[13px] text-black/60 lining-nums">
+                      <span>{formatPaise(o.total)}</span>
+                      <span>{new Date(o.createdAt).toLocaleDateString("en-IN")}</span>
+                    </div>
+                  </li>
                 ))}
-              </tbody>
-            </table>
+              </ul>
+
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[560px] border-collapse text-left text-[14px]" style={{ color: INK }}>
+                  <thead>
+                    <tr className="border-b border-black/10 text-[11px] uppercase tracking-[0.2em] text-black/50">
+                      <th className={th}>Order</th>
+                      <th className={th}>Customer</th>
+                      <th className={th}>Total</th>
+                      <th className={th}>Status</th>
+                      <th className={th}>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentOrders.map((o) => (
+                      <tr key={String(o._id)} className="border-b border-black/5 last:border-0">
+                        <td className={td}>
+                          <Link
+                            href={"/admin/orders/" + String(o._id)}
+                            className="underline underline-offset-4 lining-nums"
+                            style={{ color: COPPER }}
+                          >
+                            {o.orderNumber}
+                          </Link>
+                        </td>
+                        <td className={td}>{o.shipping?.name ?? "-"}</td>
+                        <td className={td + " lining-nums"}>{formatPaise(o.total)}</td>
+                        <td className={td}>
+                          <StatusPill status={o.status} />
+                        </td>
+                        <td className={td + " lining-nums"}>{new Date(o.createdAt).toLocaleDateString("en-IN")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </section>
 
-      <section aria-labelledby="recent-title" className="mt-10 md:mt-12">
-        <h2 id="recent-title" className="m-0 text-3xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
+      {/* Recent customers: cards on phones, table from tablet up */}
+      <section aria-labelledby="recent-title" className="mt-8 md:mt-12">
+        <h2 id="recent-title" className="m-0 text-2xl font-medium sm:text-3xl" style={{ fontFamily: serif, color: COPPER }}>
           Recent customers
         </h2>
-        <div className="mt-5 overflow-x-auto border border-black/10 bg-white">
+        <div className="mt-4 border border-black/10 bg-white sm:mt-5">
           {recentCustomers.length === 0 ? (
-            <p className="m-0 p-6 text-[15px] text-black/55">No customers have registered yet.</p>
+            <p className="m-0 p-5 text-[15px] text-black/55 sm:p-6">No customers have registered yet.</p>
           ) : (
-            <table className="w-full min-w-[480px] border-collapse text-left text-[14px]" style={{ color: INK }}>
-              <thead>
-                <tr className="border-b border-black/10 text-[11px] uppercase tracking-[0.2em] text-black/50">
-                  <th className={th}>Name</th>
-                  <th className={th}>Email</th>
-                  <th className={th}>Joined</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              <ul className="m-0 list-none p-0 md:hidden">
                 {recentCustomers.map((c) => (
-                  <tr key={String(c._id)} className="border-b border-black/5 last:border-0">
-                    <td className={td}>{c.name}</td>
-                    <td className={td}>{c.email}</td>
-                    <td className={td + " lining-nums"}>{new Date(c.createdAt).toLocaleDateString("en-IN")}</td>
-                  </tr>
+                  <li key={String(c._id)} className="border-b border-black/5 p-4 last:border-0">
+                    <p className="m-0 text-[14px] font-medium">{c.name}</p>
+                    <p className="m-0 mt-1 break-all text-[13px] text-black/60">{c.email}</p>
+                    <p className="m-0 mt-1 text-[12px] text-black/45 lining-nums">
+                      Joined {new Date(c.createdAt).toLocaleDateString("en-IN")}
+                    </p>
+                  </li>
                 ))}
-              </tbody>
-            </table>
+              </ul>
+
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[480px] border-collapse text-left text-[14px]" style={{ color: INK }}>
+                  <thead>
+                    <tr className="border-b border-black/10 text-[11px] uppercase tracking-[0.2em] text-black/50">
+                      <th className={th}>Name</th>
+                      <th className={th}>Email</th>
+                      <th className={th}>Joined</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentCustomers.map((c) => (
+                      <tr key={String(c._id)} className="border-b border-black/5 last:border-0">
+                        <td className={td}>{c.name}</td>
+                        <td className={td}>{c.email}</td>
+                        <td className={td + " lining-nums"}>{new Date(c.createdAt).toLocaleDateString("en-IN")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </section>

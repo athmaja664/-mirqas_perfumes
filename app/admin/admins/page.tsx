@@ -45,13 +45,16 @@ export default async function AdminsPage({
 
   const btn =
     "h-8 w-full px-3 text-center text-[11px] font-semibold uppercase leading-none tracking-[0.15em] transition-colors";
+  // The same button, a little taller on phones so it is easy to tap
+  const btnPhone =
+    "h-10 w-full px-3 text-center text-[11px] font-semibold uppercase leading-none tracking-[0.12em] transition-colors";
 
   return (
     <AdminShell active="Admins">
-      <h1 className="m-0 text-3xl font-medium sm:text-4xl" style={{ fontFamily: serif, color: COPPER }}>
+      <h1 className="m-0 break-words text-3xl font-medium sm:text-4xl" style={{ fontFamily: serif, color: COPPER }}>
         Admins
       </h1>
-      <p className="mb-6 mt-2 text-[14px] text-black/55">
+      <p className="mb-6 mt-2 text-[14px] leading-relaxed text-black/55">
         {user.isOwner
           ? "You are the main admin. You can add and remove admins, and choose which admins can manage other admins."
           : "The main admin has allowed you to add and remove admins. Only the main admin can change this permission."}
@@ -72,80 +75,143 @@ export default async function AdminsPage({
         <AddAdminForm />
       </div>
 
-      <div className="overflow-x-auto border border-black/10 bg-white">
-        <table className="w-full min-w-[760px] border-collapse text-left text-[14px]">
-          <thead>
-            <tr className="border-b border-black/10 text-[11px] uppercase tracking-[0.15em] text-black/60">
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Added</th>
-              <th className="px-4 py-3 font-medium">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {admins.map((a) => {
-              const canRemove = !a.isOwner && a.id !== user.id && (user.isOwner || !a.canManageAdmins);
-              return (
-                <tr key={a.id} className="border-b border-black/10 last:border-b-0">
-                  <td className="px-4 py-3">
-                    {a.name}
-                    {a.isOwner && (
-                      <span
-                        className="ml-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-white"
-                        style={{ background: COPPER }}
-                      >
-                        Owner
-                      </span>
+      <div className="border border-black/10 bg-white">
+        {/* Phone: one card per admin */}
+        <ul className="m-0 list-none p-0 md:hidden">
+          {admins.map((a) => {
+            const canRemove = !a.isOwner && a.id !== user.id && (user.isOwner || !a.canManageAdmins);
+            const showPermission = user.isOwner && !a.isOwner;
+            return (
+              <li key={a.id} className="border-b border-black/10 p-4 last:border-b-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  <span className="break-words text-[15px] font-medium">{a.name}</span>
+                  {a.id === user.id && <span className="text-[12px] text-black/50">(you)</span>}
+                  {a.isOwner && (
+                    <span
+                      className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-white"
+                      style={{ background: COPPER }}
+                    >
+                      Owner
+                    </span>
+                  )}
+                  {!a.isOwner && a.canManageAdmins && (
+                    <span
+                      className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                      style={{ background: "#F3E7D5", color: COPPER }}
+                    >
+                      Can manage admins
+                    </span>
+                  )}
+                </div>
+
+                <p className="m-0 mt-1.5 break-all text-[13px] text-black/60">{a.email}</p>
+                <p className="m-0 mt-1 text-[12px] text-black/45 lining-nums">
+                  Added {a.createdAt ? new Date(a.createdAt).toLocaleDateString("en-GB") : "-"}
+                </p>
+
+                {(showPermission || canRemove) && (
+                  <div className="mt-3 flex items-center gap-3">
+                    {showPermission && (
+                      <form action={setManagerAction} className="m-0 min-w-0 flex-1">
+                        <input type="hidden" name="id" value={a.id} />
+                        <input type="hidden" name="allow" value={a.canManageAdmins ? "false" : "true"} />
+                        <button
+                          type="submit"
+                          className={btnPhone + " border border-[#9C5A2B] text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"}
+                        >
+                          {a.canManageAdmins ? "Remove permission" : "Allow to manage admins"}
+                        </button>
+                      </form>
                     )}
-                    {!a.isOwner && a.canManageAdmins && (
-                      <span
-                        className="ml-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em]"
-                        style={{ background: "#F3E7D5", color: COPPER }}
-                      >
-                        Can manage admins
-                      </span>
+                    {canRemove && (
+                      <form action={removeAdminAction} className="m-0 flex h-10 shrink-0 items-center">
+                        <input type="hidden" name="id" value={a.id} />
+                        <RemoveAdminButton name={a.name} />
+                      </form>
                     )}
-                    {a.id === user.id && <span className="ml-2 text-[12px] text-black/50">(you)</span>}
-                  </td>
-                  <td className="px-4 py-3">{a.email}</td>
-                  <td className="px-4 py-3 lining-nums">
-                    {a.createdAt ? new Date(a.createdAt).toLocaleDateString("en-GB") : "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex h-8 items-center justify-end gap-3">
-                      {/* Slot 1: permission button (fixed width, so every row lines up) */}
-                      <div className="flex h-8 w-[210px] items-center">
-                        {user.isOwner && !a.isOwner && (
-                          <form action={setManagerAction} className="m-0 w-full">
-                            <input type="hidden" name="id" value={a.id} />
-                            <input type="hidden" name="allow" value={a.canManageAdmins ? "false" : "true"} />
-                            <button
-                              type="submit"
-                              className={btn + " border border-[#9C5A2B] text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"}
-                            >
-                              {a.canManageAdmins ? "Remove permission" : "Allow to manage admins"}
-                            </button>
-                          </form>
-                        )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* Tablet and desktop: table */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[760px] border-collapse text-left text-[14px]">
+            <thead>
+              <tr className="border-b border-black/10 text-[11px] uppercase tracking-[0.15em] text-black/60">
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Email</th>
+                <th className="px-4 py-3 font-medium">Added</th>
+                <th className="px-4 py-3 font-medium">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {admins.map((a) => {
+                const canRemove = !a.isOwner && a.id !== user.id && (user.isOwner || !a.canManageAdmins);
+                return (
+                  <tr key={a.id} className="border-b border-black/10 last:border-b-0">
+                    <td className="px-4 py-3">
+                      {a.name}
+                      {a.isOwner && (
+                        <span
+                          className="ml-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-white"
+                          style={{ background: COPPER }}
+                        >
+                          Owner
+                        </span>
+                      )}
+                      {!a.isOwner && a.canManageAdmins && (
+                        <span
+                          className="ml-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em]"
+                          style={{ background: "#F3E7D5", color: COPPER }}
+                        >
+                          Can manage admins
+                        </span>
+                      )}
+                      {a.id === user.id && <span className="ml-2 text-[12px] text-black/50">(you)</span>}
+                    </td>
+                    <td className="px-4 py-3">{a.email}</td>
+                    <td className="px-4 py-3 lining-nums">
+                      {a.createdAt ? new Date(a.createdAt).toLocaleDateString("en-GB") : "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex h-8 items-center justify-end gap-3">
+                        {/* Slot 1: permission button (fixed width, so every row lines up) */}
+                        <div className="flex h-8 w-[210px] items-center">
+                          {user.isOwner && !a.isOwner && (
+                            <form action={setManagerAction} className="m-0 w-full">
+                              <input type="hidden" name="id" value={a.id} />
+                              <input type="hidden" name="allow" value={a.canManageAdmins ? "false" : "true"} />
+                              <button
+                                type="submit"
+                                className={btn + " border border-[#9C5A2B] text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white"}
+                              >
+                                {a.canManageAdmins ? "Remove permission" : "Allow to manage admins"}
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                        {/* Slot 2: bin icon (always the same place, at the right) */}
+                        <div className="flex h-8 w-8 items-center justify-center">
+                          {canRemove && (
+                            <form action={removeAdminAction} className="m-0 flex h-8 items-center">
+                              <input type="hidden" name="id" value={a.id} />
+                              <RemoveAdminButton name={a.name} />
+                            </form>
+                          )}
+                        </div>
                       </div>
-                      {/* Slot 2: bin icon (always the same place, at the right) */}
-                      <div className="flex h-8 w-8 items-center justify-center">
-                        {canRemove && (
-                          <form action={removeAdminAction} className="m-0 flex h-8 items-center">
-                            <input type="hidden" name="id" value={a.id} />
-                            <RemoveAdminButton name={a.name} />
-                          </form>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </AdminShell>
   );
