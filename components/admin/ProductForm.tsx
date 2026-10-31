@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { upload } from "@vercel/blob/client";
 import { FRAGRANCE_FAMILIES } from "@/lib/validations/product";
 import { SHOP_SECTIONS, COLLECTION_SECTIONS } from "@/lib/sections";
 import MultiSelect from "@/components/MultiSelect";
@@ -96,6 +97,34 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [uploading, setUploading] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
 
+  // async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
+  //   const input = e.target;
+  //   const picked = Array.from(input.files ?? []);
+  //   input.value = ""; // lets the admin pick the same file again later
+  //   if (picked.length === 0) return;
+
+  //   setError("");
+  //   if (images.length + picked.length > MAX_IMAGES)
+  //     return setError(`A product can have at most ${MAX_IMAGES} images.`);
+  //   const tooBig = picked.find((f) => f.size > MAX_BYTES);
+  //   if (tooBig) return setError(`${tooBig.name} is larger than 5 MB.`);
+
+  //   const body = new FormData();
+  //   picked.forEach((f) => body.append("files", f));
+
+  //   setUploading(true);
+  //   try {
+  //     // Do not set Content-Type here. The browser sets it for file uploads.
+  //     const res = await fetch("/api/admin/uploads", { method: "POST", body });
+  //     const json = await res.json();
+  //     if (!res.ok) throw new Error(json.message || "Upload failed.");
+  //     setImages((prev) => [...prev, ...(json.urls as string[])]);
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : "Upload failed.");
+  //   } finally {
+  //     setUploading(false);
+  //   }
+  // }
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.target;
     const picked = Array.from(input.files ?? []);
@@ -108,16 +137,18 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     const tooBig = picked.find((f) => f.size > MAX_BYTES);
     if (tooBig) return setError(`${tooBig.name} is larger than 5 MB.`);
 
-    const body = new FormData();
-    picked.forEach((f) => body.append("files", f));
-
     setUploading(true);
     try {
-      // Do not set Content-Type here. The browser sets it for file uploads.
-      const res = await fetch("/api/admin/uploads", { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Upload failed.");
-      setImages((prev) => [...prev, ...(json.urls as string[])]);
+      // Each file goes straight from the browser to Vercel Blob
+      const results = await Promise.all(
+        picked.map((f) =>
+          upload(`products/${f.name}`, f, {
+            access: "public",
+            handleUploadUrl: "/api/admin/blob-upload",
+          })
+        )
+      );
+      setImages((prev) => [...prev, ...results.map((r) => r.url)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
@@ -142,7 +173,34 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   }
 
   // Uploads the card media: one video (MP4/WebM) or one image, depending on the chosen type
-  async function onPickMedia(e: React.ChangeEvent<HTMLInputElement>) {
+  // async function onPickMedia(e: React.ChangeEvent<HTMLInputElement>) {
+  //   const input = e.target;
+  //   const file = input.files?.[0];
+  //   input.value = "";
+  //   if (!file || mediaType === "none") return;
+
+  //   setError("");
+  //   const isVideo = mediaType === "video";
+  //   const limit = isVideo ? MAX_VIDEO_BYTES : MAX_BYTES;
+  //   if (file.size > limit) return setError(`${file.name} is larger than ${limit / 1024 / 1024} MB.`);
+
+  //   const body = new FormData();
+  //   if (isVideo) body.append("kind", "video");
+  //   body.append("files", file);
+
+  //   setUploadingMedia(true);
+  //   try {
+  //     const res = await fetch("/api/admin/uploads", { method: "POST", body });
+  //     const json = await res.json();
+  //     if (!res.ok) throw new Error(json.message || "Upload failed.");
+  //     setMedia((json.urls as string[])[0]);
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : "Upload failed.");
+  //   } finally {
+  //     setUploadingMedia(false);
+  //   }
+  // }
+    async function onPickMedia(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.target;
     const file = input.files?.[0];
     input.value = "";
@@ -153,16 +211,13 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     const limit = isVideo ? MAX_VIDEO_BYTES : MAX_BYTES;
     if (file.size > limit) return setError(`${file.name} is larger than ${limit / 1024 / 1024} MB.`);
 
-    const body = new FormData();
-    if (isVideo) body.append("kind", "video");
-    body.append("files", file);
-
     setUploadingMedia(true);
     try {
-      const res = await fetch("/api/admin/uploads", { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Upload failed.");
-      setMedia((json.urls as string[])[0]);
+      const blob = await upload(`products/${file.name}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/admin/blob-upload",
+      });
+      setMedia(blob.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
