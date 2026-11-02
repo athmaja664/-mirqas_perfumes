@@ -218,6 +218,15 @@ function ProductCard({ p, wished }: { p: ShopProduct; wished: boolean }) {
           <ProductMedia src={p.image ?? ""} video={p.video} alt={p.name} />
         </Link>
 
+        {unavailable && (
+          <span
+            className="pointer-events-none absolute left-2 top-2 z-10 rounded bg-white/95 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] shadow-sm md:left-3 md:top-3 md:text-[11px]"
+            style={{ color: "#A32A1F" }}
+          >
+            Out of stock
+          </span>
+        )}
+
         <button
           type="button"
           onClick={() => toggleWishlist(p)}

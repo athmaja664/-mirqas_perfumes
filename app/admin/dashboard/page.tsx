@@ -421,18 +421,23 @@ export default async function AdminDashboard() {
           ) : (
             <ul className="m-0 list-none p-0">
               {low.map((p) => (
-                <li key={String(p._id)} className="flex items-center justify-between gap-3 border-b border-black/5 py-3 last:border-0">
-                  <span className="min-w-0 flex-1 truncate text-[14px]">{p.name}</span>
-                  <span
-                    className="shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] lining-nums"
-                    style={
-                      p.stock <= 0
-                        ? { background: "#F8E3E0", color: "#A32A1F" }
-                        : { background: "#F3E7D5", color: "#9C5A2B" }
-                    }
+                <li key={String(p._id)} className="border-b border-black/5 py-3 last:border-0">
+                  <Link
+                    href={`/admin/products/${String(p._id)}`}
+                    className="flex items-center justify-between gap-3 text-black hover:text-[#9C5A2B]"
                   >
-                    {p.stock <= 0 ? "Out of stock" : p.stock + " left"}
-                  </span>
+                    <span className="min-w-0 flex-1 truncate text-[14px] hover:underline">{p.name}</span>
+                    <span
+                      className="shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] lining-nums"
+                      style={
+                        p.stock <= 0
+                          ? { background: "#F8E3E0", color: "#A32A1F" }
+                          : { background: "#F3E7D5", color: "#9C5A2B" }
+                      }
+                    >
+                      {p.stock <= 0 ? "Out of stock (0)" : p.stock + " left"}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>

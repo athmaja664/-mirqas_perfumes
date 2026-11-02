@@ -554,16 +554,54 @@ export default function ProductForm({ product }: { product?: ProductData }) {
             />
           </div>
           <div>
-            <label className={label} htmlFor="stock">
-              Stock
-            </label>
+            <div className="flex items-center justify-between">
+              <label className={label} htmlFor="stock">
+                Stock Quantity
+              </label>
+              {Number(stock) <= 0 ? (
+                <span className="mb-2 text-[11px] font-semibold text-red-600">● Out of stock</span>
+              ) : Number(stock) <= 5 ? (
+                <span className="mb-2 text-[11px] font-semibold text-amber-600">● Low stock</span>
+              ) : (
+                <span className="mb-2 text-[11px] font-semibold text-green-600">● In stock</span>
+              )}
+            </div>
             <input
               id="stock"
-              inputMode="numeric"
+              type="number"
+              min="0"
+              step="1"
               className={input}
               value={stock}
               onChange={(e) => setStock(e.target.value)}
+              placeholder="0"
+              required
             />
+            {/* Quick stock / unstock toggles */}
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setStock(Number(stock) > 0 ? stock : "10")}
+                className={`cursor-pointer rounded border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  Number(stock) > 0
+                    ? "border-green-600 bg-green-50 text-green-800"
+                    : "border-black/20 text-black/60 hover:bg-black/[0.04]"
+                }`}
+              >
+                In Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setStock("0")}
+                className={`cursor-pointer rounded border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  Number(stock) <= 0
+                    ? "border-red-600 bg-red-50 text-red-800"
+                    : "border-black/20 text-black/60 hover:bg-black/[0.04]"
+                }`}
+              >
+                Out of Stock (Unstock)
+              </button>
+            </div>
           </div>
         </div>
 

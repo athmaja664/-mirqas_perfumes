@@ -10,9 +10,7 @@ import { initMediaUpload } from "@/models/MediaUpload";
 import {
   UPLOAD_DIR,
   MAX_IMAGE_BYTES,
-  MAX_VIDEO_BYTES,
   detectImageType,
-  detectVideoType,
 } from "@/lib/uploads";
 
 export const runtime = "nodejs";
@@ -22,8 +20,6 @@ const CONTENT_TYPES: Record<string, string> = {
   jpeg: "image/jpeg",
   png: "image/png",
   webp: "image/webp",
-  mp4: "video/mp4",
-  webm: "video/webm",
 };
 
 export async function POST(req: NextRequest) {
@@ -31,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (blocked) return blocked;
 
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ message: "Please log in to upload." }, { status: 401 });
+  if (!user) return NextResponse.json({ message: "Please log in to upload photos." }, { status: 401 });
 
   let form: FormData;
   try {
@@ -40,16 +36,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Could not read the upload." }, { status: 400 });
   }
 
-  const kind = form.get("kind") === "video" ? "video" : "image";
+  if (form.get("kind") === "video") {
+    return NextResponse.json({ message: "Video uploads are not allowed for reviews. Please upload photos." }, { status: 400 });
+  }
+
   const files = form.getAll("files").filter((f): f is File => f instanceof File);
   if (files.length === 0) return NextResponse.json({ message: "No files were sent." }, { status: 400 });
 
-  const maxFiles = kind === "video" ? 1 : 4;
-  if (files.length > maxFiles)
-    return NextResponse.json(
-      { message: kind === "video" ? "You can add one video." : "You can add up to 4 photos." },
-      { status: 400 }
-    );
+  if (files.length > 4) {
+    return NextResponse.json({ message: "You can add up to 4 photos." }, { status: 400 });
+  }
 
   const hasBlobToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
   const preferLocal = process.env.STORAGE_PROVIDER === "local";
@@ -58,28 +54,24 @@ export async function POST(req: NextRequest) {
   const urls: string[] = [];
 
   for (const file of files) {
-    const limit = kind === "video" ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
-    if (file.size > limit)
+    if (file.size > MAX_IMAGE_BYTES) {
       return NextResponse.json(
-        { message: `${file.name} is larger than ${limit / 1024 / 1024} MB.` },
+        { message: `${file.name} is larger than ${MAX_IMAGE_BYTES / 1024 / 1024} MB.` },
         { status: 400 }
       );
+    }
 
     const buf = Buffer.from(await file.arrayBuffer());
-    const type = kind === "video" ? detectVideoType(buf) : detectImageType(buf);
-    if (!type)
+    const type = detectImageType(buf);
+    if (!type) {
       return NextResponse.json(
-        {
-          message:
-            kind === "video"
-              ? `${file.name} is not an MP4 or WebM video.`
-              : `${file.name} is not a JPG, PNG or WebP image.`,
-        },
+        { message: `${file.name} is not a JPG, PNG or WebP image.` },
         { status: 400 }
       );
+    }
 
     const name = `${randomBytes(16).toString("hex")}.${type}`;
-    const mimeType = CONTENT_TYPES[type] || "application/octet-stream";
+    const mimeType = CONTENT_TYPES[type] || "image/jpeg";
 
     if (useBlob) {
       try {

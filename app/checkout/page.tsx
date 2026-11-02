@@ -252,13 +252,21 @@ export default function CheckoutPage() {
             {formatPrice(placed.total)}
           </p>
         </div>
-        <Link
-          href="/shopallperfume"
-          className="mt-6 inline-block rounded-[6px] px-6 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-[#7d4720]"
-          style={{ background: COPPER }}
-        >
-          Continue shopping
-        </Link>
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href={`/account/orders/${placed.orderNumber}`}
+            className="w-full sm:w-auto rounded-[6px] px-6 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-[#7d4720]"
+            style={{ background: COPPER }}
+          >
+            View Order Details
+          </Link>
+          <Link
+            href="/shopallperfume"
+            className="w-full sm:w-auto rounded-[6px] border border-[#9C5A2B] px-6 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white"
+          >
+            Continue shopping
+          </Link>
+        </div>
       </div>
     );
   }

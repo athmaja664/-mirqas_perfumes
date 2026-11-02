@@ -155,20 +155,62 @@ export function RatingSummary({ slug }: { slug: string }) {
 // ---------------------------------------------------------------------------
 type Picked = { file: File; url: string };
 
+// Auto-compress review images client-side to ensure instant uploads under Vercel limits
+async function compressReviewPhoto(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX_SIDE = 1440;
+      let { naturalWidth: w, naturalHeight: h } = img;
+      if (w > MAX_SIDE || h > MAX_SIDE) {
+        if (w > h) {
+          h = Math.round((h * MAX_SIDE) / w);
+          w = MAX_SIDE;
+        } else {
+          w = Math.round((w * MAX_SIDE) / h);
+          h = MAX_SIDE;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return resolve(file);
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return resolve(file);
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.82
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
 function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
   const [rating, setRating] = useState(0);
   const [title, setTitle] = useState("");
   const [comment, setComment] = useState("");
   const [photos, setPhotos] = useState<Picked[]>([]);
-  const [video, setVideo] = useState<Picked | null>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
 
   // Remember the preview links so they can be cleaned up when the form closes
   const previewsRef = useRef<string[]>([]);
   useEffect(() => {
-    previewsRef.current = [...photos.map((p) => p.url), ...(video ? [video.url] : [])];
-  }, [photos, video]);
+    previewsRef.current = photos.map((p) => p.url);
+  }, [photos]);
   useEffect(() => {
     return () => previewsRef.current.forEach((u) => URL.revokeObjectURL(u));
   }, []);
@@ -192,31 +234,28 @@ function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
     setPhotos((prev) => prev.filter((p) => p.url !== url));
   }
 
-  function onPickVideo(e: React.ChangeEvent<HTMLInputElement>) {
-    const input = e.target;
-    const file = input.files?.[0];
-    input.value = "";
-    if (!file) return;
+  async function upload(files: File[]) {
+    setUploadingPhotos(true);
+    try {
+      const compressed = await Promise.all(files.map((f) => compressReviewPhoto(f)));
+      const body = new FormData();
+      compressed.forEach((f) => body.append("files", f));
 
-    setError("");
-    if (file.size > MAX_VIDEO_BYTES) return setError(`${file.name} is larger than 20 MB.`);
-    if (video) URL.revokeObjectURL(video.url);
-    setVideo({ file, url: URL.createObjectURL(file) });
-  }
-
-  function removeVideo() {
-    if (video) URL.revokeObjectURL(video.url);
-    setVideo(null);
-  }
-
-  async function upload(files: File[], kind: "image" | "video") {
-    const body = new FormData();
-    if (kind === "video") body.append("kind", "video");
-    files.forEach((f) => body.append("files", f));
-    const res = await fetch("/api/reviews/uploads", { method: "POST", body });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || "Upload failed.");
-    return json.urls as string[];
+      const res = await fetch("/api/reviews/uploads", { method: "POST", body });
+      let json: { urls?: string[]; message?: string } = {};
+      try {
+        json = await res.json();
+      } catch {
+        if (res.status === 413) {
+          throw new Error("The photo file is too large for upload. Please select a smaller photo.");
+        }
+        throw new Error(`Upload failed (HTTP ${res.status}). Please try again.`);
+      }
+      if (!res.ok) throw new Error(json.message || "Upload failed.");
+      return (json.urls || []) as string[];
+    } finally {
+      setUploadingPhotos(false);
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -227,15 +266,22 @@ function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
 
     setSending(true);
     try {
-      const images = photos.length ? await upload(photos.map((p) => p.file), "image") : [];
-      const videoUrl = video ? (await upload([video.file], "video"))[0] : "";
+      const images = photos.length ? await upload(photos.map((p) => p.file)) : [];
 
       const res = await fetch(`/api/products/slug/${encodeURIComponent(slug)}/reviews`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating, title: title.trim(), comment: comment.trim(), images, video: videoUrl }),
+        body: JSON.stringify({ rating, title: title.trim(), comment: comment.trim(), images, video: "" }),
       });
-      const json = await res.json();
+      let json: { message?: string } = {};
+      try {
+        json = await res.json();
+      } catch {
+        if (res.status === 413) {
+          throw new Error("Review content is too large to submit.");
+        }
+        throw new Error(`Failed to submit review (HTTP ${res.status}).`);
+      }
       if (!res.ok) throw new Error(json.message || "Could not save your review.");
       onDone();
     } catch (err) {
@@ -306,7 +352,7 @@ function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
 
       <div>
         <label htmlFor="rv-photos" className={label} style={{ color: MUTED }}>
-          Add photos (JPG, PNG or WebP, max 5 MB each, up to {MAX_PHOTOS})
+          Add photos (JPG, PNG or WebP, auto-compressed, up to ${MAX_PHOTOS})
         </label>
         <input
           id="rv-photos"
@@ -317,6 +363,11 @@ function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
           onChange={onPickPhotos}
           className={filePicker}
         />
+        {uploadingPhotos && (
+          <p className="mb-0 mt-2 text-[12px] font-medium text-[#9C5A2B]">
+            Optimizing and uploading photos…
+          </p>
+        )}
         {photos.length > 0 && (
           <ul className="m-0 mt-3 flex list-none flex-wrap gap-3 p-0">
             {photos.map((p) => (
@@ -327,7 +378,7 @@ function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
                   type="button"
                   onClick={() => removePhoto(p.url)}
                   aria-label="Remove photo"
-                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[14px] leading-none shadow"
+                  className="absolute -right-2 -top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-white text-[14px] leading-none shadow"
                   style={{ color: COPPER }}
                 >
                   ×
@@ -339,45 +390,10 @@ function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
       </div>
 
       <div>
-        <label htmlFor="rv-video" className={label} style={{ color: MUTED }}>
-          Add a video (MP4 or WebM, max 20 MB, optional)
-        </label>
-        <input
-          id="rv-video"
-          type="file"
-          accept="video/mp4,video/webm"
-          disabled={sending}
-          onChange={onPickVideo}
-          className={filePicker}
-        />
-        {video && (
-          <div className="relative mt-3 inline-block">
-            <video
-              src={video.url}
-              controls
-              muted
-              playsInline
-              className="h-32 w-auto max-w-full rounded-[10px] border bg-black"
-              style={{ borderColor: CARD_LINE }}
-            />
-            <button
-              type="button"
-              onClick={removeVideo}
-              aria-label="Remove video"
-              className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[14px] leading-none shadow"
-              style={{ color: COPPER }}
-            >
-              ×
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div>
         <button
           type="submit"
           disabled={sending}
-          className="inline-flex items-center justify-center gap-2 rounded-[6px] px-8 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-[#7d4720] disabled:cursor-wait disabled:opacity-70"
+          className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[6px] px-8 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white transition-colors hover:bg-[#7d4720] disabled:cursor-wait disabled:opacity-70"
           style={{ background: COPPER }}
         >
           {sending && (
@@ -386,7 +402,7 @@ function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
               <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
             </svg>
           )}
-          {sending ? "Sending" : "Submit review"}
+          {sending ? "Submitting review…" : "Submit review"}
         </button>
       </div>
     </form>

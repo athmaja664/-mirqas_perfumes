@@ -23,6 +23,7 @@ import {
 import { formatPaise } from "@/lib/money";
 import AdminShell from "@/components/admin/AdminShell";
 import { StatusBadge, label } from "@/components/admin/OrderBadges";
+import AdminOrderItemsList from "@/components/admin/AdminOrderItemsList";
 
 export const dynamic = "force-dynamic";
 
@@ -183,16 +184,34 @@ export default async function AdminOrderDetailPage({
     })) as unknown as AddressRow | null;
   }
 
-  // 4. Fallback lookup for product thumbnails if order item snapshot image is empty
+  // 4. Lookup product details and live warehouse stock
   const itemProductIds = (o.items || []).map((it) => it.productId).filter(Boolean);
   const products =
     itemProductIds.length > 0
       ? await Product.findAll({
           where: { id: { [Op.in]: itemProductIds } },
-          attributes: ["id", "name", "images"],
+          attributes: ["id", "name", "images", "stock", "isActive"],
         })
       : [];
   const productMap = new Map(products.map((p) => [p.id, p]));
+
+  // Build items list with live warehouse stock
+  const itemsWithLiveStock = (o.items || []).map((it) => {
+    const live = productMap.get(it.productId);
+    return {
+      id: it.id,
+      productId: it.productId,
+      slug: it.slug,
+      name: it.name,
+      image: it.image || live?.images?.[0] || "",
+      ml: it.ml,
+      qty: it.qty,
+      unitPrice: it.unitPrice,
+      lineTotal: it.lineTotal,
+      currentStock: live?.stock,
+      isActive: live?.isActive,
+    };
+  });
 
   const formatDate = (d: Date | string) =>
     new Date(d).toLocaleString("en-IN", {
@@ -227,13 +246,13 @@ export default async function AdminOrderDetailPage({
         </span>
       </div>
 
-      {/* Main Order Header */}
+      {/* Main Order Header - Clean, balanced alignment */}
       <div className="mb-6 border-b border-black/10 pb-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-3">
               <h1
-                className="m-0 text-3xl font-medium sm:text-4xl"
+                className="m-0 break-all text-2xl font-medium sm:text-3xl lg:text-4xl"
                 style={{ fontFamily: serif, color: COPPER }}
               >
                 {o.orderNumber}
@@ -241,21 +260,21 @@ export default async function AdminOrderDetailPage({
               <StatusBadge status={o.status} />
             </div>
 
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-black/60">
-              <span>
-                <strong className="font-semibold text-black/80">Order ID:</strong>{" "}
-                <code className="rounded bg-black/[0.04] px-1.5 py-0.5 font-mono text-[12px] text-black/90">
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-black/60">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-black/75">Order ID:</span>
+                <code className="rounded bg-black/[0.05] px-2 py-0.5 font-mono text-[12px] font-medium text-black/90">
                   {orderRecord.id}
                 </code>
-              </span>
-              <span>•</span>
+              </div>
+              <span className="hidden sm:inline text-black/30">•</span>
               <span>Placed {formatDate(o.createdAt)}</span>
             </div>
           </div>
 
-          <div className="text-right">
-            <p className="m-0 text-[11px] uppercase tracking-[0.18em] text-black/50">Final Order Total</p>
-            <p className="m-0 text-2xl font-semibold sm:text-3xl" style={{ color: COPPER }}>
+          <div className="rounded-[8px] border border-black/10 bg-white p-3 lg:border-0 lg:bg-transparent lg:p-0 lg:text-right">
+            <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/50">Final Order Total</p>
+            <p className="m-0 text-2xl font-bold sm:text-3xl" style={{ color: COPPER }}>
               {formatPaise(o.total)}
             </p>
           </div>
@@ -509,135 +528,23 @@ export default async function AdminOrderDetailPage({
         </section>
       </div>
 
-      {/* SECTION 3: ORDERED ITEMS */}
+      {/* SECTION 3: ORDERED ITEMS (Clickable for rich details modal) */}
       <section className={`${box} mb-6`}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-black/10 pb-4">
-          <h2 className="m-0 text-xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
-            Ordered Items
-          </h2>
-          <span className="text-[12px] text-black/55">
-            {(o.items || []).length} {(o.items || []).length === 1 ? "product" : "products"} included
+          <div>
+            <h2 className="m-0 text-xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
+              Ordered Items
+            </h2>
+            <p className="m-0 mt-0.5 text-[12px] text-black/55">
+              Click any item row to view product details and live warehouse stock.
+            </p>
+          </div>
+          <span className="text-[12px] font-medium text-black/60">
+            {itemsWithLiveStock.length} {itemsWithLiveStock.length === 1 ? "product" : "products"} included
           </span>
         </div>
 
-        {/* Desktop / Tablet Table */}
-        <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[700px] border-collapse text-left text-[13px]">
-            <thead>
-              <tr className="border-b border-black/10 text-[11px] uppercase tracking-[0.18em] text-black/50">
-                <th className="py-3 pr-4 font-medium">Product</th>
-                <th className="px-4 py-3 font-medium">Product ID</th>
-                <th className="px-4 py-3 font-medium">Bottle Size</th>
-                <th className="px-4 py-3 font-medium">Unit Price</th>
-                <th className="px-4 py-3 font-medium text-center">Qty</th>
-                <th className="py-3 pl-4 text-right font-medium">Item Subtotal</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-black/5">
-              {(o.items || []).map((item, index) => {
-                const liveProduct = productMap.get(item.productId);
-                const thumb = item.image || liveProduct?.images?.[0] || "";
-
-                return (
-                  <tr key={item.id || `${item.slug}-${item.ml}-${index}`} className="hover:bg-black/[0.01]">
-                    <td className="py-3.5 pr-4">
-                      <div className="flex items-center gap-3">
-                        {thumb ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={thumb}
-                            alt={item.name}
-                            className="h-16 w-16 shrink-0 border border-black/10 bg-[#F3E7D5] object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-16 w-16 shrink-0 items-center justify-center border border-black/10 bg-[#F3E7D5] text-[11px] text-black/40">
-                            Perfume
-                          </div>
-                        )}
-                        <div>
-                          <p className="m-0 font-medium text-black/90">{item.name}</p>
-                          <p className="m-0 text-[11px] text-black/50">Variant: {item.ml} ml Bottle</p>
-                          {item.slug && (
-                            <Link
-                              href={`/admin/products/${item.productId}`}
-                              className="mt-1 inline-block text-[11px] underline underline-offset-2 hover:text-[#9C5A2B]"
-                            >
-                              Edit product →
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3.5">
-                      <code className="rounded bg-black/[0.04] px-1.5 py-0.5 font-mono text-[11px] text-black/75">
-                        {item.productId || item.slug || "—"}
-                      </code>
-                    </td>
-
-                    <td className="px-4 py-3.5 font-medium">
-                      <span className="inline-block border border-black/15 bg-black/[0.02] px-2.5 py-1 text-[12px]">
-                        {item.ml} ml
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-3.5 text-black/80">{formatPaise(item.unitPrice)}</td>
-
-                    <td className="px-4 py-3.5 text-center font-medium text-black/90">{item.qty}</td>
-
-                    <td className="py-3.5 pl-4 text-right font-semibold text-black/90">
-                      {formatPaise(item.lineTotal)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile View: One card per ordered item */}
-        <div className="divide-y divide-black/10 md:hidden">
-          {(o.items || []).map((item, index) => {
-            const liveProduct = productMap.get(item.productId);
-            const thumb = item.image || liveProduct?.images?.[0] || "";
-
-            return (
-              <div key={item.id || `${item.slug}-${item.ml}-${index}`} className="py-4 first:pt-0 last:pb-0">
-                <div className="flex gap-3">
-                  {thumb ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={thumb}
-                      alt={item.name}
-                      className="h-20 w-20 shrink-0 border border-black/10 bg-[#F3E7D5] object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center border border-black/10 bg-[#F3E7D5] text-[11px] text-black/40">
-                      Perfume
-                    </div>
-                  )}
-
-                  <div className="min-w-0 flex-1 text-[13px]">
-                    <p className="m-0 font-medium text-black/95">{item.name}</p>
-                    <p className="m-0 mt-0.5 text-[12px] text-black/55">
-                      Bottle Size: <strong>{item.ml} ml</strong>
-                    </p>
-                    <p className="m-0 mt-0.5 text-[11px] text-black/45">
-                      Product ID: <code className="font-mono">{item.productId || item.slug}</code>
-                    </p>
-
-                    <div className="mt-2 flex items-center justify-between text-[13px]">
-                      <span className="text-black/60">
-                        {item.qty} × {formatPaise(item.unitPrice)}
-                      </span>
-                      <span className="font-semibold text-black/95">{formatPaise(item.lineTotal)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <AdminOrderItemsList items={itemsWithLiveStock} />
       </section>
 
       {/* SECTION 4: ORDER SUMMARY */}

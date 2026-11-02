@@ -60,6 +60,28 @@ function Badge({ active }: { active: boolean }) {
   );
 }
 
+function StockBadge({ stock }: { stock: number }) {
+  if (stock <= 0) {
+    return (
+      <span className="inline-block rounded bg-red-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-red-800">
+        Out of stock (0)
+      </span>
+    );
+  }
+  if (stock <= 5) {
+    return (
+      <span className="inline-block rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+        Low stock ({stock})
+      </span>
+    );
+  }
+  return (
+    <span className="inline-block rounded bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-800">
+      {stock} in stock
+    </span>
+  );
+}
+
 // ── Product Detail Modal ────────────────────────────────────────────────────
 function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void }) {
   const [imgIdx, setImgIdx] = useState(0);
@@ -179,7 +201,9 @@ function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void
               <div className="text-black/55">Category</div>
               <div>{item.category}</div>
               <div className="text-black/55">Stock</div>
-              <div>{item.stock} units</div>
+              <div>
+                <StockBadge stock={item.stock} />
+              </div>
               <div className="text-black/55">Product ID</div>
               <div className="truncate font-mono text-[11px]">{item.id}</div>
             </div>
@@ -235,6 +259,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [stockFilter, setStockFilter] = useState("");
   const [page, setPage] = useState(1);
   const [reload, setReload] = useState(0);
   const [data, setData] = useState<ListResponse | null>(null);
@@ -272,6 +297,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
     const p = new URLSearchParams({ page: String(page), limit: "10" });
     if (query) p.set("search", query);
     if (status) p.set("status", status);
+    if (stockFilter) p.set("stock", stockFilter);
 
     fetch(`/api/admin/products?${p.toString()}`, { signal: ctrl.signal })
       .then(async (res) => {
@@ -289,7 +315,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
       });
 
     return () => ctrl.abort();
-  }, [page, query, status, reload]);
+  }, [page, query, status, stockFilter, reload]);
 
   async function toggle(item: Item) {
     if (item.isActive && !window.confirm(`Deactivate "${item.name}"? Customers will no longer see it.`)) return;
@@ -384,6 +410,19 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
+        <select
+          value={stockFilter}
+          onChange={(e) => {
+            setStockFilter(e.target.value);
+            setPage(1);
+          }}
+          className={`${field} cursor-pointer w-full sm:w-auto`}
+        >
+          <option value="">All stock levels</option>
+          <option value="in_stock">In stock</option>
+          <option value="out_of_stock">Out of stock (0 units)</option>
+          <option value="low_stock">Low stock (≤ 5 units)</option>
+        </select>
       </div>
 
       <div className="mt-5 border border-black/10 bg-white">
@@ -412,9 +451,9 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                       <p className="m-0 mt-2 text-[14px]">
                         <Price p={p} />
                       </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-3 text-[12px] text-black/60">
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px]">
                         <Badge active={p.isActive} />
-                        <span>Stock: {p.stock}</span>
+                        <StockBadge stock={p.stock} />
                       </div>
                     </div>
                   </div>
@@ -482,7 +521,9 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                       <td className="px-4 py-3">
                         <Price p={p} />
                       </td>
-                      <td className="px-4 py-3">{p.stock}</td>
+                      <td className="px-4 py-3">
+                        <StockBadge stock={p.stock} />
+                      </td>
                       <td className="px-4 py-3">
                         <Badge active={p.isActive} />
                       </td>

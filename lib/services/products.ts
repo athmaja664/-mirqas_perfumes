@@ -154,6 +154,16 @@ export async function listProducts(sp: URLSearchParams, activeOnly: boolean) {
     ];
   }
 
+  // Stock status filter (in_stock, out_of_stock, low_stock)
+  const stockParam = sp.get("stock");
+  if (stockParam === "out_of_stock") {
+    where.stock = { [Op.lte]: 0 };
+  } else if (stockParam === "in_stock") {
+    where.stock = { [Op.gt]: 0 };
+  } else if (stockParam === "low_stock") {
+    where.stock = { [Op.lte]: 5 };
+  }
+
   // minPrice / maxPrice are in rupees in the URL
   const min = Number(sp.get("minPrice"));
   const max = Number(sp.get("maxPrice"));

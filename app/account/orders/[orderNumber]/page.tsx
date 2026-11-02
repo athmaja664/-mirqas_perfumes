@@ -109,22 +109,49 @@ export default async function OrderTrackingPage({ params }: { params: Promise<{ 
       : `Online payment - ${o.payment.status}`;
 
   const box = "border border-black/10 bg-white";
-  const small = "text-[11px] uppercase tracking-[0.25em] text-black/50";
+  const small = "text-[11px] font-semibold uppercase tracking-[0.2em] text-black/50";
 
   return (
     <main className="px-5 py-12 md:px-10 md:py-16" style={{ background: IVORY, fontFamily: sans }}>
       <div className="mx-auto max-w-[760px]">
-        <Link href="/account/orders" className="text-[13px] underline underline-offset-4">
-          Back to my orders
-        </Link>
+        {/* Top bar with back button & date */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href="/account/orders"
+            className="inline-flex cursor-pointer items-center gap-1.5 text-[13px] font-medium text-black/70 hover:text-[#9C5A2B]"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Back to my orders
+          </Link>
+          <span className="text-[12px] text-black/50">Placed {fmt(o.createdAt)}</span>
+        </div>
 
-        <h1
-          className="mb-1 mt-5 font-medium leading-tight lining-nums"
-          style={{ fontFamily: serif, color: COPPER, fontSize: "clamp(1.8rem, 4vw, 2.6rem)" }}
-        >
-          {o.orderNumber}
-        </h1>
-        <p className="m-0 text-[14px] text-black/60">Placed {fmt(o.createdAt)}</p>
+        {/* Cleanly aligned Header */}
+        <div className="border-b border-black/10 pb-5">
+          <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-black/50">
+            Order Tracking & Details
+          </p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <h1
+              className="m-0 break-all font-medium leading-tight lining-nums"
+              style={{ fontFamily: serif, color: COPPER, fontSize: "clamp(1.75rem, 3.5vw, 2.5rem)" }}
+            >
+              {o.orderNumber}
+            </h1>
+            <span
+              className="inline-block border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
+              style={{
+                background: cancelled ? "#F8E3E0" : "#F3E7D5",
+                color: cancelled ? "#A32A1F" : "#7d4720",
+                borderColor: cancelled ? "#A32A1F33" : "#9C5A2B33",
+              }}
+            >
+              {cancelled ? "Cancelled" : STEP_TEXT[o.status as (typeof FLOW)[number]]?.title || o.status}
+            </span>
+          </div>
+        </div>
 
         {/* Tracking timeline */}
         <section className={`${box} mt-8 p-6`}>
@@ -145,7 +172,7 @@ export default async function OrderTrackingPage({ params }: { params: Promise<{ 
                     className="relative z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] text-white"
                     style={{ background: dot, boxShadow: s.current ? `0 0 0 4px ${dot}33` : undefined }}
                   >
-                    {s.done ? (s.red ? "x" : "\u2713") : ""}
+                    {s.done ? (s.red ? "✕" : "✓") : ""}
                   </span>
                   <div>
                     <p
@@ -165,41 +192,65 @@ export default async function OrderTrackingPage({ params }: { params: Promise<{ 
           </ol>
         </section>
 
-        {/* Items */}
+        {/* Clickable Items to view product details & leave reviews */}
         <section className={`${box} mt-6`}>
-          <p className={`m-0 px-6 pt-6 ${small}`}>Items</p>
-          <ul className="m-0 list-none p-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 px-6 py-4">
+            <p className={`m-0 ${small}`}>Ordered Items ({o.items?.length || 0})</p>
+            <span className="text-[11px] text-black/50">Click any product to view details & write a review</span>
+          </div>
+          <ul className="m-0 divide-y divide-black/5 list-none p-0">
             {(o.items || []).map((i) => (
-              <li key={`${i.slug}-${i.ml}`} className="flex items-center gap-4 border-b border-black/5 px-6 py-4 last:border-0">
-                {i.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={i.image} alt={i.name} className="h-16 w-16 shrink-0 bg-[#F6EEE0] object-cover" />
-                ) : (
-                  <span className="h-16 w-16 shrink-0 bg-[#F6EEE0]" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate text-[15px] font-medium">{i.name}</p>
-                  <p className="m-0 mt-0.5 text-[13px] text-black/55">
-                    {i.ml}ml x {i.qty} at {formatPaise(i.unitPrice)}
-                  </p>
-                </div>
-                <span className="shrink-0 text-[15px] font-medium">{formatPaise(i.lineTotal)}</span>
+              <li key={`${i.slug}-${i.ml}`}>
+                <Link
+                  href={`/product/${i.slug}`}
+                  className="group flex cursor-pointer flex-col justify-between gap-4 px-6 py-4 transition-colors hover:bg-black/[0.02] sm:flex-row sm:items-center"
+                >
+                  <div className="flex min-w-0 items-center gap-4">
+                    {i.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={i.image}
+                        alt={i.name}
+                        className="h-16 w-16 shrink-0 rounded-[8px] border border-black/10 bg-[#F6EEE0] object-cover transition-opacity group-hover:opacity-90"
+                      />
+                    ) : (
+                      <span className="h-16 w-16 shrink-0 rounded-[8px] border border-black/10 bg-[#F6EEE0]" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="m-0 text-[15px] font-medium text-black/90 transition-colors group-hover:text-[#9C5A2B] group-hover:underline">
+                        {i.name}
+                      </p>
+                      <p className="m-0 mt-0.5 text-[13px] text-black/55">
+                        Bottle size: <strong className="font-semibold text-black/80">{i.ml}ml</strong> · Qty: {i.qty}
+                      </p>
+                      <span className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-[#9C5A2B]">
+                        View product & write review →
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 text-left sm:text-right">
+                    <span className="block text-[15px] font-semibold text-black/90">{formatPaise(i.lineTotal)}</span>
+                    <span className="text-[12px] text-black/50">{formatPaise(i.unitPrice)} each</span>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
         </section>
 
+        {/* Address & Payment summary */}
         <div className="mt-6 grid gap-6 md:grid-cols-2">
           <section className={`${box} p-6`}>
             <p className={`m-0 ${small}`}>Delivery address</p>
-            <p className="m-0 mt-3 text-[15px] font-medium">{o.shipping.name}</p>
-            <p className="m-0 mt-1 text-[14px] text-black/60">{o.shipping.phone}</p>
-            <p className="m-0 mt-1 text-[14px] text-black/60">{address}</p>
+            <p className="m-0 mt-3 text-[15px] font-medium text-black/90">{o.shipping.name}</p>
+            <p className="m-0 mt-1 text-[14px] text-black/60">Phone: {o.shipping.phone}</p>
+            <p className="m-0 mt-1 text-[14px] leading-relaxed text-black/60">{address}</p>
           </section>
 
           <section className={`${box} p-6 text-[14px]`}>
             <p className={`m-0 ${small}`}>Payment</p>
-            <p className="m-0 mt-3 text-[14px] text-black/70">{payText}</p>
+            <p className="m-0 mt-3 text-[14px] font-medium text-black/80">{payText}</p>
             <div className="mt-4 flex justify-between text-black/60">
               <span>Subtotal</span>
               <span className="text-[#111]">{formatPaise(o.subtotal)}</span>

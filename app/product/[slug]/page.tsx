@@ -337,6 +337,11 @@ function ProductDetail() {
                     {discount}% off
                   </span>
                 )}
+                {!product.inStock && (
+                  <span className="absolute left-3 bottom-3 z-10 rounded-[6px] bg-red-600/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white shadow backdrop-blur-sm">
+                    Out of Stock
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -365,6 +370,11 @@ function ProductDetail() {
                 <span className="text-base text-[rgba(17,17,17,0.6)] line-through">{formatPrice(mrp)}</span>
               )}
               <span className="text-3xl font-semibold">{formatPrice(price)}</span>
+              {!product.inStock && (
+                <span className="rounded bg-red-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-red-800">
+                  Out of Stock
+                </span>
+              )}
             </div>
             {mrp && mrp > price && (
               <p className="mt-1 text-sm font-medium text-[#9C5A2B]">
