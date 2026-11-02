@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, requireOwner } from "@/lib/auth/require-admin";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { guardRequest, readJson } from "@/lib/security";
 import { connectDB } from "@/lib/db";
 import { Product } from "@/models/Product";
@@ -55,8 +55,8 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   const permanent = req.nextUrl.searchParams.get("permanent") === "true";
 
   if (permanent) {
-    const owner = await requireOwner();
-    if ("error" in owner && owner.error) return owner.error;
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
     const result = await deleteProduct(id);
     if (!result.ok) return NextResponse.json({ message: result.message }, { status: result.status });
     return NextResponse.json({ message: "Product deleted." });

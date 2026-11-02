@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { put } from "@vercel/blob";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { guardRequest } from "@/lib/security";
 import {
@@ -13,6 +14,15 @@ import {
 } from "@/lib/uploads";
 
 export const runtime = "nodejs";
+
+const CONTENT_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  mp4: "video/mp4",
+  webm: "video/webm",
+};
 
 export async function POST(req: NextRequest) {
   const blocked = guardRequest(req, "admin-uploads", 100);
@@ -38,6 +48,10 @@ export async function POST(req: NextRequest) {
       { message: kind === "video" ? "Upload one video at a time." : "Upload at most 10 images at a time." },
       { status: 400 }
     );
+
+  const hasBlobToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  const preferLocal = process.env.STORAGE_PROVIDER === "local";
+  const useBlob = hasBlobToken && !preferLocal;
 
   const urls: string[] = [];
 
@@ -65,16 +79,33 @@ export async function POST(req: NextRequest) {
     // Collision-free unique 32-hex filename
     const name = `${randomBytes(16).toString("hex")}.${type}`;
 
-    try {
-      await mkdir(UPLOAD_DIR, { recursive: true });
-      await writeFile(path.join(UPLOAD_DIR, name), buf);
-      urls.push(`/api/uploads/${name}`);
-    } catch (e) {
-      console.error("Server disk upload error:", e);
-      return NextResponse.json(
-        { message: "Could not save the file to server storage. Please try again." },
-        { status: 500 }
-      );
+    if (useBlob) {
+      try {
+        const blob = await put(`products/${name}`, buf, {
+          access: "public",
+          contentType: CONTENT_TYPES[type] ?? "application/octet-stream",
+          addRandomSuffix: false,
+        });
+        urls.push(blob.url);
+      } catch (err) {
+        console.error("Vercel Blob upload error:", err);
+        return NextResponse.json(
+          { message: "Could not save to cloud storage. Please try again." },
+          { status: 502 }
+        );
+      }
+    } else {
+      try {
+        await mkdir(UPLOAD_DIR, { recursive: true });
+        await writeFile(path.join(UPLOAD_DIR, name), buf);
+        urls.push(`/api/uploads/${name}`);
+      } catch (e) {
+        console.error("Server disk upload error:", e);
+        return NextResponse.json(
+          { message: "Could not save the file to server storage. Please try again." },
+          { status: 500 }
+        );
+      }
     }
   }
 

@@ -8,8 +8,13 @@ const serif = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-serif",
+  display: "swap",
 });
-const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const sans = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 export const metadata = { title: "Mirqas Perfumes" };
 
@@ -18,9 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${serif.variable} ${sans.variable}`}>
       <body className="bg-[#FCF8F0] font-[family-name:var(--font-sans)] text-[#111]">
         <Preloader />
-        <Navbar/>
+        <Navbar />
         {children}
-        <Footer/>
+        <Footer />
       </body>
     </html>
   );

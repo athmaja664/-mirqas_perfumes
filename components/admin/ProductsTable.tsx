@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import ConfirmDeleteButton from "@/components/admin/ConfirmDeleteButton";
 
 const COPPER = "#9C5A2B";
@@ -17,6 +18,9 @@ type Item = {
   stock: number;
   isActive: boolean;
   images: string[];
+  description?: string;
+  video?: string;
+  isBestSeller?: boolean;
 };
 
 type ListResponse = { items: Item[]; page: number; total: number; pages: number };
@@ -55,15 +59,177 @@ function Badge({ active }: { active: boolean }) {
   );
 }
 
-function Thumb({ url }: { url?: string }) {
-  return url ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={url} alt="" className="h-14 w-14 shrink-0 border border-black/10 bg-[#F3E7D5] object-cover xl:h-12 xl:w-12" />
-  ) : (
-    <div className="h-14 w-14 shrink-0 border border-black/10 bg-[#F3E7D5] xl:h-12 xl:w-12" />
+// ── Product Detail Modal ────────────────────────────────────────────────────
+function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void }) {
+  const [imgIdx, setImgIdx] = useState(0);
+  const images = item.images.length > 0 ? item.images : [];
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") setImgIdx((i) => Math.min(i + 1, images.length - 1));
+      if (e.key === "ArrowLeft") setImgIdx((i) => Math.max(i - 1, 0));
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose, images.length]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={item.name}
+        onClick={(e) => e.stopPropagation()}
+        className="relative flex w-full max-w-2xl flex-col gap-0 border border-black/10 bg-[#FCF8F0] shadow-2xl"
+      >
+        {/* Close */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center bg-white/80 text-black/60 hover:text-black"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+
+        <div className="flex flex-col sm:flex-row">
+          {/* Image panel */}
+          <div className="relative w-full shrink-0 bg-[#F3E7D5] sm:w-64">
+            {images.length > 0 ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={images[imgIdx]}
+                alt={item.name}
+                className="aspect-square w-full object-cover"
+              />
+            ) : (
+              <div className="flex aspect-square w-full items-center justify-center text-[13px] text-black/40">
+                No image
+              </div>
+            )}
+            {images.length > 1 && (
+              <div className="flex items-center justify-between px-2 py-1">
+                <button
+                  type="button"
+                  disabled={imgIdx === 0}
+                  onClick={() => setImgIdx((i) => i - 1)}
+                  className="px-2 py-1 text-[12px] disabled:opacity-30"
+                >
+                  ‹ Prev
+                </button>
+                <span className="text-[11px] text-black/50">
+                  {imgIdx + 1} / {images.length}
+                </span>
+                <button
+                  type="button"
+                  disabled={imgIdx === images.length - 1}
+                  onClick={() => setImgIdx((i) => i + 1)}
+                  className="px-2 py-1 text-[12px] disabled:opacity-30"
+                >
+                  Next ›
+                </button>
+              </div>
+            )}
+            {/* Thumbnail strip */}
+            {images.length > 1 && (
+              <div className="flex gap-1 overflow-x-auto px-2 pb-2">
+                {images.map((url, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={url}
+                    src={url}
+                    alt=""
+                    onClick={() => setImgIdx(i)}
+                    className={`h-10 w-10 shrink-0 object-cover ${i === imgIdx ? "ring-2 ring-[#9C5A2B]" : "opacity-60 hover:opacity-100"}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Info panel */}
+          <div className="flex flex-1 flex-col gap-3 p-5">
+            <div>
+              <h2 className="m-0 text-2xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
+                {item.name}
+              </h2>
+              {item.brand && <p className="m-0 mt-0.5 text-[13px] text-black/55">{item.brand}</p>}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-[14px]">
+              <Price p={item} />
+              <Badge active={item.isActive} />
+              {item.isBestSeller && (
+                <span className="bg-amber-100 px-2 py-1 text-[11px] uppercase tracking-[0.15em] text-amber-800">
+                  Best seller
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[13px]">
+              <div className="text-black/55">Category</div>
+              <div>{item.category}</div>
+              <div className="text-black/55">Stock</div>
+              <div>{item.stock} units</div>
+              <div className="text-black/55">Product ID</div>
+              <div className="truncate font-mono text-[11px]">{item.id}</div>
+            </div>
+
+            {item.description && (
+              <p className="m-0 line-clamp-4 text-[13px] leading-relaxed text-black/70">
+                {item.description}
+              </p>
+            )}
+
+            <div className="mt-auto pt-2">
+              <Link
+                href={`/admin/products/${item.id}`}
+                className="inline-block px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white"
+                style={{ background: COPPER }}
+                onClick={onClose}
+              >
+                Edit product
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
+// ── Thumbnail (clickable) ────────────────────────────────────────────────────
+function Thumb({ url, onClick }: { url?: string; onClick: () => void }) {
+  return url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt="View details"
+      title="Click to view product details"
+      onClick={onClick}
+      className="h-14 w-14 shrink-0 border border-black/10 bg-[#F3E7D5] object-cover xl:h-12 xl:w-12"
+    />
+  ) : (
+    <div
+      onClick={onClick}
+      title="Click to view product details"
+      className="h-14 w-14 shrink-0 border border-black/10 bg-[#F3E7D5] xl:h-12 xl:w-12"
+    />
+  );
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
 export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }) {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
@@ -75,6 +241,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState("");
+  const [detail, setDetail] = useState<Item | null>(null);
 
   // Wait a moment after typing before searching.
   useEffect(() => {
@@ -133,7 +300,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
     }
   }
 
-  // Permanent delete (owner only; the server checks again).
+  // Permanent delete — available to all admins (server enforces owner-only rule).
   async function deleteForever(item: Item) {
     setBusyId(item.id);
     setError("");
@@ -156,8 +323,13 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
   const field =
     "border border-black/10 bg-white px-3 py-3 text-[16px] outline-none focus:border-black/40 sm:py-2.5 sm:text-[14px]";
 
+  // Available to all admins
+  const canDelete = true;
+
   return (
     <>
+      {detail && <ProductDetailModal item={detail} onClose={() => setDetail(null)} />}
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="m-0 text-3xl font-medium sm:text-4xl" style={{ fontFamily: serif, color: COPPER }}>
@@ -219,9 +391,15 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
               {data?.items.map((p) => (
                 <li key={p.id} className="border-b border-black/5 p-4 last:border-0">
                   <div className="flex gap-3">
-                    <Thumb url={p.images[0]} />
+                    <Thumb url={p.images[0]} onClick={() => setDetail(p)} />
                     <div className="min-w-0 flex-1">
-                      <p className="m-0 break-words text-[15px] font-medium">{p.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => setDetail(p)}
+                        className="m-0 break-words text-left text-[15px] font-medium hover:underline"
+                      >
+                        {p.name}
+                      </button>
                       {p.brand && <p className="m-0 text-[12px] text-black/50">{p.brand}</p>}
                       <p className="m-0 mt-1 text-[12px] text-black/50">{p.category}</p>
                       <p className="m-0 mt-2 text-[14px]">
@@ -249,7 +427,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                     >
                       {busyId === p.id ? "Saving..." : p.isActive ? "Deactivate" : "Activate"}
                     </button>
-                    {isOwner && (
+                    {canDelete && (
                       <ConfirmDeleteButton
                         label={`Delete ${p.name} permanently`}
                         message={deleteMessage(p.name)}
@@ -280,9 +458,15 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                     <tr key={p.id} className="border-b border-black/5 last:border-0">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <Thumb url={p.images[0]} />
+                          <Thumb url={p.images[0]} onClick={() => setDetail(p)} />
                           <div>
-                            <p className="m-0 font-medium">{p.name}</p>
+                            <button
+                              type="button"
+                              onClick={() => setDetail(p)}
+                              className="m-0 text-left font-medium hover:underline"
+                            >
+                              {p.name}
+                            </button>
                             {p.brand && <p className="m-0 text-[12px] text-black/50">{p.brand}</p>}
                           </div>
                         </div>
@@ -308,7 +492,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                           >
                             {busyId === p.id ? "Saving..." : p.isActive ? "Deactivate" : "Activate"}
                           </button>
-                          {isOwner && (
+                          {canDelete && (
                             <ConfirmDeleteButton
                               label={`Delete ${p.name} permanently`}
                               message={deleteMessage(p.name)}

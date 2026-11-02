@@ -1,6 +1,7 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import { UPLOAD_DIR } from "@/lib/uploads";
 
 export const runtime = "nodejs";
@@ -22,15 +23,30 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const match = /^[a-f0-9]{32}\.(jpg|png|webp|mp4|webm)$/.exec(name);
   if (!match) return new NextResponse("Not found", { status: 404 });
 
-  let file: Buffer;
-  try {
-    file = await readFile(path.join(UPLOAD_DIR, name));
-  } catch {
+  let file: Buffer | null = null;
+
+  // Search primary UPLOAD_DIR, then fallback paths (/tmp or process.cwd())
+  const candidatePaths = [
+    path.join(UPLOAD_DIR, name),
+    path.join(os.tmpdir(), "uploads", "products", name),
+    path.join(process.cwd(), "uploads", "products", name),
+  ];
+
+  for (const p of candidatePaths) {
+    try {
+      file = await readFile(p);
+      break;
+    } catch {
+      // continue to next path
+    }
+  }
+
+  if (!file) {
     return new NextResponse("Not found", { status: 404 });
   }
 
   const headers: Record<string, string> = {
-    "Content-Type": TYPES[match[1]],
+    "Content-Type": TYPES[match[1]] || "application/octet-stream",
     "Cache-Control": "public, max-age=31536000, immutable",
     "X-Content-Type-Options": "nosniff",
     "Accept-Ranges": "bytes",
@@ -43,7 +59,6 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     let start: number;
     let end: number;
     if (range[1] === "") {
-      // "bytes=-500" means the last 500 bytes
       start = Math.max(0, size - Number(range[2]));
       end = size - 1;
     } else {

@@ -1,7 +1,13 @@
 import path from "node:path";
+import os from "node:os";
 
-export const UPLOAD_DIR = path.join(process.cwd(), "uploads", "products");
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+// On Vercel, process.cwd() is read-only (/var/task). /tmp is writable.
+// On a local/VPS server with persistent disk, use process.cwd()/uploads/products.
+export const UPLOAD_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), "uploads", "products")
+  : path.join(process.cwd(), "uploads", "products");
+
+export const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB (Vercel serverless request body limit is 4.5 MB)
 export const MAX_VIDEO_BYTES = 20 * 1024 * 1024; // 20 MB
 
 // Looks at the first bytes of the file to find its real type.

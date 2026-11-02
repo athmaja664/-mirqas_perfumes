@@ -10,8 +10,58 @@ import MultiSelect from "@/components/MultiSelect";
 const COPPER = "#9C5A2B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const MAX_IMAGES = 10;
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 4 * 1024 * 1024; // 4 MB client check (Vercel limit 4.5 MB)
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
+const COMPRESS_TARGET = 3 * 1024 * 1024; // auto-compress above 3 MB
+
+// Resize + JPEG-compress an image client-side so it easily fits within Vercel's 4.5 MB body limit.
+async function compressImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+  if (file.size <= COMPRESS_TARGET) return file;
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX_SIDE = 1920;
+      let { naturalWidth: w, naturalHeight: h } = img;
+      if (w > MAX_SIDE || h > MAX_SIDE) {
+        if (w > h) {
+          h = Math.round((h * MAX_SIDE) / w);
+          w = MAX_SIDE;
+        } else {
+          w = Math.round((w * MAX_SIDE) / h);
+          h = MAX_SIDE;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.82
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
 
 export type ProductData = {
   id: string;
@@ -41,11 +91,14 @@ const toRupees = (paise: number) => String(paise / 100);
 const isVideoUrl = (url: string) => /\.(mp4|webm)(\?.*)?$/i.test(url);
 
 // Shows one image. If the browser cannot load it, a message appears instead of a blank box.
-function Thumb({ url }: { url: string }) {
+function Thumb({ url, onClick }: { url: string; onClick?: () => void }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
-      <div className="flex aspect-square w-full items-center justify-center bg-[#F3E7D5] px-2 text-center text-[11px] text-black/60">
+      <div
+        onClick={onClick}
+        className="flex aspect-square w-full cursor-pointer items-center justify-center bg-[#F3E7D5] px-2 text-center text-[11px] text-black/60"
+      >
         Could not load
       </div>
     );
@@ -54,9 +107,13 @@ function Thumb({ url }: { url: string }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={url}
-      alt=""
+      alt="Thumbnail"
+      title="Click to view full image details"
+      onClick={onClick}
       onError={() => setFailed(true)}
-      className="aspect-square w-full bg-[#F3E7D5] object-cover"
+      className={`aspect-square w-full bg-[#F3E7D5] object-cover transition-opacity ${
+        onClick ? "cursor-pointer hover:opacity-85" : ""
+      }`}
     />
   );
 }
@@ -84,7 +141,6 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [isBestSeller, setIsBestSeller] = useState(product?.isBestSeller ?? false);
 
   // Where the product shows on the website.
-  // "new-arrivals" is not in this list. It has its own box (showInNewArrivals).
   const [sections, setSections] = useState<string[]>(
     (product?.sections ?? ["shop-all"]).filter((s) => s !== "new-arrivals")
   );
@@ -93,8 +149,10 @@ export default function ProductForm({ product }: { product?: ProductData }) {
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   async function uploadOne(file: File, kind: "image" | "video"): Promise<string> {
     const body = new FormData();
@@ -121,11 +179,17 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     if (images.length + picked.length > MAX_IMAGES)
       return setError(`A product can have at most ${MAX_IMAGES} images.`);
     const tooBig = picked.find((f) => f.size > MAX_BYTES);
-    if (tooBig) return setError(`${tooBig.name} is larger than 5 MB.`);
+    if (tooBig) return setError(`${tooBig.name} is too large. Please choose a file under 4 MB.`);
 
     setUploading(true);
     try {
-      const results = await Promise.all(picked.map((f) => uploadOne(f, "image")));
+      const compressed = await Promise.all(picked.map((f) => compressImage(f)));
+      const results: string[] = [];
+      // Upload sequentially to avoid combined payload size spikes
+      for (const f of compressed) {
+        const u = await uploadOne(f, "image");
+        results.push(u);
+      }
       setImages((prev) => [...prev, ...results]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
@@ -163,12 +227,36 @@ export default function ProductForm({ product }: { product?: ProductData }) {
 
     setUploadingMedia(true);
     try {
-      const url = await uploadOne(file, isVideo ? "video" : "image");
+      const ready = isVideo ? file : await compressImage(file);
+      const url = await uploadOne(ready, isVideo ? "video" : "image");
       setMedia(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setUploadingMedia(false);
+    }
+  }
+
+  async function onDeleteProduct() {
+    if (!product?.id) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to permanently delete "${product.name}"?\nThis will remove the product, reviews, and cart entries. This cannot be undone.`
+      )
+    )
+      return;
+
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}?permanent=true`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.message || "Could not delete product.");
+      router.push("/admin/products");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete product.");
+      setDeleting(false);
     }
   }
 
@@ -244,10 +332,10 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   // 16px text on phones stops iPhones from zooming in when a field is tapped.
   const input =
     "w-full border border-black/10 bg-white px-3 py-3 text-[16px] outline-none focus:border-black/40 sm:py-2.5 sm:text-[14px]";
-  const label = "mb-2 block text-[11px] uppercase tracking-[0.2em] text-black/55";
+  const label = "mb-2 block text-[11px] uppercase tracking-[0.2em] text-black/55 cursor-pointer";
   const filePicker =
-    "block w-full text-[14px] file:mr-4 file:border-0 file:bg-[#F3E7D5] file:px-4 file:py-3 file:text-[12px] file:font-semibold file:uppercase file:tracking-[0.15em] file:text-[#111] disabled:opacity-50 sm:file:py-2.5";
-  const smallLink = "px-1 py-2 underline underline-offset-4";
+    "block w-full text-[14px] cursor-pointer file:cursor-pointer file:mr-4 file:border-0 file:bg-[#F3E7D5] file:px-4 file:py-3 file:text-[12px] file:font-semibold file:uppercase file:tracking-[0.15em] file:text-[#111] disabled:opacity-50 sm:file:py-2.5";
+  const smallLink = "px-1 py-2 underline underline-offset-4 cursor-pointer";
   const hint = "m-0 mb-3 text-[13px] leading-relaxed text-black/55";
 
   const mediaOptions: { value: CardMedia; title: string; text: string }[] = [
@@ -258,6 +346,74 @@ export default function ProductForm({ product }: { product?: ProductData }) {
 
   return (
     <>
+      {/* ── Image Details / Preview Modal ────────────────────────────── */}
+      {previewUrl && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreviewUrl(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Image details"
+            onClick={(e) => e.stopPropagation()}
+            className="relative flex max-h-[90vh] w-full max-w-2xl flex-col border border-black/10 bg-[#FCF8F0] p-6 shadow-2xl"
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewUrl(null)}
+              className="absolute right-3 top-3 z-10 flex h-8 w-8 cursor-pointer items-center justify-center bg-white/80 text-black/60 transition-colors hover:text-black"
+              aria-label="Close"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+            <h3 className="m-0 mb-3 text-2xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
+              Image details
+            </h3>
+            <div className="flex max-h-[60vh] items-center justify-center overflow-hidden border border-black/10 bg-[#F3E7D5]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl} alt="Preview" className="max-h-[58vh] w-auto max-w-full object-contain" />
+            </div>
+            <div className="mt-4 flex flex-col gap-2 text-[13px] text-black/70">
+              <p className="m-0 break-all font-mono text-[12px] text-black/60">
+                <strong>Path:</strong> {previewUrl}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    makeMain(previewUrl);
+                    setPreviewUrl(null);
+                  }}
+                  className="cursor-pointer border border-[#9C5A2B] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B]/10"
+                >
+                  Make Main Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeImage(previewUrl);
+                    setPreviewUrl(null);
+                  }}
+                  className="cursor-pointer border border-red-300 bg-red-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-red-800 transition-colors hover:bg-red-100"
+                >
+                  Remove Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewUrl(null)}
+                  className="cursor-pointer border border-black/20 bg-transparent px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-black/60 transition-colors hover:bg-black/5"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h1 className="m-0 text-3xl font-medium sm:text-4xl" style={{ fontFamily: serif, color: COPPER }}>
         {editing ? "Edit product" : "Add product"}
       </h1>
@@ -273,20 +429,33 @@ export default function ProductForm({ product }: { product?: ProductData }) {
         )}
 
         <div>
-          <label className={label} htmlFor="name">Name</label>
+          <label className={label} htmlFor="name">
+            Name
+          </label>
           <input id="name" className={input} value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2">
           <div>
-            <label className={label} htmlFor="brand">Brand</label>
+            <label className={label} htmlFor="brand">
+              Brand
+            </label>
             <input id="brand" className={input} value={brand} onChange={(e) => setBrand(e.target.value)} />
           </div>
           <div>
-            <label className={label} htmlFor="category">Category</label>
-            <select id="category" className={input} value={category} onChange={(e) => setCategory(e.target.value)}>
+            <label className={label} htmlFor="category">
+              Category
+            </label>
+            <select
+              id="category"
+              className={`${input} cursor-pointer`}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
               {FRAGRANCE_FAMILIES.map((f) => (
-                <option key={f} value={f}>{f}</option>
+                <option key={f} value={f}>
+                  {f}
+                </option>
               ))}
             </select>
           </div>
@@ -309,7 +478,9 @@ export default function ProductForm({ product }: { product?: ProductData }) {
         </div>
 
         <div>
-          <label className={label} htmlFor="description">Description</label>
+          <label className={label} htmlFor="description">
+            Description
+          </label>
           <textarea
             id="description"
             rows={4}
@@ -321,27 +492,53 @@ export default function ProductForm({ product }: { product?: ProductData }) {
 
         <div className="grid gap-6 sm:grid-cols-3">
           <div>
-            <label className={label} htmlFor="price">Price (₹)</label>
-            <input id="price" inputMode="decimal" className={input} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="1499" required />
+            <label className={label} htmlFor="price">
+              Price (₹)
+            </label>
+            <input
+              id="price"
+              inputMode="decimal"
+              className={input}
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="1499"
+              required
+            />
           </div>
           <div>
-            <label className={label} htmlFor="salePrice">Sale price (₹)</label>
-            <input id="salePrice" inputMode="decimal" className={input} value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="Optional" />
+            <label className={label} htmlFor="salePrice">
+              Sale price (₹)
+            </label>
+            <input
+              id="salePrice"
+              inputMode="decimal"
+              className={input}
+              value={salePrice}
+              onChange={(e) => setSalePrice(e.target.value)}
+              placeholder="Optional"
+            />
           </div>
           <div>
-            <label className={label} htmlFor="stock">Stock</label>
-            <input id="stock" inputMode="numeric" className={input} value={stock} onChange={(e) => setStock(e.target.value)} />
+            <label className={label} htmlFor="stock">
+              Stock
+            </label>
+            <input
+              id="stock"
+              inputMode="numeric"
+              className={input}
+              value={stock}
+              onChange={(e) => setStock(e.target.value)}
+            />
           </div>
         </div>
 
         {/* 1. Product images (many) */}
         <div>
           <label className={label} htmlFor="imageFiles">
-            Product images (JPG, PNG or WebP, max 5 MB each, up to {MAX_IMAGES})
+            Product images (JPG, PNG or WebP, auto-compressed, up to {MAX_IMAGES})
           </label>
           <p className={hint}>
-            The <strong>Main</strong> image is the thumbnail on the product card. All the images show when a
-            customer opens the product to see more.
+            The <strong>Main</strong> image is the thumbnail on the product card. Click any image to view details.
           </p>
           <input
             id="imageFiles"
@@ -352,13 +549,13 @@ export default function ProductForm({ product }: { product?: ProductData }) {
             onChange={onPickFiles}
             className={filePicker}
           />
-          {uploading && <p className="mb-0 mt-2 text-[13px] text-black/55">Uploading…</p>}
+          {uploading && <p className="mb-0 mt-2 text-[13px] text-black/55">Uploading images…</p>}
 
           {images.length > 0 && (
             <ul className="m-0 mt-4 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 sm:gap-4 md:grid-cols-4">
               {images.map((url, i) => (
                 <li key={url} className="border border-black/10">
-                  <Thumb url={url} />
+                  <Thumb url={url} onClick={() => setPreviewUrl(url)} />
                   <div className="flex items-center justify-between gap-2 px-2 py-1 text-[11px] uppercase tracking-[0.12em]">
                     {i === 0 ? (
                       <span style={{ color: COPPER }}>Main</span>
@@ -402,7 +599,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
                       value={o.value}
                       checked={active}
                       onChange={() => changeMediaType(o.value)}
-                      className="h-4 w-4 accent-[#9C5A2B]"
+                      className="h-4 w-4 cursor-pointer accent-[#9C5A2B]"
                     />
                     {o.title}
                   </span>
@@ -417,7 +614,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
               <label className={label} htmlFor="mediaFile">
                 {mediaType === "video"
                   ? "Video (MP4 or WebM, max 20 MB)"
-                  : "Hover image (JPG, PNG or WebP, max 5 MB)"}
+                  : "Hover image (JPG, PNG or WebP, auto-compressed)"}
               </label>
               <input
                 id="mediaFile"
@@ -447,7 +644,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
                       className="aspect-square w-full bg-[#F3E7D5] object-cover"
                     />
                   ) : (
-                    <Thumb url={media} />
+                    <Thumb url={media} onClick={() => setPreviewUrl(media)} />
                   )}
                   <div className="px-2 py-1 text-[11px] uppercase tracking-[0.12em]">
                     <button type="button" onClick={() => setMedia("")} className={smallLink}>
@@ -461,35 +658,63 @@ export default function ProductForm({ product }: { product?: ProductData }) {
         </fieldset>
 
         <div className="flex flex-col gap-4 text-[14px] sm:flex-row sm:flex-wrap sm:gap-8">
-          <label className="flex items-center gap-3">
-            <input type="checkbox" className="h-5 w-5 accent-[#9C5A2B]" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              className="h-5 w-5 cursor-pointer accent-[#9C5A2B]"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+            />
             Active (visible in the store)
           </label>
-          <label className="flex items-center gap-3">
-            <input type="checkbox" className="h-5 w-5 accent-[#9C5A2B]" checked={isBestSeller} onChange={(e) => setIsBestSeller(e.target.checked)} />
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              className="h-5 w-5 cursor-pointer accent-[#9C5A2B]"
+              checked={isBestSeller}
+              onChange={(e) => setIsBestSeller(e.target.checked)}
+            />
             Best seller
           </label>
-          <label className="flex items-center gap-3">
-            <input type="checkbox" className="h-5 w-5 accent-[#9C5A2B]" checked={showInNewArrivals} onChange={(e) => setShowInNewArrivals(e.target.checked)} />
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              className="h-5 w-5 cursor-pointer accent-[#9C5A2B]"
+              checked={showInNewArrivals}
+              onChange={(e) => setShowInNewArrivals(e.target.checked)}
+            />
             Show in New Arrivals (for 30 days)
           </label>
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <button
-            type="submit"
-            disabled={saving || uploading || uploadingMedia}
-            className="w-full px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#7d4720] disabled:opacity-50 sm:w-auto sm:py-3"
-            style={{ background: COPPER }}
-          >
-            {saving ? "Saving…" : editing ? "Save changes" : "Create product"}
-          </button>
-          <Link
-            href="/admin/products"
-            className="py-2 text-center text-[12px] uppercase tracking-[0.18em] underline underline-offset-4"
-          >
-            Cancel
-          </Link>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <button
+              type="submit"
+              disabled={saving || uploading || uploadingMedia || deleting}
+              className="w-full cursor-pointer px-6 py-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#7d4720] disabled:opacity-50 sm:w-auto sm:py-3"
+              style={{ background: COPPER }}
+            >
+              {saving ? "Saving…" : editing ? "Save changes" : "Create product"}
+            </button>
+            <Link
+              href="/admin/products"
+              className="cursor-pointer py-2 text-center text-[12px] uppercase tracking-[0.18em] underline underline-offset-4"
+            >
+              Cancel
+            </Link>
+          </div>
+
+          {editing && (
+            <button
+              type="button"
+              onClick={onDeleteProduct}
+              disabled={saving || deleting}
+              className="cursor-pointer border border-[#A32A1F] bg-transparent px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.18em] text-[#A32A1F] transition-colors hover:bg-[#A32A1F]/10 disabled:opacity-50 sm:py-2.5"
+            >
+              {deleting ? "Deleting…" : "Delete product"}
+            </button>
+          )}
         </div>
       </form>
     </>

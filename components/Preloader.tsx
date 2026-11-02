@@ -1,38 +1,57 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import gsap from "gsap";
 
 export default function Preloader() {
-  const [visible, setVisible] = useState(true);
+  const pathname = usePathname();
+  const [visible, setVisible] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
+    // Never show the full-screen splash preloader in the admin dashboard
+    if (pathname?.startsWith("/admin")) {
+      return;
+    }
+
+    // Only show the intro splash once per browser session
+    try {
+      if (sessionStorage.getItem("mirqas_splash_shown")) {
+        return;
+      }
+      sessionStorage.setItem("mirqas_splash_shown", "1");
+    } catch {
+      // Ignore if sessionStorage is disabled
+    }
+
+    setVisible(true);
+
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ onComplete: () => setVisible(false) });
 
-      // Zoom-out entrance: starts large and transparent, settles to normal size
+      // Snappy, elegant entrance
       tl.from(logoRef.current, {
-        scale: reduce ? 1 : 3,
+        scale: reduce ? 1 : 2.2,
         opacity: 0,
-        duration: reduce ? 0.4 : 1.2,
-        ease: "power4.out",
+        duration: reduce ? 0.3 : 0.65,
+        ease: "power3.out",
       });
 
-      // Hold the logo, then fade the whole overlay away
+      // Quick hold and smooth fade away
       tl.to(overlayRef.current, {
         opacity: 0,
-        duration: 0.7,
+        duration: 0.45,
         ease: "power2.inOut",
-        delay: 1.1, // 1.2s zoom + 1.1s hold ≈ 2.3s, plus 0.7s fade = 3s total
+        delay: 0.35,
       });
     }, overlayRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [pathname]);
 
   if (!visible) return null;
 
@@ -51,7 +70,7 @@ export default function Preloader() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        overflow: "hidden", // stops the scaled logo causing scrollbars
+        overflow: "hidden",
         background: "#FCF8F0",
       }}
     >
@@ -61,7 +80,7 @@ export default function Preloader() {
         src="/images/logoo.png"
         alt="Mirqas Perfumes"
         style={{
-          width: "min(60vw, 360px)", // scales down on phones, capped on desktop
+          width: "min(50vw, 320px)",
           height: "auto",
           display: "block",
           mixBlendMode: "multiply",
