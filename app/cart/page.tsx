@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { readList, writeList, CART_KEY, SYNC_EVENT } from "@/lib/shopStorage";
 
 // Brand colours (same as Shop All)
 const COPPER = "#9C5A2B";
@@ -20,8 +21,7 @@ const CARD_LINE = "#EADFCC";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
-const CART_KEY = "mirqas-cart";
-const SYNC_EVENT = "mirqas-storage"; // tells other components (navbar count) that storage changed
+
 
 type SizeOption = {
   ml: number;
@@ -45,21 +45,11 @@ const formatPrice = (n: number) =>
   "Rs. " + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function readCart(): CartItem[] {
-  try {
-    const raw = localStorage.getItem(CART_KEY);
-    return raw ? (JSON.parse(raw) as CartItem[]) : [];
-  } catch {
-    return [];
-  }
+  return readList<CartItem>(CART_KEY);
 }
 
 function writeCart(list: CartItem[]) {
-  try {
-    localStorage.setItem(CART_KEY, JSON.stringify(list));
-    window.dispatchEvent(new Event(SYNC_EVENT));
-  } catch {
-    // storage full or blocked: ignore
-  }
+  writeList(CART_KEY, list);
 }
 
 const unitOf = (it: CartItem) =>

@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
-import mongoose from "mongoose";
-import { connectDB } from "../lib/db";
+import { connectDB, getSequelize } from "../lib/db";
 import { User } from "../models/User";
 
 async function main() {
@@ -12,7 +11,8 @@ async function main() {
   if (password.length < 10) throw new Error("ADMIN_PASSWORD must be at least 10 characters");
 
   await connectDB();
-  if (await User.exists({ email })) {
+  const existing = await User.count({ where: { email } });
+  if (existing > 0) {
     console.log("An account with this email already exists. Nothing changed.");
   } else {
     // The first admin made by this script is the owner (main admin).
@@ -23,10 +23,12 @@ async function main() {
       passwordHash: await bcrypt.hash(password, 12),
       role: "admin",
       isOwner: true,
+      canManageAdmins: true,
+      isActive: true,
     });
     console.log("Owner admin created:", email);
   }
-  await mongoose.disconnect();
+  await getSequelize().close();
 }
 
 main().catch((e) => {

@@ -23,6 +23,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["sequelize"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "plus.unsplash.com" },

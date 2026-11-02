@@ -1,6 +1,5 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { isValidObjectId } from "mongoose";
 import { getCurrentUser } from "@/lib/auth/session";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
@@ -15,10 +14,12 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   if (!user || user.role !== "admin") redirect("/login");
 
   const { id } = await params;
-  if (!isValidObjectId(id)) notFound();
+  if (!id) notFound();
   await connectDB();
-  const c = (await User.findOne({ _id: id, role: "customer" })
-    .select("name email phone isActive createdAt updatedAt").lean()) as unknown as Row | null;
+  const c = (await User.findOne({
+    where: { id, role: "customer" },
+    attributes: ["name", "email", "phone", "isActive", "createdAt", "updatedAt"],
+  })) as unknown as Row | null;
   if (!c) notFound();
 
   const date = (d: Date) => new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });

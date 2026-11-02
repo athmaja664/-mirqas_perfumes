@@ -1,4 +1,4 @@
-﻿async function post(path: string, body: unknown) {
+async function post(path: string, body: unknown) {
   let res: Response;
   try {
     res = await fetch(path, {
@@ -15,7 +15,7 @@
   return data;
 }
 
-export const loginRequest = (email: string, password: string, remember: boolean) =>
+export const loginRequest = (email: string, password: string, remember: boolean = false) =>
   post("/api/auth/login", { email, password, remember });
 
 

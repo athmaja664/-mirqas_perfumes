@@ -13,7 +13,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ message: "Please log in." }, { status: 401 });
 
   await connectDB();
-  const a = await Address.findOne({ userId: user.id }).lean();
+  const a = await Address.findOne({ where: { userId: user.id } });
   if (!a) return NextResponse.json({ address: null });
 
   return NextResponse.json({
@@ -46,7 +46,12 @@ export async function PUT(req: NextRequest) {
   }
 
   await connectDB();
-  await Address.updateOne({ userId: user.id }, { $set: parsed.data }, { upsert: true });
+  const existing = await Address.findOne({ where: { userId: user.id } });
+  if (existing) {
+    await existing.update(parsed.data);
+  } else {
+    await Address.create({ userId: user.id, ...parsed.data });
+  }
 
   return NextResponse.json({ ok: true });
 }

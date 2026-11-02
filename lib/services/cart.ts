@@ -1,5 +1,5 @@
-import { connectDB } from "@/lib/db";
-import { Cart, MAX_QTY_PER_LINE } from "@/models/Cart";
+import { connectDB, Op } from "@/lib/db";
+import { Cart, CartItem, MAX_QTY_PER_LINE } from "@/models/Cart";
 import { Product } from "@/models/Product";
 import { SIZE_STEPS, sizePricePaise, unitPricePaise } from "@/lib/pricing";
 
@@ -7,7 +7,6 @@ export type CartResult = { ok: true } | { ok: false; status: number; message: st
 
 const fail = (status: number, message: string): CartResult => ({ ok: false, status, message });
 
-// Same shape as the browser cart line (prices in RUPEES), so the cart page can use it directly.
 export type CartLineView = {
   slug: string;
   name: string;
@@ -21,34 +20,39 @@ export type CartLineView = {
 
 export type CartView = {
   items: CartLineView[];
-  count: number; // bottles that can be bought now
-  subtotal: number; // rupees
+  count: number;
+  subtotal: number;
 };
 
 const limitFor = (stock: number) => Math.min(MAX_QTY_PER_LINE, stock);
 
 async function loadCart(userId: string) {
-  const cart = await Cart.findOne({ userId });
-  return cart ?? new Cart({ userId, items: [] });
+  const [cart] = await Cart.findOrCreate({
+    where: { userId },
+    defaults: { userId },
+  });
+  return cart;
 }
 
-// ---------------------------------------------------------------------------
-// Read the cart. Prices and stock always come from the database.
-// Lines whose product was removed or deactivated are not shown.
-// ---------------------------------------------------------------------------
 export async function getCartView(userId: string): Promise<CartView> {
   await connectDB();
-  const cart = await Cart.findOne({ userId }).lean();
+  const cart = await Cart.findOne({
+    where: { userId },
+    include: [{ model: CartItem, as: "items" }],
+  });
+
   const lines = cart?.items ?? [];
   if (lines.length === 0) return { items: [], count: 0, subtotal: 0 };
 
-  const products = await Product.find({
-    _id: { $in: lines.map((l) => l.productId) },
-    isActive: true,
-  })
-    .select("name slug price salePrice images notes stock")
-    .lean();
-  const byId = new Map(products.map((p) => [String(p._id), p]));
+  const productIds = lines.map((l) => l.productId);
+  const products = await Product.findAll({
+    where: {
+      id: { [Op.in]: productIds },
+      isActive: true,
+    },
+  });
+
+  const byId = new Map(products.map((p) => [String(p.id), p]));
 
   const items: CartLineView[] = [];
   let subtotalPaise = 0;
@@ -64,11 +68,14 @@ export async function getCartView(userId: string): Promise<CartView> {
       count += line.qty;
     }
 
+    const images = Array.isArray(p.images) ? p.images : [];
+    const notes = Array.isArray(p.notes) ? p.notes : [];
+
     items.push({
       slug: p.slug,
       name: p.name,
-      image: p.images[0],
-      notes: p.notes.length ? p.notes : undefined,
+      image: images[0],
+      notes: notes.length ? notes : undefined,
       sizes: SIZE_STEPS.map(({ ml }) => ({
         ml,
         price: (sizePricePaise(p.salePrice ?? p.price, ml) ?? 0) / 100,
@@ -84,32 +91,36 @@ export async function getCartView(userId: string): Promise<CartView> {
   return { items, count, subtotal: subtotalPaise / 100 };
 }
 
-// ---------------------------------------------------------------------------
-// Add (or add more of) one perfume in one size
-// ---------------------------------------------------------------------------
 export async function addToCart(userId: string, slug: string, ml: number, qty: number): Promise<CartResult> {
   await connectDB();
-  const product = await Product.findOne({ slug, isActive: true }).select("_id stock").lean();
+  const product = await Product.findOne({ where: { slug, isActive: true } });
   if (!product) return fail(404, "Product not found.");
   if (product.stock < 1) return fail(409, "This perfume is sold out.");
 
   const cart = await loadCart(userId);
-  const line = cart.items.find((i) => String(i.productId) === String(product._id) && i.ml === ml);
+  const line = await CartItem.findOne({
+    where: { cartId: cart.id, productId: product.id, ml },
+  });
 
   const limit = limitFor(product.stock);
   const nextQty = (line?.qty ?? 0) + qty;
   if (nextQty > limit) return fail(409, `You can add at most ${limit} of this perfume.`);
 
-  if (line) line.qty = nextQty;
-  else cart.items.push({ productId: product._id, ml, qty: nextQty });
+  if (line) {
+    line.qty = nextQty;
+    await line.save();
+  } else {
+    await CartItem.create({
+      cartId: cart.id,
+      productId: product.id,
+      ml,
+      qty: nextQty,
+    });
+  }
 
-  await cart.save();
   return { ok: true };
 }
 
-// ---------------------------------------------------------------------------
-// Change the quantity and/or the size of one line
-// ---------------------------------------------------------------------------
 export async function changeLine(
   userId: string,
   slug: string,
@@ -118,57 +129,55 @@ export async function changeLine(
   newMl: number | undefined
 ): Promise<CartResult> {
   await connectDB();
-  const product = await Product.findOne({ slug, isActive: true }).select("_id stock").lean();
+  const product = await Product.findOne({ where: { slug, isActive: true } });
   if (!product) return fail(404, "Product not found.");
 
-  const cart = await Cart.findOne({ userId });
-  const line = cart?.items.find((i) => String(i.productId) === String(product._id) && i.ml === ml);
-  if (!cart || !line) return fail(404, "This item is not in your cart.");
+  const cart = await Cart.findOne({ where: { userId } });
+  if (!cart) return fail(404, "This item is not in your cart.");
+
+  const line = await CartItem.findOne({
+    where: { cartId: cart.id, productId: product.id, ml },
+  });
+  if (!line) return fail(404, "This item is not in your cart.");
 
   const limit = limitFor(product.stock);
   const wantedQty = qty ?? line.qty;
   if (wantedQty > limit) return fail(409, `You can add at most ${limit} of this perfume.`);
 
   if (newMl !== undefined && newMl !== ml) {
-    const twin = cart.items.find((i) => String(i.productId) === String(product._id) && i.ml === newMl);
+    const twin = await CartItem.findOne({
+      where: { cartId: cart.id, productId: product.id, ml: newMl },
+    });
     if (twin) {
-      // same perfume + new size already in the cart: merge the two lines
       const merged = twin.qty + wantedQty;
       if (merged > limit) return fail(409, `You can add at most ${limit} of this perfume.`);
       twin.qty = merged;
-    //   cart.items.pull({ productId: product._id, ml });
-    cart.items = cart.items.filter(
-  (i) => !(String(i.productId) === String(product._id) && i.ml === ml)
-);
+      await twin.save();
+      await line.destroy();
     } else {
       line.ml = newMl;
       line.qty = wantedQty;
+      await line.save();
     }
   } else {
     line.qty = wantedQty;
+    await line.save();
   }
 
-  await cart.save();
   return { ok: true };
 }
 
-// ---------------------------------------------------------------------------
-// Remove one line
-// ---------------------------------------------------------------------------
 export async function removeLine(userId: string, slug: string, ml: number): Promise<CartResult> {
   await connectDB();
-  const product = await Product.findOne({ slug }).select("_id").lean();
+  const product = await Product.findOne({ where: { slug } });
   if (!product) return { ok: true };
 
-  const cart = await Cart.findOne({ userId });
+  const cart = await Cart.findOne({ where: { userId } });
   if (!cart) return { ok: true };
 
-//   cart.items.pull({ productId: product._id, ml });
-//   await cart.save();
-//   return { ok: true };
-  cart.items = cart.items.filter(
-    (i) => !(String(i.productId) === String(product._id) && i.ml === ml)
-  );
-  await cart.save();
+  await CartItem.destroy({
+    where: { cartId: cart.id, productId: product.id, ml },
+  });
+
   return { ok: true };
 }

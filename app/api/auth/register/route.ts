@@ -16,14 +16,22 @@ export async function POST(req: NextRequest) {
   const { name, email, phone, password } = parsed.data;
   await connectDB();
 
-  if (await User.exists({ email }))
+  const count = await User.count({ where: { email: email.toLowerCase().trim() } });
+  if (count > 0)
     return NextResponse.json({ message: "An account with this email already exists." }, { status: 409 });
 
   try {
     // role is set here on the server. The browser can never choose it.
-    await User.create({ name, email, phone, passwordHash: await bcrypt.hash(password, 12), role: "customer" });
-  } catch (e) {
-    if ((e as { code?: number }).code === 11000)
+    await User.create({
+      name,
+      email: email.toLowerCase().trim(),
+      phone: phone || "",
+      passwordHash: await bcrypt.hash(password, 12),
+      role: "customer",
+    });
+  } catch (e: unknown) {
+    const err = e as { name?: string; original?: { errno?: number } };
+    if (err.name === "SequelizeUniqueConstraintError" || err.original?.errno === 1062)
       return NextResponse.json({ message: "An account with this email already exists." }, { status: 409 });
     console.error(e);
     return NextResponse.json({ message: "Something went wrong. Please try again." }, { status: 500 });

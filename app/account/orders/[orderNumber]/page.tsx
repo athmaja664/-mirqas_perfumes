@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { connectDB } from "@/lib/db";
-import { Order, type OrderStatus, type PaymentMethod, type PaymentStatus } from "@/models/Order";
+import { Order, OrderItem, OrderStatusHistory, type OrderStatus, type PaymentMethod, type PaymentStatus } from "@/models/Order";
 import { formatPaise } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -49,9 +49,16 @@ export default async function OrderTrackingPage({ params }: { params: Promise<{ 
 
   await connectDB();
   // The order must belong to this customer. Otherwise it looks like it does not exist.
-  const o = (await Order.findOne({ orderNumber, userId: user.id }).lean()) as unknown as OrderRow | null;
-  if (!o) notFound();
+  const orderRecord = await Order.findOne({
+    where: { orderNumber, userId: user.id },
+    include: [
+      { model: OrderItem, as: "items" },
+      { model: OrderStatusHistory, as: "statusHistory" },
+    ],
+  });
+  if (!orderRecord) notFound();
 
+  const o = orderRecord as unknown as OrderRow;
   const history = o.statusHistory ?? [];
   const cancelled = o.status === "cancelled";
 
@@ -66,7 +73,6 @@ export default async function OrderTrackingPage({ params }: { params: Promise<{ 
 
   if (cancelled) {
     const cancelledAt = timeOf("cancelled") ?? new Date(o.createdAt);
-    // Show only the steps that were reached before the order was cancelled
     FLOW.forEach((s, i) => {
       const at = i === 0 ? new Date(o.createdAt) : timeOf(s, new Date(cancelledAt));
       if (i === 0 || at) steps.push({ key: s, ...STEP_TEXT[s], done: true, at, current: false });
@@ -163,7 +169,7 @@ export default async function OrderTrackingPage({ params }: { params: Promise<{ 
         <section className={`${box} mt-6`}>
           <p className={`m-0 px-6 pt-6 ${small}`}>Items</p>
           <ul className="m-0 list-none p-0">
-            {o.items.map((i) => (
+            {(o.items || []).map((i) => (
               <li key={`${i.slug}-${i.ml}`} className="flex items-center gap-4 border-b border-black/5 px-6 py-4 last:border-0">
                 {i.image ? (
                   // eslint-disable-next-line @next/next/no-img-element

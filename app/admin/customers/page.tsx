@@ -1,10 +1,9 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { isValidObjectId } from "mongoose";
 import { getCurrentUser } from "@/lib/auth/session";
 import { requireOwner } from "@/lib/auth/require-admin";
-import { connectDB } from "@/lib/db";
+import { connectDB, Op } from "@/lib/db";
 import { User } from "@/models/User";
 import { Session } from "@/models/Session";
 import { deleteCustomer } from "@/lib/services/purge";
@@ -30,13 +29,13 @@ async function toggleActive(formData: FormData) {
   const admin = await getCurrentUser();
   if (!admin || admin.role !== "admin") return;
   const id = String(formData.get("id"));
-  if (!isValidObjectId(id)) return;
+  if (!id) return;
   await connectDB();
-  const u = await User.findOne({ _id: id, role: "customer" });
+  const u = await User.findOne({ where: { id, role: "customer" } });
   if (!u) return;
   u.isActive = !u.isActive;
   await u.save();
-  if (!u.isActive) await Session.deleteMany({ userId: u._id });
+  if (!u.isActive) await Session.destroy({ where: { userId: u.id } });
   revalidatePath("/admin/customers");
 }
 
@@ -77,21 +76,27 @@ export default async function AdminCustomersPage({
   const errorText =
     typeof sp.error === "string" && Object.prototype.hasOwnProperty.call(ERRORS, sp.error) ? ERRORS[sp.error] : "";
 
-  const filter: Record<string, unknown> = { role: "customer" };
-  if (sp.status === "active") filter.isActive = true;
-  if (sp.status === "inactive") filter.isActive = false;
+  const where: Record<string | symbol, unknown> = { role: "customer" };
+  if (sp.status === "active") where.isActive = true;
+  if (sp.status === "inactive") where.isActive = false;
   const search = (sp.search ?? "").trim().slice(0, 80);
   if (search) {
-    const safe = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    filter.$or = ["name", "email", "phone"].map((f) => ({ [f]: { $regex: safe, $options: "i" } }));
+    where[Op.or as unknown as symbol] = [
+      { name: { [Op.like]: `%${search}%` } },
+      { email: { [Op.like]: `%${search}%` } },
+      { phone: { [Op.like]: `%${search}%` } },
+    ];
   }
 
   await connectDB();
-  const [rows, total] = await Promise.all([
-    User.find(filter).sort({ createdAt: -1 }).skip((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
-      .select("name email phone isActive createdAt").lean(),
-    User.countDocuments(filter),
-  ]);
+  const { rows, count: total } = await User.findAndCountAll({
+    where,
+    order: [["createdAt", "DESC"]],
+    offset: (page - 1) * PAGE_SIZE,
+    limit: PAGE_SIZE,
+    attributes: ["id", "name", "email", "phone", "isActive", "createdAt"],
+  });
+
   const customers = rows as unknown as Row[];
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 

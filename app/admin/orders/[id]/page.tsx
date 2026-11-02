@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { isValidObjectId } from "mongoose";
 import { getCurrentUser } from "@/lib/auth/session";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
-import { Order, type OrderStatus, type PaymentMethod, type PaymentStatus } from "@/models/Order";
+import { Order, OrderItem, type OrderStatus, type PaymentMethod, type PaymentStatus } from "@/models/Order";
 import {
   NEXT_STATUSES,
   changeOrderStatus,
@@ -47,7 +46,7 @@ async function updateStatus(formData: FormData) {
 
   const id = String(formData.get("id"));
   const next = formData.get("status");
-  if (!isValidObjectId(id) || !isOrderStatus(next)) redirect("/admin/orders");
+  if (!id || !isOrderStatus(next)) redirect("/admin/orders");
 
   const result = await changeOrderStatus(id, next);
   revalidatePath("/admin/orders");
@@ -62,7 +61,7 @@ async function restoreOrder(formData: FormData) {
   if (!admin || admin.role !== "admin") redirect("/login");
 
   const id = String(formData.get("id"));
-  if (!isValidObjectId(id)) redirect("/admin/orders");
+  if (!id) redirect("/admin/orders");
 
   const result = await restoreCancelledOrder(id);
   revalidatePath("/admin/orders");
@@ -82,15 +81,21 @@ export default async function AdminOrderDetailPage({
 
   const { id } = await params;
   const sp = await searchParams;
-  if (!isValidObjectId(id)) notFound();
+  if (!id) notFound();
 
   await connectDB();
-  const o = (await Order.findById(id).lean()) as unknown as OrderRow | null;
-  if (!o) notFound();
-  const account = (await User.findById(o.userId).select("name email phone").lean()) as unknown as AccountRow | null;
+  const orderRecord = await Order.findByPk(id, {
+    include: [{ model: OrderItem, as: "items" }],
+  });
+  if (!orderRecord) notFound();
+
+  const o = orderRecord as unknown as OrderRow;
+  const account = (await User.findByPk(String(orderRecord.userId), {
+    attributes: ["name", "email", "phone"],
+  })) as unknown as AccountRow | null;
 
   const date = (d: Date) => new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
-  const nextList = NEXT_STATUSES[o.status];
+  const nextList = NEXT_STATUSES[o.status] || [];
   const address = [o.shipping.line1, o.shipping.line2, `${o.shipping.city}, ${o.shipping.state} - ${o.shipping.pincode}`]
     .filter(Boolean)
     .join(", ");
@@ -203,7 +208,7 @@ export default async function AdminOrderDetailPage({
             </tr>
           </thead>
           <tbody>
-            {o.items.map((i) => (
+            {(o.items || []).map((i) => (
               <tr key={`${i.slug}-${i.ml}`} className="border-b border-black/5 last:border-0">
                 <td className="px-4 py-3">{i.name}</td>
                 <td className="px-4 py-3">{i.ml}ml</td>

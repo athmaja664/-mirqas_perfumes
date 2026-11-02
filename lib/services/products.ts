@@ -1,6 +1,5 @@
-import { isValidObjectId } from "mongoose";
-import { connectDB } from "@/lib/db";
-import { Product } from "@/models/Product";
+import { connectDB, Op, fn, col, literal } from "@/lib/db";
+import { Product, type IProduct } from "@/models/Product";
 import { SECTION_VALUES, COLLECTION_VALUES } from "@/lib/sections";
 
 // A product stays in New Arrivals for this many days
@@ -12,50 +11,66 @@ export const slugify = (s: string) =>
 export async function uniqueSlug(name: string, ignoreId?: string) {
   const base = slugify(name);
   let slug = base;
-  for (let i = 2; await Product.exists({ slug, ...(ignoreId ? { _id: { $ne: ignoreId } } : {}) }); i++) {
+  for (
+    let i = 2;
+    (await Product.count({ where: { slug, ...(ignoreId ? { id: { [Op.ne]: ignoreId } } : {}) } })) > 0;
+    i++
+  ) {
     slug = `${base}-${i}`;
   }
   return slug;
 }
 
-type Lean = {
-  _id: unknown; name: string; slug: string; brand: string; description: string;
-  price: number; salePrice?: number | null; category: string; images: string[];
-  video?: string; stock: number; isActive: boolean; isBestSeller: boolean;
-  gender?: string; occasion?: string[]; family?: string; notes?: string[];
-  badge?: string; isFeatured?: boolean; sales?: number;
-  sections?: string[]; collections?: string[]; showInNewArrivals?: boolean;
-  createdAt?: Date; updatedAt?: Date;
-};
+function ensureArray(val: unknown): string[] {
+  if (Array.isArray(val)) return val.map(String);
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed.map(String);
+    } catch {
+      return val ? [val] : [];
+    }
+  }
+  return [];
+}
 
 // The shape the browser receives. Prices are in paise.
-export function toProduct(p: Lean) {
+export function toProduct(p: Record<string, unknown> | IProduct | Product) {
+  const data = (typeof (p as Product).toJSON === "function" ? (p as Product).toJSON() : p) as Record<string, unknown>;
+  const id = String(data.id ?? data._id);
+  const images = ensureArray(data.images);
+  const occasion = ensureArray(data.occasion);
+  const notes = ensureArray(data.notes);
+  const sections = ensureArray(data.sections);
+  const collections = ensureArray(data.collections);
+  const stock = Number(data.stock) || 0;
+
   return {
-    id: String(p._id),
-    name: p.name,
-    slug: p.slug,
-    brand: p.brand,
-    description: p.description,
-    price: p.price,
-    salePrice: p.salePrice ?? null,
-    category: p.category,
-    images: p.images,
-    video: p.video || "",
-    stock: p.stock,
-    inStock: p.stock > 0,
-    isActive: p.isActive,
-    isBestSeller: p.isBestSeller,
-    gender: p.gender ?? "Unisex",
-    occasion: p.occasion ?? [],
-    family: p.family ?? "",
-    notes: p.notes ?? [],
-    badge: p.badge ?? "",
-    isFeatured: p.isFeatured ?? false,
-    sales: p.sales ?? 0,
-    sections: p.sections ?? ["shop-all"],
-    collections: p.collections ?? [],
-    showInNewArrivals: p.showInNewArrivals ?? true,
-    createdAt: p.createdAt,
+    id,
+    name: String(data.name || ""),
+    slug: String(data.slug || ""),
+    brand: String(data.brand || "Mirqas"),
+    description: String(data.description || ""),
+    price: Number(data.price) || 0,
+    salePrice: data.salePrice != null ? Number(data.salePrice) : null,
+    category: String(data.category || ""),
+    images,
+    video: String(data.video || ""),
+    stock,
+    inStock: stock > 0,
+    isActive: Boolean(data.isActive),
+    isBestSeller: Boolean(data.isBestSeller),
+    gender: (data.gender as string) ?? "Unisex",
+    occasion,
+    family: String(data.family || ""),
+    notes,
+    badge: String(data.badge || ""),
+    isFeatured: Boolean(data.isFeatured),
+    sales: Number(data.sales) || 0,
+    sections: sections.length ? sections : ["shop-all"],
+    collections,
+    showInNewArrivals: data.showInNewArrivals !== false,
+    createdAt: data.createdAt ? new Date(data.createdAt as string | number | Date) : undefined,
   };
 }
 
@@ -64,11 +79,11 @@ const num = (v: string | null, fallback: number, min: number, max: number) => {
   return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.floor(n))) : fallback;
 };
 
-const SORTS: Record<string, Record<string, 1 | -1>> = {
-  newest: { createdAt: -1 },
-  "price-asc": { price: 1 },
-  "price-desc": { price: -1 },
-  name: { name: 1 },
+const SORTS: Record<string, [string, "ASC" | "DESC"][]> = {
+  newest: [["createdAt", "DESC"]],
+  "price-asc": [["price", "ASC"]],
+  "price-desc": [["price", "DESC"]],
+  name: [["name", "ASC"]],
 };
 
 // activeOnly = true for the public store, false for the admin list.
@@ -77,64 +92,71 @@ export async function listProducts(sp: URLSearchParams, activeOnly: boolean) {
   const page = num(sp.get("page"), 1, 1, 10000);
   const limit = num(sp.get("limit"), 12, 1, 48);
 
-  const filter: Record<string, unknown> = {};
-  if (activeOnly) filter.isActive = true;
-  else if (sp.get("status") === "active") filter.isActive = true;
-  else if (sp.get("status") === "inactive") filter.isActive = false;
+  const where: Record<string | symbol, unknown> = {};
+  if (activeOnly) where.isActive = true;
+  else if (sp.get("status") === "active") where.isActive = true;
+  else if (sp.get("status") === "inactive") where.isActive = false;
 
   const category = sp.get("category");
-  if (category) filter.category = String(category);
+  if (category) where.category = String(category);
 
-  if (sp.get("bestseller") === "true") filter.isBestSeller = true;
+  if (sp.get("bestseller") === "true") where.isBestSeller = true;
 
   const gender = sp.get("gender");
-  if (gender) filter.gender = String(gender);
+  if (gender) where.gender = String(gender);
 
   // Website section, e.g. ?section=men  (shop-all means no filter)
-  // new-arrivals is automatic, so it is handled below and not by the sections list
   const section = sp.get("section");
   if (section && section !== "shop-all" && section !== "new-arrivals" && SECTION_VALUES.includes(section)) {
-    filter.sections = section;
+    where[Op.and as unknown as symbol] = [
+      literal(`JSON_CONTAINS(sections, ${JSON.stringify(JSON.stringify(section))})`),
+    ];
   }
 
   // Collections menu family, e.g. ?collection=floral
   const collection = sp.get("collection");
   if (collection && COLLECTION_VALUES.includes(collection)) {
-    filter.collections = collection;
+    const existingAnd = (where[Op.and as unknown as symbol] as unknown[]) || [];
+    where[Op.and as unknown as symbol] = [
+      ...existingAnd,
+      literal(`JSON_CONTAINS(collections, ${JSON.stringify(JSON.stringify(collection))})`),
+    ];
   }
 
   // New arrivals = made in the last 30 days AND not hidden by the admin.
-  // Works for ?newArrival=true and for ?section=new-arrivals.
-  // Old products have no showInNewArrivals value, so "not false" counts them as shown.
   if (sp.get("newArrival") === "true" || section === "new-arrivals") {
     const since = new Date(Date.now() - NEW_ARRIVAL_DAYS * 24 * 60 * 60 * 1000);
-    filter.createdAt = { $gte: since };
-    filter.showInNewArrivals = { $ne: false };
+    where.createdAt = { [Op.gte]: since };
+    where.showInNewArrivals = true;
   }
 
   const search = (sp.get("search") ?? "").trim().slice(0, 80);
   if (search) {
-    const safe = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    filter.$or = [{ name: { $regex: safe, $options: "i" } }, { brand: { $regex: safe, $options: "i" } }];
+    where[Op.or as unknown as symbol] = [
+      { name: { [Op.like]: `%${search}%` } },
+      { brand: { [Op.like]: `%${search}%` } },
+    ];
   }
 
   // minPrice / maxPrice are in rupees in the URL
   const min = Number(sp.get("minPrice"));
   const max = Number(sp.get("maxPrice"));
-  const price: Record<string, number> = {};
-  if (Number.isFinite(min) && sp.get("minPrice")) price.$gte = Math.round(min * 100);
-  if (Number.isFinite(max) && sp.get("maxPrice")) price.$lte = Math.round(max * 100);
-  if (Object.keys(price).length) filter.price = price;
+  const priceFilter: Record<symbol, number> = {};
+  if (Number.isFinite(min) && sp.get("minPrice")) priceFilter[Op.gte] = Math.round(min * 100);
+  if (Number.isFinite(max) && sp.get("maxPrice")) priceFilter[Op.lte] = Math.round(max * 100);
+  if (Object.getOwnPropertySymbols(priceFilter).length) where.price = priceFilter;
 
-  const sort = SORTS[sp.get("sort") ?? "newest"] ?? SORTS.newest;
+  const order = SORTS[sp.get("sort") ?? "newest"] ?? SORTS.newest;
 
-  const [items, total] = await Promise.all([
-    Product.find(filter).sort(sort).skip((page - 1) * limit).limit(limit).lean(),
-    Product.countDocuments(filter),
-  ]);
+  const { rows: items, count: total } = await Product.findAndCountAll({
+    where,
+    order,
+    offset: (page - 1) * limit,
+    limit,
+  });
 
   return {
-    items: (items as unknown as Lean[]).map(toProduct),
+    items: items.map((p) => toProduct(p)),
     page,
     limit,
     total,
@@ -143,8 +165,8 @@ export async function listProducts(sp: URLSearchParams, activeOnly: boolean) {
 }
 
 export async function findProduct(id: string, activeOnly: boolean) {
-  if (!isValidObjectId(id)) return null;
+  if (!id || typeof id !== "string") return null;
   await connectDB();
-  const p = await Product.findOne({ _id: id, ...(activeOnly ? { isActive: true } : {}) }).lean();
-  return p ? toProduct(p as unknown as Lean) : null;
+  const p = await Product.findOne({ where: { id, ...(activeOnly ? { isActive: true } : {}) } });
+  return p ? toProduct(p) : null;
 }

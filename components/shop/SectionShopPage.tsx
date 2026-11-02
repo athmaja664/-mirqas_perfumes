@@ -93,32 +93,21 @@ type Props = {
   headingBottom?: string;
 };
 
+import { readList as shopReadList, writeList as shopWriteList } from "@/lib/shopStorage";
+
 // ---------------------------------------------------------------------------
-// WISHLIST + CART (same keys as the cart page, wishlist page and navbar)
+// WISHLIST + CART (delegated to user-isolated shopStorage)
 // ---------------------------------------------------------------------------
 const WISHLIST_KEY = "mirqas-wishlist";
 const CART_KEY = "mirqas-cart";
 const SYNC_EVENT = "mirqas-storage";
 
 function readList<T>(key: string): T[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const value = window.localStorage.getItem(key);
-    const parsed: unknown = value ? JSON.parse(value) : [];
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
-  } catch {
-    return [];
-  }
+  return shopReadList<T>(key);
 }
 
 function writeList<T>(key: string, list: T[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(list));
-    window.dispatchEvent(new Event(SYNC_EVENT));
-  } catch (error) {
-    console.error(`Unable to save ${key} to localStorage`, error);
-  }
+  shopWriteList<T>(key, list);
 }
 
 function addLineToCart(item: Omit<CartLine, "qty">, ml: number) {

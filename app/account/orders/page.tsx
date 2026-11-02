@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { connectDB } from "@/lib/db";
-import { Order, type OrderStatus } from "@/models/Order";
+import { Order, OrderItem, type OrderStatus } from "@/models/Order";
 import { formatPaise } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -33,12 +33,12 @@ export default async function MyOrdersPage() {
   if (!user) redirect("/login");
 
   await connectDB();
-  // Only the orders of this customer. The user id comes from the session.
-  const rows = (await Order.find({ userId: user.id })
-    .sort({ createdAt: -1 })
-    .limit(50)
-    .select("orderNumber items.name items.qty total status createdAt")
-    .lean()) as unknown as Row[];
+  const rows = (await Order.findAll({
+    where: { userId: user.id },
+    include: [{ model: OrderItem, as: "items" }],
+    order: [["createdAt", "DESC"]],
+    limit: 50,
+  })) as unknown as Row[];
 
   return (
     <main className="px-5 py-12 md:px-10 md:py-16" style={{ background: IVORY, fontFamily: sans }}>
@@ -65,10 +65,10 @@ export default async function MyOrdersPage() {
         ) : (
           <ul className="m-0 list-none space-y-4 p-0">
             {rows.map((o) => {
-              const s = STATUS_TEXT[o.status];
-              const count = o.items.reduce((n, i) => n + i.qty, 0);
-              const first = o.items[0]?.name ?? "";
-              const more = o.items.length > 1 ? ` and ${o.items.length - 1} more` : "";
+              const s = STATUS_TEXT[o.status] || STATUS_TEXT.pending;
+              const count = (o.items || []).reduce((n, i) => n + i.qty, 0);
+              const first = o.items?.[0]?.name ?? "";
+              const more = o.items && o.items.length > 1 ? ` and ${o.items.length - 1} more` : "";
               return (
                 <li key={o.orderNumber}>
                   <Link

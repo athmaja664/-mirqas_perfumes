@@ -1,35 +1,150 @@
-import { Schema, model, models, type Model, type Types } from "mongoose";
+import { DataTypes, Model, type Optional } from "sequelize";
+import { getSequelize } from "@/lib/db";
+import { Product } from "./Product";
+import { User } from "./User";
 
 export interface IReview {
-  product: Types.ObjectId;
-  user: Types.ObjectId;
-  userName: string; // the customer's name when the review was written
-  rating: number; // 1 to 5
+  id?: string;
+  product?: string;
+  productId: string;
+  user?: string;
+  userId: string;
+  userName: string;
+  rating: number;
   title: string;
   comment: string;
-  images: string[]; // /api/uploads/<name>.jpg|png|webp
-  video: string; // /api/uploads/<name>.mp4|webm, or ""
-  status: "published" | "hidden"; // "hidden" lets an admin remove a review later without deleting it
+  images: string[];
+  video: string;
+  status: "published" | "hidden";
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const ReviewSchema = new Schema<IReview>(
-  {
-    product: { type: Schema.Types.ObjectId, ref: "Product", required: true, index: true },
-    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    userName: { type: String, required: true, trim: true, maxlength: 80 },
-    rating: { type: Number, required: true, min: 1, max: 5, validate: Number.isInteger },
-    title: { type: String, default: "", trim: true, maxlength: 100 },
-    comment: { type: String, required: true, trim: true, maxlength: 2000 },
-    images: { type: [String], default: [] },
-    video: { type: String, default: "" },
-    status: { type: String, enum: ["published", "hidden"], default: "published", index: true },
-  },
-  { timestamps: true }
-);
+function ensureArray(val: unknown): string[] {
+  if (Array.isArray(val)) return val.map(String);
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed.map(String);
+    } catch {
+      return val ? [val] : [];
+    }
+  }
+  return [];
+}
 
-// One review per customer per product
-ReviewSchema.index({ product: 1, user: 1 }, { unique: true });
-ReviewSchema.index({ product: 1, status: 1, createdAt: -1 });
+export type ReviewCreationAttributes = Optional<
+  IReview,
+  "id" | "title" | "images" | "video" | "status" | "createdAt" | "updatedAt" | "product" | "user"
+>;
 
-export const Review: Model<IReview> =
-  (models.Review as Model<IReview>) || model<IReview>("Review", ReviewSchema);
+export class Review extends Model<IReview, ReviewCreationAttributes> implements IReview {
+  declare id: string;
+  declare productId: string;
+  declare userId: string;
+  declare userName: string;
+  declare rating: number;
+  declare title: string;
+  declare comment: string;
+  declare images: string[];
+  declare video: string;
+  declare status: "published" | "hidden";
+  declare readonly createdAt: Date;
+  declare readonly updatedAt: Date;
+
+  get _id(): string {
+    return this.id;
+  }
+
+  get product(): string {
+    return this.productId;
+  }
+
+  set product(val: string) {
+    this.productId = val;
+  }
+
+  get user(): string {
+    return this.userId;
+  }
+
+  set user(val: string) {
+    this.userId = val;
+  }
+}
+
+const sequelize = getSequelize();
+
+Review.init(
+    {
+      id: {
+        type: DataTypes.STRING(36),
+        primaryKey: true,
+        defaultValue: DataTypes.UUIDV4,
+      },
+      productId: {
+        type: DataTypes.STRING(36),
+        allowNull: false,
+        references: {
+          model: Product,
+          key: "id",
+        },
+        onDelete: "CASCADE",
+      },
+      userId: {
+        type: DataTypes.STRING(36),
+        allowNull: false,
+        references: {
+          model: User,
+          key: "id",
+        },
+        onDelete: "CASCADE",
+      },
+      userName: {
+        type: DataTypes.STRING(80),
+        allowNull: false,
+      },
+      rating: {
+        type: DataTypes.TINYINT,
+        allowNull: false,
+      },
+      title: {
+        type: DataTypes.STRING(100),
+        allowNull: false,
+        defaultValue: "",
+      },
+      comment: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+      },
+      images: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+        get() {
+          return ensureArray(this.getDataValue("images"));
+        },
+        set(val: unknown) {
+          this.setDataValue("images", ensureArray(val));
+        },
+      },
+      video: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+        defaultValue: "",
+      },
+      status: {
+        type: DataTypes.ENUM("published", "hidden"),
+        allowNull: false,
+        defaultValue: "published",
+      },
+    },
+    {
+      sequelize,
+      tableName: "reviews",
+      timestamps: true,
+    }
+  );
+
+  Review.belongsTo(Product, { foreignKey: "productId" });
+  Review.belongsTo(User, { foreignKey: "userId" });

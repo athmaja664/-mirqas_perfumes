@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { loginRequest, registerRequest } from "@/lib/authApi";
+import { setActiveUserId } from "@/lib/shopStorage";
 
 // Brand colours (same as Shop All)
 const COPPER = "#9C5A2B";
@@ -105,7 +106,6 @@ export default function LoginPage() {
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [remember, setRemember] = useState(false);
   const [terms, setTerms] = useState(false);
 
   // Allow /login?tab=register to open the Register tab
@@ -146,7 +146,10 @@ export default function LoginPage() {
     try {
       if (tab === "login") {
         // One login form for everyone: the server reads the role from the database.
-        const data = await loginRequest(email.trim(), password, remember);
+        const data = await loginRequest(email.trim(), password, false);
+        if (data?.user?.id) {
+          setActiveUserId(String(data.user.id));
+        }
         router.push(data?.user?.role === "admin" ? "/admin/dashboard" : "/");
         router.refresh();
       } else {
@@ -299,20 +302,7 @@ export default function LoginPage() {
               />
             )}
 
-            {tab === "login" ? (
-              <div className="flex items-center justify-between text-[13px]" style={{ color: "rgba(17,17,17,0.75)" }}>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type=""
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                    className="h-4 w-4 accent-[#9C5A2B]"
-                  />
-                 
-                </label>
-                
-              </div>
-            ) : (
+            {tab === "register" && (
               <label
                 className="flex cursor-pointer items-start gap-2 text-[13px]"
                 style={{ color: "rgba(17,17,17,0.75)" }}

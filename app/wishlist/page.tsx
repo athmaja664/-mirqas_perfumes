@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { readList, writeList, WISHLIST_KEY, CART_KEY, SYNC_EVENT } from "@/lib/shopStorage";
 
 // Brand colours (same as Shop All)
 const COPPER = "#9C5A2B";
@@ -20,9 +21,7 @@ const CARD_LINE = "#EADFCC";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
-const WISHLIST_KEY = "mirqas-wishlist";
-const CART_KEY = "mirqas-cart";
-const SYNC_EVENT = "mirqas-storage"; // tells other components (navbar count) that storage changed
+
 
 // ---------------------------------------------------------------------------
 // Types (the Shop All card saves items in this shape)
@@ -58,26 +57,7 @@ type CartItem = {
 const formatPrice = (n: number) =>
   "Rs. " + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// ---------------------------------------------------------------------------
-// localStorage helpers
-// ---------------------------------------------------------------------------
-function readList<T>(key: string): T[] {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeList<T>(key: string, list: T[]) {
-  try {
-    localStorage.setItem(key, JSON.stringify(list));
-    window.dispatchEvent(new Event(SYNC_EVENT));
-  } catch {
-    // storage full or blocked: ignore
-  }
-}
+// localStorage helpers delegated to user-isolated shopStorage
 
 function addToCartStorage(item: WishItem, ml: number) {
   const cart = readList<CartItem>(CART_KEY);

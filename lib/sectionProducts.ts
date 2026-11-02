@@ -138,28 +138,17 @@ export function useSectionProducts(section: string) {
   return { products, loaded, error };
 }
 
+import { readList as shopReadList, writeList as shopWriteList } from "@/lib/shopStorage";
+
 // ---------------------------------------------------------------------------
-// Cart + wishlist saved in the browser (same keys as the navbar, cart page and wishlist page)
+// Cart + wishlist saved in the browser (delegated to user-isolated shopStorage)
 // ---------------------------------------------------------------------------
 export function readList<T>(key: string): T[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(key);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
-  } catch {
-    return [];
-  }
+  return shopReadList<T>(key);
 }
 
 export function writeList<T>(key: string, list: T[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(list));
-    window.dispatchEvent(new Event(SYNC_EVENT));
-  } catch (error) {
-    console.error(`Unable to save ${key}`, error);
-  }
+  shopWriteList<T>(key, list);
 }
 
 export function addToCart(p: ShopProduct, ml: number) {

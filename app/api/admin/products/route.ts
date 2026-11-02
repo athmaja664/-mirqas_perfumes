@@ -24,10 +24,12 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
   try {
-    const created = await Product.create({ ...parsed.data, slug: await uniqueSlug(parsed.data.name) });
-    return NextResponse.json({ product: toProduct(created.toObject()) }, { status: 201 });
-  } catch (e) {
-    if ((e as { code?: number }).code === 11000)
+    const slug = await uniqueSlug(parsed.data.name);
+    const created = await Product.create({ ...parsed.data, slug });
+    return NextResponse.json({ product: toProduct(created) }, { status: 201 });
+  } catch (e: unknown) {
+    const err = e as { name?: string; original?: { errno?: number } };
+    if (err.name === "SequelizeUniqueConstraintError" || err.original?.errno === 1062)
       return NextResponse.json({ message: "A product with this name already exists." }, { status: 409 });
     console.error(e);
     return NextResponse.json({ message: "Could not save the product." }, { status: 500 });

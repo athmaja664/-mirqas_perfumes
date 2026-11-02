@@ -2,16 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { BULK_OFFER, formatRupees } from "@/lib/offers";
-
-const CART_KEY = "mirqas-cart";
-const SYNC_EVENT = "mirqas-storage";
+import { readList, CART_KEY, SYNC_EVENT } from "@/lib/shopStorage";
 
 // Total quantity of all lines in the browser cart
 function readCartCount(): number {
   try {
-    const raw = localStorage.getItem(CART_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(list)) return 0;
+    const list = readList<{ qty?: number }>(CART_KEY);
     return list.reduce((n: number, line: { qty?: number }) => n + (Number(line?.qty) || 0), 0);
   } catch {
     return 0;

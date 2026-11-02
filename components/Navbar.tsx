@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, MouseEvent, useEffect, useRef, useState } from "react";
+import { readList, WISHLIST_KEY, CART_KEY, SYNC_EVENT } from "@/lib/shopStorage";
 
 // Solid copper is used ONLY for the Collections mega menu (and its mobile list)
 // and for the Search button.
@@ -51,15 +52,11 @@ const navLine =
 const creamLine =
   "pointer-events-none absolute -bottom-1 left-0 h-px w-full origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100 group-focus-visible:scale-x-100";
 
-// ---- Wishlist / cart counts (read from the same localStorage the pages use) ----
-const WISHLIST_KEY = "mirqas-wishlist";
-const CART_KEY = "mirqas-cart";
-const SYNC_EVENT = "mirqas-storage";
-
+// ---- Wishlist / cart counts (read from user-isolated shopStorage) ----
 function readCounts() {
   try {
-    const wish = JSON.parse(localStorage.getItem(WISHLIST_KEY) || "[]") as unknown[];
-    const cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]") as { qty?: number }[];
+    const wish = readList<unknown>(WISHLIST_KEY);
+    const cart = readList<{ qty?: number }>(CART_KEY);
     return {
       wishlist: Array.isArray(wish) ? wish.length : 0,
       cart: Array.isArray(cart) ? cart.reduce((n, i) => n + (i.qty ?? 1), 0) : 0,
@@ -178,6 +175,13 @@ export default function Navbar() {
         if (cancelled) return;
         const u = d?.user;
         setAccountHref(!u ? "/login" : u.role === "admin" ? "/admin/dashboard" : "/account");
+        const currentStoredId = localStorage.getItem("mirqas_user_id") || "";
+        const nextId = u?.id ? String(u.id) : "";
+        if (currentStoredId !== nextId) {
+          if (nextId) localStorage.setItem("mirqas_user_id", nextId);
+          else localStorage.removeItem("mirqas_user_id");
+          window.dispatchEvent(new Event(SYNC_EVENT));
+        }
       })
       .catch(() => {});
     return () => {

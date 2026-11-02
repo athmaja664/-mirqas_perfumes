@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
-import { connectDB } from "@/lib/db";
+import { connectDB, getSequelize, Op, fn, col, literal } from "@/lib/db";
 import { User } from "@/models/User";
 import { Product } from "@/models/Product";
 import { Order } from "@/models/Order";
 import { formatPaise } from "@/lib/money";
 import AdminShell from "@/components/admin/AdminShell";
+import { QueryTypes } from "sequelize";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,13 @@ type RecentOrder = {
   shipping?: { name?: string };
 };
 
-const pick = (rows: Sum[]): Sum => rows[0] ?? { total: 0, count: 0 };
+const pick = (rows: Sum[]): Sum => {
+  if (!rows || rows.length === 0) return { total: 0, count: 0 };
+  return {
+    total: Number(rows[0].total) || 0,
+    count: Number(rows[0].count) || 0,
+  };
+};
 
 // Short money for chart bars: 1.2k, 2.2L (lakh), 1.0Cr (crore)
 function compact(paise: number) {
@@ -140,6 +147,7 @@ export default async function AdminDashboard() {
   if (!user || user.role !== "admin") redirect("/login");
 
   await connectDB();
+  const sequelize = getSequelize();
 
   // Start of today in India time, as a real date
   const now = Date.now();
@@ -147,7 +155,7 @@ export default async function AdminDashboard() {
   const weekStart = todayStart - 6 * DAY;
   const monthStart = todayStart - 29 * DAY;
 
-  const live = { status: { $ne: "cancelled" } };
+  const live = { status: { [Op.ne]: "cancelled" } };
 
   const [
     customerCount,
@@ -167,53 +175,85 @@ export default async function AdminDashboard() {
     recentOrderRows,
     recentCustomerRows,
   ] = await Promise.all([
-    User.countDocuments({ role: "customer" }),
-    Product.countDocuments({}),
-    Product.countDocuments({ isActive: true }),
-    Order.countDocuments({}),
-    Order.countDocuments({ status: "pending" }),
-    Order.aggregate<Sum>([{ $match: live }, { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } }]),
-    Order.aggregate<Sum>([
-      { $match: { status: "delivered" } },
-      { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
-    ]),
-    Order.aggregate<Sum>([
-      { $match: { ...live, createdAt: { $gte: new Date(todayStart) } } },
-      { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
-    ]),
-    Order.aggregate<Sum>([
-      { $match: { ...live, createdAt: { $gte: new Date(monthStart) } } },
-      { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
-    ]),
-    Order.aggregate<DayRow>([
-      { $match: { ...live, createdAt: { $gte: new Date(weekStart) } } },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "Asia/Kolkata" } },
-          total: { $sum: "$total" },
-          count: { $sum: 1 },
-        },
-      },
-    ]),
-    Order.aggregate<StatusRow>([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-    Order.aggregate<TopRow>([
-      { $match: live },
-      { $unwind: "$items" },
-      {
-        $group: {
-          _id: "$items.slug",
-          name: { $first: "$items.name" },
-          qty: { $sum: "$items.qty" },
-          revenue: { $sum: "$items.lineTotal" },
-        },
-      },
-      { $sort: { qty: -1, revenue: -1 } },
-      { $limit: 5 },
-    ]),
-    Product.countDocuments({ isActive: true, stock: { $lte: LOW_STOCK } }),
-    Product.find({ isActive: true, stock: { $lte: LOW_STOCK } }).sort({ stock: 1 }).limit(5).select("name stock").lean(),
-    Order.find({}).sort({ createdAt: -1 }).limit(5).select("orderNumber total status createdAt shipping.name").lean(),
-    User.find({ role: "customer" }).sort({ createdAt: -1 }).limit(5).select("name email createdAt").lean(),
+    User.count({ where: { role: "customer" } }),
+    Product.count(),
+    Product.count({ where: { isActive: true } }),
+    Order.count(),
+    Order.count({ where: { status: "pending" } }),
+    Order.findAll({
+      attributes: [
+        [fn("COALESCE", fn("SUM", col("total")), 0), "total"],
+        [fn("COUNT", col("id")), "count"],
+      ],
+      where: live,
+      raw: true,
+    }) as unknown as Promise<Sum[]>,
+    Order.findAll({
+      attributes: [
+        [fn("COALESCE", fn("SUM", col("total")), 0), "total"],
+        [fn("COUNT", col("id")), "count"],
+      ],
+      where: { status: "delivered" },
+      raw: true,
+    }) as unknown as Promise<Sum[]>,
+    Order.findAll({
+      attributes: [
+        [fn("COALESCE", fn("SUM", col("total")), 0), "total"],
+        [fn("COUNT", col("id")), "count"],
+      ],
+      where: { ...live, createdAt: { [Op.gte]: new Date(todayStart) } },
+      raw: true,
+    }) as unknown as Promise<Sum[]>,
+    Order.findAll({
+      attributes: [
+        [fn("COALESCE", fn("SUM", col("total")), 0), "total"],
+        [fn("COUNT", col("id")), "count"],
+      ],
+      where: { ...live, createdAt: { [Op.gte]: new Date(monthStart) } },
+      raw: true,
+    }) as unknown as Promise<Sum[]>,
+    Order.findAll({
+      attributes: [
+        [literal("DATE_FORMAT(CONVERT_TZ(createdAt, '+00:00', '+05:30'), '%Y-%m-%d')"), "_id"],
+        [fn("COALESCE", fn("SUM", col("total")), 0), "total"],
+        [fn("COUNT", col("id")), "count"],
+      ],
+      where: { ...live, createdAt: { [Op.gte]: new Date(weekStart) } },
+      group: [literal("DATE_FORMAT(CONVERT_TZ(createdAt, '+00:00', '+05:30'), '%Y-%m-%d')") as unknown as string],
+      raw: true,
+    }) as unknown as Promise<DayRow[]>,
+    Order.findAll({
+      attributes: [["status", "_id"], [fn("COUNT", col("id")), "count"]],
+      group: ["status"],
+      raw: true,
+    }) as unknown as Promise<StatusRow[]>,
+    sequelize.query<TopRow>(
+      `SELECT oi.slug AS _id, oi.name AS name, CAST(SUM(oi.qty) AS SIGNED) AS qty, CAST(SUM(oi.lineTotal) AS SIGNED) AS revenue
+       FROM order_items oi
+       JOIN orders o ON oi.orderId = o.id
+       WHERE o.status != 'cancelled'
+       GROUP BY oi.slug, oi.name
+       ORDER BY qty DESC, revenue DESC
+       LIMIT 5`,
+      { type: QueryTypes.SELECT }
+    ),
+    Product.count({ where: { isActive: true, stock: { [Op.lte]: LOW_STOCK } } }),
+    Product.findAll({
+      where: { isActive: true, stock: { [Op.lte]: LOW_STOCK } },
+      order: [["stock", "ASC"]],
+      limit: 5,
+      attributes: ["id", "name", "stock"],
+    }),
+    Order.findAll({
+      order: [["createdAt", "DESC"]],
+      limit: 5,
+    }),
+    User.findAll({
+      where: { role: "customer" },
+      order: [["createdAt", "DESC"]],
+      limit: 5,
+      attributes: ["id", "name", "email", "createdAt"],
+    }),
   ]);
 
   const sales = pick(liveRows);
@@ -223,7 +263,7 @@ export default async function AdminDashboard() {
   const average = sales.count > 0 ? Math.round(sales.total / sales.count) : 0;
 
   // Last 7 days, with 0 for days that had no orders
-  const dayMap = new Map(dailyRows.map((r) => [r._id, r]));
+  const dayMap = new Map(dailyRows.map((r) => [r._id, { total: Number(r.total) || 0, count: Number(r.count) || 0 }]));
   const days = Array.from({ length: 7 }, (_, i) => {
     const t = weekStart + i * DAY;
     const shifted = new Date(t + IST);
@@ -237,7 +277,7 @@ export default async function AdminDashboard() {
   const maxDay = Math.max(...days.map((d) => d.total), 1);
   const weekTotal = days.reduce((s, d) => s + d.total, 0);
 
-  const statusCount = new Map(statusRows.map((r) => [r._id, r.count]));
+  const statusCount = new Map(statusRows.map((r) => [r._id, Number(r.count) || 0]));
 
   const low = lowRows as unknown as LowProduct[];
   const recentOrders = recentOrderRows as unknown as RecentOrder[];
@@ -403,7 +443,7 @@ export default async function AdminDashboard() {
         </Panel>
       </div>
 
-      {/* Recent orders: cards on phones, table from tablet up */}
+      {/* Recent orders */}
       <section aria-labelledby="recent-orders-title" className="mt-8 md:mt-10">
         <h2 id="recent-orders-title" className="m-0 text-2xl font-medium sm:text-3xl" style={{ fontFamily: serif, color: COPPER }}>
           Recent orders
@@ -474,7 +514,7 @@ export default async function AdminDashboard() {
         </div>
       </section>
 
-      {/* Recent customers: cards on phones, table from tablet up */}
+      {/* Recent customers */}
       <section aria-labelledby="recent-title" className="mt-8 md:mt-12">
         <h2 id="recent-title" className="m-0 text-2xl font-medium sm:text-3xl" style={{ fontFamily: serif, color: COPPER }}>
           Recent customers

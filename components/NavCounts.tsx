@@ -7,16 +7,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { readList, WISHLIST_KEY, CART_KEY, SYNC_EVENT } from "@/lib/shopStorage";
 
 const COPPER = "#9C5A2B";
-const WISHLIST_KEY = "mirqas-wishlist";
-const CART_KEY = "mirqas-cart";
-const SYNC_EVENT = "mirqas-storage";
 
 function readCounts() {
   try {
-    const wish = JSON.parse(localStorage.getItem(WISHLIST_KEY) || "[]") as unknown[];
-    const cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]") as { qty?: number }[];
+    const wish = readList<unknown>(WISHLIST_KEY);
+    const cart = readList<{ qty?: number }>(CART_KEY);
     return {
       wishlist: Array.isArray(wish) ? wish.length : 0,
       cart: Array.isArray(cart) ? cart.reduce((n, i) => n + (i.qty ?? 1), 0) : 0,

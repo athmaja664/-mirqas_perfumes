@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createHash, randomBytes } from "crypto";
-import { connectDB } from "@/lib/db";
+import { connectDB, Op } from "@/lib/db";
 import { Session } from "@/models/Session";
 import { User } from "@/models/User";
 
@@ -16,8 +16,16 @@ export async function createSession(userId: string, remember: boolean) {
     tokenHash: hash(token),
     expiresAt: new Date(Date.now() + maxAge * 1000),
   });
-  (await cookies()).set(COOKIE, token, {
+  const jar = await cookies();
+  jar.set(COOKIE, token, {
     httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge,
+  });
+  jar.set("mirqas_user_id", userId, {
+    httpOnly: false,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
@@ -29,13 +37,18 @@ export async function getCurrentUser() {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   await connectDB();
-  const session = await Session.findOne({ tokenHash: hash(token), expiresAt: { $gt: new Date() } }).lean();
+  const session = await Session.findOne({
+    where: {
+      tokenHash: hash(token),
+      expiresAt: { [Op.gt]: new Date() },
+    },
+  });
   if (!session) return null;
-  const u = await User.findById(session.userId).lean();
+  const u = await User.findByPk(session.userId);
   if (!u || !u.isActive) return null;
   const isAdmin = u.role === "admin";
   return {
-    id: String(u._id),
+    id: String(u.id),
     name: u.name,
     email: u.email,
     phone: u.phone,
@@ -52,16 +65,19 @@ export async function destroySession() {
   const token = jar.get(COOKIE)?.value;
   if (token) {
     await connectDB();
-    await Session.deleteOne({ tokenHash: hash(token) });
+    await Session.destroy({ where: { tokenHash: hash(token) } });
   }
   jar.delete(COOKIE);
+  jar.delete("mirqas_user_id");
 }
 
 export async function destroyOtherSessions(userId: string) {
   const token = (await cookies()).get(COOKIE)?.value;
   await connectDB();
-  await Session.deleteMany({
-    userId,
-    ...(token ? { tokenHash: { $ne: hash(token) } } : {}),
+  await Session.destroy({
+    where: {
+      userId,
+      ...(token ? { tokenHash: { [Op.ne]: hash(token) } } : {}),
+    },
   });
 }

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
-import { connectDB } from "@/lib/db";
-import { Order, ORDER_STATUSES, type OrderStatus, type PaymentMethod, type PaymentStatus } from "@/models/Order";
+import { connectDB, Op } from "@/lib/db";
+import { Order, OrderItem, ORDER_STATUSES, type OrderStatus, type PaymentMethod, type PaymentStatus } from "@/models/Order";
 import { isOrderStatus } from "@/lib/services/order-status";
 import { formatPaise } from "@/lib/money";
 import AdminShell from "@/components/admin/AdminShell";
@@ -36,27 +36,29 @@ export default async function AdminOrdersPage({
   const sp = await searchParams;
   const page = Math.max(1, Math.floor(Number(sp.page)) || 1);
 
-  const filter: Record<string, unknown> = {};
-  if (isOrderStatus(sp.status)) filter.status = sp.status;
+  const where: Record<string | symbol, unknown> = {};
+  if (isOrderStatus(sp.status)) where.status = sp.status;
   const search = (sp.search ?? "").trim().slice(0, 80);
   if (search) {
-    const safe = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    filter.$or = ["orderNumber", "shipping.name", "shipping.phone"].map((f) => ({
-      [f]: { $regex: safe, $options: "i" },
-    }));
+    where[Op.or as unknown as symbol] = [
+      { orderNumber: { [Op.like]: `%${search}%` } },
+      { shippingName: { [Op.like]: `%${search}%` } },
+      { shippingPhone: { [Op.like]: `%${search}%` } },
+    ];
   }
 
   await connectDB();
-  const [rows, total, pendingCount] = await Promise.all([
-    Order.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * PAGE_SIZE)
-      .limit(PAGE_SIZE)
-      .select("orderNumber shipping.name shipping.phone items.qty total status payment createdAt")
-      .lean(),
-    Order.countDocuments(filter),
-    Order.countDocuments({ status: "pending" }),
+  const [{ rows, count: total }, pendingCount] = await Promise.all([
+    Order.findAndCountAll({
+      where,
+      order: [["createdAt", "DESC"]],
+      offset: (page - 1) * PAGE_SIZE,
+      limit: PAGE_SIZE,
+      include: [{ model: OrderItem, as: "items" }],
+    }),
+    Order.count({ where: { status: "pending" } }),
   ]);
+
   const orders = rows as unknown as Row[];
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -150,7 +152,7 @@ export default async function AdminOrdersPage({
               ))}
             </ul>
 
-            {/* Large screens: table (the 8 columns need about 900px, so cards are used below 1024px) */}
+            {/* Large screens: table */}
             <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[900px] border-collapse text-left text-[14px]">
                 <thead>

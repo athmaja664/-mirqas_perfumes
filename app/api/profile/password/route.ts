@@ -19,13 +19,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
 
   await connectDB();
-  const doc = await User.findById(current.id).select("+passwordHash");
+  const doc = await User.findByPk(current.id);
   if (!doc) return NextResponse.json({ message: "Please sign in." }, { status: 401 });
 
   if (!(await bcrypt.compare(parsed.data.currentPassword, doc.passwordHash)))
     return NextResponse.json({ message: "Current password is incorrect." }, { status: 403 });
 
-  // The current password is correct here, so a new password that is the same is a mistake.
   if (parsed.data.newPassword === parsed.data.currentPassword)
     return NextResponse.json(
       { message: "New password must be different from your current password." },
@@ -36,8 +35,8 @@ export async function PATCH(req: NextRequest) {
   await doc.save();
 
   // Sign out every session (other devices too), then start a fresh one for this browser.
-  await Session.deleteMany({ userId: doc._id });
-  await createSession(String(doc._id), false);
+  await Session.destroy({ where: { userId: doc.id } });
+  await createSession(String(doc.id), false);
 
   return NextResponse.json({ message: "Password updated." });
 }

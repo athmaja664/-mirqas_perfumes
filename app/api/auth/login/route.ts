@@ -17,5 +17,12 @@ export async function POST(req: NextRequest) {
 
   await createSession(String(user._id), parsed.data.remember);
   // The role comes from the database, never from the browser.
-  return NextResponse.json({ user: { name: user.name, role: user.role } });
+  return NextResponse.json({
+    user: {
+      id: String(user._id),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    },
+  });
 }

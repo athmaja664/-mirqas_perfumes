@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidObjectId } from "mongoose";
 import { requireAdmin, requireOwner } from "@/lib/auth/require-admin";
 import { guardRequest, readJson } from "@/lib/security";
 import { connectDB } from "@/lib/db";
@@ -25,14 +24,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (auth.error) return auth.error;
 
   const { id } = await params;
-  if (!isValidObjectId(id)) return NextResponse.json({ message: "Product not found." }, { status: 404 });
+  if (!id) return NextResponse.json({ message: "Product not found." }, { status: 404 });
 
   const parsed = updateProductSchema.safeParse(await readJson(req));
   if (!parsed.success)
     return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
 
   await connectDB();
-  const product = await Product.findById(id);
+  const product = await Product.findByPk(id);
   if (!product) return NextResponse.json({ message: "Product not found." }, { status: 404 });
 
   const data = parsed.data;
@@ -42,9 +41,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ message: SALE_MESSAGE }, { status: 400 });
 
   if (data.name && data.name !== product.name) product.slug = await uniqueSlug(data.name, id);
-  product.set(data);
-  await product.save();
-  return NextResponse.json({ product: toProduct(product.toObject()) });
+  await product.update(data);
+  return NextResponse.json({ product: toProduct(product) });
 }
 
 // Without ?permanent=true this deactivates (any admin).
@@ -67,10 +65,11 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 
-  if (!isValidObjectId(id)) return NextResponse.json({ message: "Product not found." }, { status: 404 });
+  if (!id) return NextResponse.json({ message: "Product not found." }, { status: 404 });
 
   await connectDB();
-  const product = await Product.findByIdAndUpdate(id, { isActive: false }, { new: true });
+  const product = await Product.findByPk(id);
   if (!product) return NextResponse.json({ message: "Product not found." }, { status: 404 });
-  return NextResponse.json({ message: "Product deactivated.", product: toProduct(product.toObject()) });
+  await product.update({ isActive: false });
+  return NextResponse.json({ message: "Product deactivated.", product: toProduct(product) });
 }

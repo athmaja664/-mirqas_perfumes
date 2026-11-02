@@ -56,9 +56,62 @@ export function sizesFor(basePrice: number, mrpBase?: number): SizeOption[] {
 export const formatPrice = (n: number) =>
   "Rs. " + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function readList<T>(key: string): T[] {
+export function getActiveUserId(): string {
+  if (typeof window === "undefined") return "";
   try {
-    const raw = localStorage.getItem(key);
+    const match = document.cookie.match(/(?:^|;\s*)mirqas_user_id=([^;]+)/);
+    if (match && match[1]) {
+      const id = decodeURIComponent(match[1]).trim();
+      if (id) {
+        localStorage.setItem("mirqas_user_id", id);
+        return id;
+      }
+    }
+    // If the cookie is absent, the user has logged out.
+    // Clear any cached user id so logout is respected immediately.
+    if (localStorage.getItem("mirqas_user_id")) {
+      localStorage.removeItem("mirqas_user_id");
+    }
+  } catch {
+    // ignore
+  }
+  return "";
+}
+
+export function resolveStorageKey(baseKey: string): string {
+  const userId = getActiveUserId();
+  const suffix = userId ? `:${userId}` : ":guest";
+  if (baseKey === "mirqas-cart" || baseKey.startsWith("mirqas-cart")) {
+    return `mirqas-cart${suffix}`;
+  }
+  if (baseKey === "mirqas-wishlist" || baseKey.startsWith("mirqas-wishlist")) {
+    return `mirqas-wishlist${suffix}`;
+  }
+  return baseKey;
+}
+
+export function setActiveUserId(userId: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (userId) {
+      localStorage.setItem("mirqas_user_id", userId);
+    } else {
+      localStorage.removeItem("mirqas_user_id");
+    }
+    window.dispatchEvent(new Event(SYNC_EVENT));
+  } catch {
+    // ignore
+  }
+}
+
+export const getCartKey = () => resolveStorageKey(CART_KEY);
+export const getWishlistKey = () => resolveStorageKey(WISHLIST_KEY);
+
+export function readList<T>(key: string): T[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const resolved = resolveStorageKey(key);
+    const raw = localStorage.getItem(resolved);
     return raw ? (JSON.parse(raw) as T[]) : [];
   } catch {
     return [];
@@ -66,8 +119,10 @@ export function readList<T>(key: string): T[] {
 }
 
 export function writeList<T>(key: string, list: T[]) {
+  if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(key, JSON.stringify(list));
+    const resolved = resolveStorageKey(key);
+    localStorage.setItem(resolved, JSON.stringify(list));
     window.dispatchEvent(new Event(SYNC_EVENT));
   } catch {
     // storage full or blocked: ignore

@@ -1,5 +1,4 @@
-import mongoose from "mongoose";
-import { connectDB } from "../lib/db";
+import { connectDB, getSequelize } from "../lib/db";
 import { Product } from "../models/Product";
 import { products } from "../data/products";
 
@@ -15,12 +14,12 @@ async function main() {
 
   for (const p of products) {
     const slug = slugify(`${p.name} ${p.category}`);
-    if (await Product.exists({ slug })) {
+    const exists = await Product.count({ where: { slug } });
+    if (exists > 0) {
       skipped++;
       continue;
     }
 
-    // Your old originalPrice is the full price; your old price is the discounted one.
     const hasDiscount = p.originalPrice != null && p.originalPrice > p.price;
     const price = Math.round((hasDiscount ? p.originalPrice! : p.price) * 100);
     const salePrice = hasDiscount ? Math.round(p.price * 100) : null;
@@ -43,7 +42,7 @@ async function main() {
   }
 
   console.log(`Products created: ${created}, already existed: ${skipped}`);
-  await mongoose.disconnect();
+  await getSequelize().close();
 }
 
 main().catch((e) => {

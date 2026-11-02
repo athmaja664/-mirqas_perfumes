@@ -1,20 +1,63 @@
-import { Schema, model, models, type Model, type Types } from "mongoose";
+import { DataTypes, Model, type Optional } from "sequelize";
+import { getSequelize } from "@/lib/db";
+import { User } from "./User";
 
 export interface ISession {
-  userId: Types.ObjectId;
+  id?: string;
+  userId: string;
   tokenHash: string;
   expiresAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const SessionSchema = new Schema<ISession>(
-  {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    tokenHash: { type: String, required: true, unique: true },
-    // MongoDB deletes expired sessions automatically
-    expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
-  },
-  { timestamps: true }
-);
+export type SessionCreationAttributes = Optional<ISession, "id" | "createdAt" | "updatedAt">;
 
-export const Session: Model<ISession> =
-  (models.Session as Model<ISession>) || model<ISession>("Session", SessionSchema);
+export class Session extends Model<ISession, SessionCreationAttributes> implements ISession {
+  declare id: string;
+  declare userId: string;
+  declare tokenHash: string;
+  declare expiresAt: Date;
+  declare readonly createdAt: Date;
+  declare readonly updatedAt: Date;
+
+  get _id(): string {
+    return this.id;
+  }
+}
+
+const sequelize = getSequelize();
+
+Session.init(
+  {
+    id: {
+      type: DataTypes.STRING(36),
+      primaryKey: true,
+      defaultValue: DataTypes.UUIDV4,
+    },
+    userId: {
+      type: DataTypes.STRING(36),
+      allowNull: false,
+      references: {
+        model: "users",
+        key: "id",
+      },
+      onDelete: "CASCADE",
+    },
+    tokenHash: {
+      type: DataTypes.STRING(64),
+      allowNull: false,
+      unique: true,
+    },
+    expiresAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: "Session",
+    tableName: "sessions",
+    timestamps: true,
+  }
+);

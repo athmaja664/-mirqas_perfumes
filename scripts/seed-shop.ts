@@ -1,17 +1,28 @@
-import mongoose from "mongoose";
-import { connectDB } from "../lib/db";
+import { connectDB, getSequelize } from "../lib/db";
 import { Product } from "../models/Product";
 
-// Prices below are in rupees (as on your shop page). They are saved as paise.
 const CATEGORY: Record<string, string> = {
-  Oud: "Oud & Woody", Woody: "Oud & Woody", Amber: "Amber & Spicy",
-  Floral: "Floral", Gourmand: "Sweet & Gourmand", Musk: "Musk & Powdery",
+  Oud: "Oud & Woody",
+  Woody: "Oud & Woody",
+  Amber: "Amber & Spicy",
+  Floral: "Floral",
+  Gourmand: "Sweet & Gourmand",
+  Musk: "Musk & Powdery",
 };
 
 type Seed = {
-  slug: string; name: string; price: number; image: string; hover: string;
-  badge?: string; featured?: boolean; sales: number; soldOut?: boolean;
-  gender: "Men" | "Women" | "Unisex"; occasion: string[]; family: string;
+  slug: string;
+  name: string;
+  price: number;
+  image: string;
+  hover: string;
+  badge?: string;
+  featured?: boolean;
+  sales: number;
+  soldOut?: boolean;
+  gender: "Men" | "Women" | "Unisex";
+  occasion: string[];
+  family: string;
 };
 
 const items: Seed[] = [
@@ -30,25 +41,43 @@ const items: Seed[] = [
 async function main() {
   await connectDB();
   if (process.argv.includes("--reset")) {
-    const r = await Product.deleteMany({});
-    console.log(`Deleted ${r.deletedCount} existing products.`);
+    const deletedCount = await Product.destroy({ where: {} });
+    console.log(`Deleted ${deletedCount} existing products.`);
   }
-  let created = 0, skipped = 0;
+  let created = 0;
+  let skipped = 0;
   for (const p of items) {
-    if (await Product.exists({ slug: p.slug })) { skipped++; continue; }
+    const exists = await Product.count({ where: { slug: p.slug } });
+    if (exists > 0) {
+      skipped++;
+      continue;
+    }
     await Product.create({
-      name: p.name, slug: p.slug, brand: "Mirqas", description: "",
-      price: p.price * 100, salePrice: null,
-      category: CATEGORY[p.family], family: p.family,
-      images: [p.image, p.hover], stock: p.soldOut ? 0 : 25,
-      isActive: true, isBestSeller: !!p.badge?.includes("Best Seller"),
-      gender: p.gender, occasion: p.occasion, badge: p.badge ?? "",
-      isFeatured: !!p.featured, sales: p.sales,
+      name: p.name,
+      slug: p.slug,
+      brand: "Mirqas",
+      description: "",
+      price: p.price * 100,
+      salePrice: null,
+      category: CATEGORY[p.family] || "Oud & Woody",
+      family: p.family,
+      images: [p.image, p.hover],
+      stock: p.soldOut ? 0 : 25,
+      isActive: true,
+      isBestSeller: Boolean(p.badge?.includes("Best Seller")),
+      gender: p.gender,
+      occasion: p.occasion,
+      badge: p.badge ?? "",
+      isFeatured: Boolean(p.featured),
+      sales: p.sales,
     });
     created++;
   }
   console.log(`Created: ${created}, already existed: ${skipped}`);
-  await mongoose.disconnect();
+  await getSequelize().close();
 }
 
-main().catch((e) => { console.error(e.message); process.exit(1); });
+main().catch((e) => {
+  console.error(e.message);
+  process.exit(1);
+});

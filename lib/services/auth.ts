@@ -7,7 +7,7 @@ const DUMMY_HASH = bcrypt.hashSync("dummy-password-for-timing", 12);
 
 export async function verifyCredentials(email: string, password: string) {
   await connectDB();
-  const user = await User.findOne({ email }).select("+passwordHash");
+  const user = await User.findOne({ where: { email: email.toLowerCase().trim() } });
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !ok || !user.isActive) return null;
   return user;

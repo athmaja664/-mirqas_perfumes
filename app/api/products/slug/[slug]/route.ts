@@ -24,12 +24,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   }
 
   await connectDB();
-  const doc = await Product.findOne({ slug: clean, isActive: true }).lean();
+  const doc = await Product.findOne({ where: { slug: clean, isActive: true } });
   if (!doc) {
     return NextResponse.json({ message: "Product not found." }, { status: 404 });
   }
 
   return NextResponse.json({
-    product: toProduct(doc as unknown as Parameters<typeof toProduct>[0]),
+    product: toProduct(doc),
   });
 }
