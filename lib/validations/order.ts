@@ -33,7 +33,7 @@ export const shippingSchema = z.object({
 export const orderCreateSchema = z.object({
   items: z.array(line).min(1, "Your cart is empty.").max(20, "Too many items in one order."),
   shipping: shippingSchema,
-  note: z.string().trim().max(500).default(""),
+  note: z.string().trim().max(1500).default(""),
   paymentMethod: z.literal("cod"),
   // The checkout page makes one key per order. Double clicks cannot make two orders.
   idempotencyKey: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/, "Invalid request."),

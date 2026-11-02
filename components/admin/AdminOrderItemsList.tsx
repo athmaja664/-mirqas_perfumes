@@ -96,7 +96,7 @@ function ItemDetailModal({
               <h3 className="m-0 mt-1 text-2xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
                 {item.name}
               </h3>
-              <p className="m-0 text-[13px] text-black/60">Variant: {item.ml} ml Bottle</p>
+              <p className="m-0 text-[13px] text-black/60">Variant: {item.ml > 0 ? `${item.ml} ml Bottle` : "Gift Cover (Presentation Box)"}</p>
             </div>
 
             {/* Current Warehouse Stock Badge */}
@@ -122,7 +122,7 @@ function ItemDetailModal({
             {/* Order breakdown */}
             <div className="mt-1 grid grid-cols-2 gap-2 border-t border-black/10 pt-3 text-[13px]">
               <div className="text-black/55">Bottle Size</div>
-              <div className="font-semibold text-black/90">{item.ml} ml</div>
+              <div className="font-semibold text-black/90">{item.ml > 0 ? `${item.ml} ml` : "Gift Cover"}</div>
 
               <div className="text-black/55">Ordered Quantity</div>
               <div className="font-semibold text-black/90">{item.qty} units</div>
@@ -224,7 +224,12 @@ export default function AdminOrderItemsList({ items }: { items: AdminOrderItemDa
                         <p className="m-0 font-medium text-black/90 group-hover:text-[#9C5A2B] group-hover:underline">
                           {item.name}
                         </p>
-                        <p className="m-0 text-[11px] text-black/50">Variant: {item.ml} ml Bottle</p>
+                        <p className="m-0 text-[11px] text-black/50">Variant: {item.ml > 0 ? `${item.ml} ml Bottle` : "Gift Cover"}</p>
+                        {item.ml === 0 && (
+                          <span className="mt-1 inline-block rounded bg-[#9C5A2B]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#9C5A2B]">
+                            🎁 Gift Wrap
+                          </span>
+                        )}
                         {isOutOfStock && (
                           <span className="mt-1 inline-block rounded bg-red-100 px-1.5 py-0.2 text-[10px] font-semibold text-red-700">
                             Currently Out of Stock
@@ -245,7 +250,7 @@ export default function AdminOrderItemsList({ items }: { items: AdminOrderItemDa
 
                   <td className="px-4 py-3.5 font-medium">
                     <span className="inline-block border border-black/15 bg-black/[0.02] px-2.5 py-1 text-[12px]">
-                      {item.ml} ml
+                      {item.ml > 0 ? `${item.ml} ml` : "Gift Cover"}
                     </span>
                   </td>
 

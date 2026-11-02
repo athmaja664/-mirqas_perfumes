@@ -221,7 +221,7 @@ export default async function OrderTrackingPage({ params }: { params: Promise<{ 
                         {i.name}
                       </p>
                       <p className="m-0 mt-0.5 text-[13px] text-black/55">
-                        Bottle size: <strong className="font-semibold text-black/80">{i.ml}ml</strong> · Qty: {i.qty}
+                        {i.ml > 0 ? <>Bottle size: <strong className="font-semibold text-black/80">{i.ml}ml</strong></> : <span className="font-semibold text-[#9C5A2B]">Gift Cover</span>} · Qty: {i.qty}
                       </p>
                       <span className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-[#9C5A2B]">
                         View product & write review →

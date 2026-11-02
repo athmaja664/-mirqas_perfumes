@@ -176,7 +176,16 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           items: items.map((l) => ({ slug: l.slug, ml: l.ml, qty: l.qty })),
           shipping,
-          note: form.note,
+          note: (() => {
+            const giftWrappingNotes = items
+              .filter((l) => (l.isGiftCover || l.ml === 0) && l.wrappedItems && l.wrappedItems.length > 0)
+              .map(
+                (l) =>
+                  `[Gift Wrap: ${l.name} wrapping ${l.wrappedItems!.map((w) => `${w.name} (${w.ml}ml)`).join(", ")}]`
+              )
+              .join("\n");
+            return [form.note.trim(), giftWrappingNotes].filter(Boolean).join("\n\n");
+          })(),
           paymentMethod: "cod",
           idempotencyKey: keyRef.current,
         }),
@@ -406,7 +415,7 @@ export default function CheckoutPage() {
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{l.name}</span>
                   <span style={{ color: MUTED }}>
-                    {l.ml}ml x {l.qty}
+                    {l.ml > 0 ? `${l.ml}ml` : "Gift Cover"} x {l.qty}
                   </span>
                 </span>
                 <span className="shrink-0">{formatPrice(unitOf(l).price * l.qty)}</span>

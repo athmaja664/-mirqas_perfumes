@@ -511,20 +511,48 @@ export default async function AdminOrderDetailPage({
             )}
           </div>
 
-          {/* Customer Note (if any) */}
-          {o.note ? (
-            <div>
-              <p className={`m-0 mb-1 ${small}`}>Customer Note</p>
-              <p className="m-0 rounded border border-black/10 bg-black/[0.02] p-3 text-[13px] text-black/75">
-                {o.note}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className={`m-0 mb-1 ${small}`}>Customer Note</p>
-              <p className="m-0 text-[13px] italic text-black/45">None provided by customer.</p>
-            </div>
-          )}
+          {/* Customer Note & Gift Wrapping */}
+          {(() => {
+            const rawNote = o.note || "";
+            const lines = rawNote.split("\n").map((s) => s.trim()).filter(Boolean);
+            const giftWrapLines = lines
+              .filter((l) => l.startsWith("[Gift Wrap:") && l.endsWith("]"))
+              .map((l) => l.slice(1, -1));
+            const cleanNote = lines
+              .filter((l) => !(l.startsWith("[Gift Wrap:") && l.endsWith("]")))
+              .join("\n");
+
+            return (
+              <div className="space-y-4">
+                {giftWrapLines.length > 0 && (
+                  <div className="rounded-lg border-2 border-[#9C5A2B]/40 bg-[#FFF9F3] p-3.5">
+                    <div className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-[#9C5A2B]">
+                      <span className="text-sm">🎁</span>
+                      <span>Gift Wrapping Instructions (Packing Alert)</span>
+                    </div>
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-[13px] text-black/85">
+                      {giftWrapLines.map((line, idx) => (
+                        <li key={idx} className="font-medium">
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div>
+                  <p className={`m-0 mb-1 ${small}`}>Customer Note</p>
+                  {cleanNote ? (
+                    <p className="m-0 rounded border border-black/10 bg-black/[0.02] p-3 text-[13px] text-black/75">
+                      {cleanNote}
+                    </p>
+                  ) : (
+                    <p className="m-0 text-[13px] italic text-black/45">None provided by customer.</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </section>
       </div>
 

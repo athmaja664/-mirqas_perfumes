@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { productHref } from "@/lib/productHref";
 import { ShopProduct, useSectionProducts } from "@/lib/sectionProducts";
+import GiftWrapConfirmModal from "@/components/gift/GiftWrapConfirmModal";
+import { readList, CART_KEY, SYNC_EVENT, type CartLine, type WrappedItemRef } from "@/lib/shopStorage";
 import {
   addLineToCart,
   toggleWishlist,
@@ -635,7 +637,6 @@ function GiftCoverCard({
 }) {
   const href = `/product/${box.slug}`;
   const wished = useWished(box.slug);
-  const [addingCart, setAddingCart] = useState(false);
 
   const handleToggleWish = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -649,27 +650,6 @@ function GiftCoverCard({
     };
     toggleWishlist(wishItem);
     onNotify(wished ? `Removed ${box.name} from wishlist.` : `Added ${box.name} to wishlist!`);
-  };
-
-  const handleAddToCartDirect = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!box.inStock || addingCart) return;
-
-    setAddingCart(true);
-    const wishItem: WishItem = {
-      slug: box.slug,
-      name: box.name,
-      image: box.image,
-      sizes: [{ ml: 0, price: box.price, soldOut: !box.inStock }],
-      soldOut: !box.inStock,
-    };
-    addLineToCart(wishItem, 0, 1);
-    onNotify(`Added ${box.name} to your cart!`);
-
-    setTimeout(() => {
-      setAddingCart(false);
-    }, 700);
   };
 
   return (
@@ -725,37 +705,23 @@ function GiftCoverCard({
           {money(box.price)}
         </p>
 
-        {/* Action Buttons */}
+        {/* Action Button: ONLY ONE CLEAR OPTION */}
         <div className="mt-auto flex w-full flex-col gap-2 pt-4">
-          {/* Select for bundle toggle */}
-          {isSelected ? (
-            <button
-              type="button"
-              onClick={onDeselect}
-              className={`${BTN} flex h-10 w-full items-center justify-center gap-1.5 rounded-[6px] text-[11px] font-semibold uppercase tracking-[0.1em]`}
-            >
-              <Icon d={ICONS.check} size={16} /> Selected for Bundle
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onSelect}
-              disabled={!box.inStock}
-              className={`${BTN_LINE} flex h-10 w-full items-center justify-center rounded-[6px] bg-white text-[11px] font-semibold uppercase tracking-[0.1em] hover:bg-[#9C5A2B] hover:text-white disabled:cursor-not-allowed disabled:opacity-40`}
-            >
-              Select for Bundle
-            </button>
-          )}
-
-          {/* Quick Add to Cart button */}
           <button
             type="button"
-            disabled={!box.inStock || addingCart}
-            onClick={handleAddToCartDirect}
-            className="flex h-9 w-full items-center justify-center gap-1.5 rounded-[6px] border border-[#111111]/20 bg-stone-50 text-[10px] font-semibold uppercase tracking-wider text-[#111111]/80 transition-colors hover:border-[#9C5A2B] hover:bg-white hover:text-[#9C5A2B] disabled:opacity-40"
+            onClick={isSelected ? onDeselect : onSelect}
+            disabled={!box.inStock}
+            className={`${
+              isSelected ? BTN : BTN_LINE
+            } flex h-10 w-full items-center justify-center gap-1.5 rounded-[6px] text-[11px] font-semibold uppercase tracking-[0.1em] transition-all disabled:cursor-not-allowed disabled:opacity-40`}
           >
-            <Icon d={ICONS.bag} size={14} />
-            {addingCart ? "Adding..." : "Add to Cart (Box Only)"}
+            {isSelected ? (
+              <>
+                <Icon d={ICONS.check} size={16} /> Using This Gift Cover
+              </>
+            ) : (
+              "Use This Gift Cover"
+            )}
           </button>
         </div>
       </div>
@@ -1013,6 +979,35 @@ export default function GiftPage() {
 
   const [boxes, setBoxes] = useState<GiftBox[]>(DEFAULT_GIFT_BOXES);
   const [boxesLoaded, setBoxesLoaded] = useState(false);
+  const [modalBox, setModalBox] = useState<GiftBox | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [cartLines, setCartLines] = useState<CartLine[]>([]);
+
+  useEffect(() => {
+    const syncCart = () => setCartLines(readList<CartLine>(CART_KEY));
+    syncCart();
+    window.addEventListener("storage", syncCart);
+    window.addEventListener(SYNC_EVENT, syncCart);
+    return () => {
+      window.removeEventListener("storage", syncCart);
+      window.removeEventListener(SYNC_EVENT, syncCart);
+    };
+  }, []);
+
+  const handleModalConfirm = (selectedWrapped: WrappedItemRef[]) => {
+    if (!modalBox) return;
+    const boxItem: WishItem = {
+      slug: modalBox.slug,
+      name: modalBox.name,
+      image: modalBox.image,
+      sizes: [{ ml: 0, price: modalBox.price, soldOut: false }],
+      soldOut: false,
+    };
+    addLineToCart(boxItem, 0, 1, { isGiftCover: true, wrappedItems: selectedWrapped });
+    setSel((s) => ({ ...s, box: modalBox.id }));
+    setModalOpen(false);
+    showToast(`✓ Added ${modalBox.name} to wrap ${selectedWrapped.length} fragrance(s)!`, "/cart");
+  };
 
   // Fetch gift covers dynamically from backend
   useEffect(() => {
@@ -1159,7 +1154,12 @@ export default function GiftPage() {
       sizes: [{ ml: 0, price: box.price, soldOut: false }],
       soldOut: false,
     };
-    addLineToCart(boxItem, 0, 1);
+    const wrappedItems: WrappedItemRef[] = chosen.map((m) => ({
+      slug: m.product.id,
+      name: m.product.name,
+      ml: m.ml,
+    }));
+    addLineToCart(boxItem, 0, 1, { isGiftCover: true, wrappedItems });
 
     // 3. Feedback and reset
     showToast("✓ Your custom gift bundle was added to the cart!", "/cart");
@@ -1316,9 +1316,10 @@ export default function GiftPage() {
                     box={b}
                     isSelected={sel.box === b.id}
                     onSelect={() => {
+                      setModalBox(b);
+                      setModalOpen(true);
                       setSel((s) => ({ ...s, box: b.id }));
                       setError(null);
-                      scrollToBuilder();
                     }}
                     onDeselect={() => setSel((s) => ({ ...s, box: null }))}
                     onNotify={(m) => showToast(m)}
@@ -1391,6 +1392,23 @@ export default function GiftPage() {
           </div>
         </div>
       </div>
+
+      <GiftWrapConfirmModal
+        open={modalOpen}
+        box={
+          modalBox
+            ? {
+                slug: modalBox.slug,
+                name: modalBox.name,
+                price: modalBox.price,
+                image: modalBox.image,
+              }
+            : null
+        }
+        cartItems={cartLines}
+        onConfirm={handleModalConfirm}
+        onCancel={() => setModalOpen(false)}
+      />
 
       {/* Toast Notification */}
       {toast && (

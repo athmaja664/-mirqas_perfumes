@@ -25,6 +25,12 @@ export type WishItem = {
   soldOut?: boolean;
 };
 
+export type WrappedItemRef = {
+  slug: string;
+  name: string;
+  ml: number;
+};
+
 export type CartLine = {
   slug: string;
   name: string;
@@ -33,6 +39,8 @@ export type CartLine = {
   sizes: SizeOption[];
   ml: number;
   qty: number;
+  isGiftCover?: boolean;
+  wrappedItems?: WrappedItemRef[];
 };
 
 // The normal price is the 10ml price. The other sizes are worked out from it.
@@ -129,11 +137,23 @@ export function writeList<T>(key: string, list: T[]) {
   }
 }
 
-export function addLineToCart(item: WishItem, ml: number, qty = 1) {
+export function addLineToCart(
+  item: WishItem,
+  ml: number,
+  qty = 1,
+  options?: { isGiftCover?: boolean; wrappedItems?: WrappedItemRef[] }
+) {
   const cart = readList<CartLine>(CART_KEY);
+  const isGift = options?.isGiftCover ?? (ml === 0);
   const i = cart.findIndex((c) => c.slug === item.slug && c.ml === ml);
+
   if (i >= 0) {
-    cart[i] = { ...cart[i], qty: cart[i].qty + qty };
+    cart[i] = {
+      ...cart[i],
+      qty: isGift ? 1 : cart[i].qty + qty,
+      isGiftCover: isGift,
+      wrappedItems: options?.wrappedItems ?? cart[i].wrappedItems,
+    };
   } else {
     cart.push({
       slug: item.slug,
@@ -143,6 +163,8 @@ export function addLineToCart(item: WishItem, ml: number, qty = 1) {
       sizes: item.sizes,
       ml,
       qty,
+      isGiftCover: isGift,
+      wrappedItems: options?.wrappedItems,
     });
   }
   writeList(CART_KEY, cart);

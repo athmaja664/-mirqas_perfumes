@@ -9,7 +9,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { readList, writeList, CART_KEY, SYNC_EVENT } from "@/lib/shopStorage";
+import { readList, writeList, CART_KEY, SYNC_EVENT, type WrappedItemRef, type CartLine } from "@/lib/shopStorage";
+import GiftWrapConfirmModal from "@/components/gift/GiftWrapConfirmModal";
 
 // Brand colours (same as Shop All)
 const COPPER = "#9C5A2B";
@@ -38,6 +39,8 @@ type CartItem = {
   sizes: SizeOption[]; // 10ml, 30ml, 50ml, 100ml
   ml: number; // chosen size
   qty: number;
+  isGiftCover?: boolean;
+  wrappedItems?: WrappedItemRef[];
 };
 
 // Prices show like Rs. 799.00
@@ -274,12 +277,157 @@ function CartCard({
 // ---------------------------------------------------------------------------
 // PAGE
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Gift Cover Cart Card (Distinct styling, shows wrapped fragrance association)
+// ---------------------------------------------------------------------------
+function GiftCoverCartCard({
+  item,
+  onRemove,
+  onChangeWrapped,
+}: {
+  item: CartItem;
+  onRemove: () => void;
+  onChangeWrapped: () => void;
+}) {
+  const current = unitOf(item);
+  const detailHref = `/product/${item.slug}`;
+
+  return (
+    <div
+      className="flex overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)]"
+      style={{ borderColor: CARD_LINE }}
+    >
+      {/* image */}
+      <Link
+        href={detailHref}
+        aria-label={`View ${item.name}`}
+        className="relative block aspect-[4/5] w-[34%] max-w-[190px] shrink-0 overflow-hidden bg-[#F6EEE0]"
+      >
+        {item.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.image} alt={item.name} className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <Placeholder label={item.name} className="h-full w-full" />
+        )}
+      </Link>
+
+      {/* details */}
+      <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 p-3 sm:p-5">
+        <div>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span className="inline-block rounded-[4px] bg-[#9C5A2B]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#9C5A2B]">
+                Gift Wrap
+              </span>
+              <h3
+                className="m-0 mt-1 line-clamp-2 font-medium leading-[1.2]"
+                style={{
+                  fontFamily: serif,
+                  color: COPPER,
+                  fontSize: "clamp(1.1rem, 2vw, 1.6rem)",
+                  fontVariantNumeric: "lining-nums",
+                  fontFeatureSettings: '"lnum" 1',
+                }}
+              >
+                <Link href={detailHref}>Gift Cover: {item.name}</Link>
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label={`Remove ${item.name} from cart`}
+              className="shrink-0 transition-transform hover:scale-110"
+              style={{ color: COPPER }}
+            >
+              <TrashIcon />
+            </button>
+          </div>
+
+          {/* Price */}
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-[14px] font-semibold sm:text-[17px]" style={{ color: COPPER }}>
+              {formatPrice(current.price)}
+            </span>
+          </div>
+
+          {/* Wrapped fragrance items association */}
+          <div className="mt-3 rounded-[8px] border border-[#9C5A2B]/20 bg-[#FFF9F3] p-3 text-xs">
+            {item.wrappedItems && item.wrappedItems.length > 0 ? (
+              <div>
+                <p className="m-0 font-semibold text-[#9C5A2B]">
+                  Applied to wrap:
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {item.wrappedItems.map((w, idx) => (
+                    <span
+                      key={`${w.slug}-${w.ml}-${idx}`}
+                      className="inline-flex items-center gap-1 rounded bg-white px-2 py-0.5 text-[11px] font-medium text-[#111111] border border-stone-200"
+                    >
+                      <span>🎁</span>
+                      <span>{w.name} ({w.ml}ml)</span>
+                    </span>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={onChangeWrapped}
+                  className="mt-2.5 inline-block text-[11px] font-semibold text-[#9C5A2B] underline hover:text-[#7d4720]"
+                >
+                  Change wrapped items →
+                </button>
+              </div>
+            ) : (
+              <div>
+                <p className="m-0 font-semibold text-amber-700">
+                  ⚠️ No items currently assigned to wrap
+                </p>
+                <p className="m-0 mt-0.5 text-[11px] text-stone-600">
+                  Choose which perfume in your cart should be placed in this presentation cover.
+                </p>
+                <button
+                  type="button"
+                  onClick={onChangeWrapped}
+                  className="mt-2 inline-block text-[11px] font-semibold text-[#9C5A2B] underline hover:text-[#7d4720]"
+                >
+                  Choose items to wrap →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Quantity line total */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-100 pt-2">
+          <span className="text-xs text-stone-500 font-medium">Quantity: {item.qty}</span>
+          <p className="m-0 text-[15px] font-semibold sm:text-[17px]" style={{ color: INK }}>
+            {formatPrice(current.price * item.qty)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CartPage() {
     const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
   const [note, setNote] = useState("");
   const [checkingOut, setCheckingOut] = useState(false);
+  const [editCoverIndex, setEditCoverIndex] = useState<number | null>(null);
+
+  const handleUpdateWrapped = (selectedWrapped: WrappedItemRef[]) => {
+    if (editCoverIndex === null || !items[editCoverIndex]) return;
+    const next = [...items];
+    next[editCoverIndex] = {
+      ...next[editCoverIndex],
+      wrappedItems: selectedWrapped,
+    };
+    writeCart(next);
+    setItems(next);
+    setEditCoverIndex(null);
+  };
 
   // Load the cart and keep it in sync with other tabs / the navbar
   useEffect(() => {
@@ -314,7 +462,26 @@ export default function CartPage() {
     writeCart(list);
   };
 
-  const removeAt = (index: number) => writeCart(items.filter((_, i) => i !== index));
+  const removeAt = (index: number) => {
+    const removed = items[index];
+    let next = items.filter((_, i) => i !== index);
+
+    // If a non-gift fragrance was removed, clean up associations in any gift covers
+    if (!removed.isGiftCover && removed.ml > 0) {
+      next = next.map((c) => {
+        if ((c.isGiftCover || c.ml === 0) && c.wrappedItems) {
+          const updatedWrapped = c.wrappedItems.filter(
+            (w) => !(w.slug === removed.slug && w.ml === removed.ml)
+          );
+          return { ...c, wrappedItems: updatedWrapped };
+        }
+        return c;
+      });
+    }
+
+    writeCart(next);
+    setItems(next);
+  };
 
   const count = items.reduce((n, it) => n + it.qty, 0);
   const subtotal = items.reduce((n, it) => n + unitOf(it).price * it.qty, 0);
@@ -377,15 +544,24 @@ export default function CartPage() {
           <div className="grid gap-8 lg:grid-cols-[1fr_380px] lg:items-start lg:gap-10">
             {/* Items */}
             <div className="flex min-w-0 flex-col gap-4">
-              {items.map((it, i) => (
-                <CartCard
-                  key={`${it.slug}-${it.ml}`}
-                  item={it}
-                  onSize={(ml) => changeSize(i, ml)}
-                  onQty={(q) => changeQty(i, q)}
-                  onRemove={() => removeAt(i)}
-                />
-              ))}
+              {items.map((it, i) =>
+                it.isGiftCover || it.ml === 0 ? (
+                  <GiftCoverCartCard
+                    key={`${it.slug}-${it.ml}-${i}`}
+                    item={it}
+                    onRemove={() => removeAt(i)}
+                    onChangeWrapped={() => setEditCoverIndex(i)}
+                  />
+                ) : (
+                  <CartCard
+                    key={`${it.slug}-${it.ml}`}
+                    item={it}
+                    onSize={(ml) => changeSize(i, ml)}
+                    onQty={(q) => changeQty(i, q)}
+                    onRemove={() => removeAt(i)}
+                  />
+                )
+              )}
             </div>
 
             {/* Summary box */}
@@ -449,6 +625,21 @@ export default function CartPage() {
           </div>
         )}
       </div>
+    {editCoverIndex !== null && items[editCoverIndex] && (
+        <GiftWrapConfirmModal
+          open={true}
+          box={{
+            slug: items[editCoverIndex].slug,
+            name: items[editCoverIndex].name,
+            price: unitOf(items[editCoverIndex]).price,
+            image: items[editCoverIndex].image || "",
+          }}
+          cartItems={items}
+          initialSelected={items[editCoverIndex].wrappedItems}
+          onConfirm={handleUpdateWrapped}
+          onCancel={() => setEditCoverIndex(null)}
+        />
+      )}
     </main>
   );
 }
