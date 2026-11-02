@@ -104,42 +104,6 @@ const toGiftProduct = (p: ShopProduct): Product => ({
   inStock: p.inStock !== false,
 });
 
-const DEFAULT_GIFT_BOXES: GiftBox[] = [
-  {
-    id: "midnight-blue",
-    slug: "midnight-blue-gift-box",
-    name: "Midnight Blue Gift Box",
-    description: "Deep nocturnal blue finish with gold debossed Mirqas signature. Keepsake quality.",
-    price: 399,
-    image: "/images/gift/boxes/midnight-blue.jpg",
-    color: "#1d2a44",
-    category: "Gift Cover",
-    inStock: true,
-  },
-  {
-    id: "ivory",
-    slug: "ivory-gift-box",
-    name: "Ivory Gift Box",
-    description: "Classic textured ivory finish with warm copper accents. Elegance redefined.",
-    price: 399,
-    image: "/images/gift/boxes/ivory.jpg",
-    color: "#efe9dc",
-    category: "Gift Cover",
-    inStock: true,
-  },
-  {
-    id: "sage-green",
-    slug: "sage-green-gift-box",
-    name: "Sage Green Gift Box",
-    description: "Serene botanical sage green hue with refined minimalist styling.",
-    price: 399,
-    image: "/images/gift/boxes/sage-green.jpg",
-    color: "#8fa58f",
-    category: "Gift Cover",
-    inStock: true,
-  },
-];
-
 const SIZE_STEPS = [
   { ml: 10, mult: 1 },
   { ml: 30, mult: 2.25 },
@@ -322,41 +286,7 @@ function CoverImageDisplay({
 
 /* ───────────────────────── Components ───────────────────────── */
 
-function Hero({
-  onShop,
-  products,
-  primaryBox,
-}: {
-  onShop: () => void;
-  products: Product[];
-  primaryBox?: GiftBox;
-}) {
-  const picks = products.slice(0, 2);
-  const items: { art: ReactNode; text: string }[] = [
-    {
-      art: (
-        <div className="grid h-full w-full grid-cols-2 gap-2 bg-[#F6EEE0] p-2 sm:p-4">
-          {picks.length > 0
-            ? picks.map((p) => (
-                <PerfumeImage key={p.id} image={p.image} name={p.name} color={p.color} />
-              ))
-            : [0, 1].map((i) => <Bottle key={i} color="#c9772b" />)}
-        </div>
-      ),
-      text: "Choose your perfumes",
-    },
-    {
-      art: (
-        <CoverImageDisplay
-          src={primaryBox?.image}
-          name={primaryBox?.name || "Gift Box"}
-          color={primaryBox?.color || "#9C5A2B"}
-        />
-      ),
-      text: "Choose a gift box / cover",
-    },
-  ];
-
+function Hero({ onShop }: { onShop: () => void }) {
   return (
     <section className={`border-b ${LINE}`}>
       <div className="mx-auto max-w-7xl px-4 py-10 text-center sm:px-6 sm:py-14 lg:py-20">
@@ -378,21 +308,47 @@ function Hero({
           Shop now
         </button>
         <ol className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-3 sm:mt-14 sm:gap-6 md:gap-0">
-          {items.map((it, i) => (
-            <li
-              key={it.text}
-              className={`flex flex-col items-center gap-3 sm:gap-4 md:px-6 ${
-                i > 0 ? `md:border-l ${LINE}` : ""
-              }`}
-            >
-              <div className="aspect-square w-full max-w-[16rem] overflow-hidden rounded-xl border border-[#EADFCC]">
-                {it.art}
+          {/* Step 1: Left Side - Choose your perfumes */}
+          <li className="flex flex-col items-center gap-3 sm:gap-4 md:px-6">
+            <div className="aspect-square w-full max-w-[16rem] overflow-hidden rounded-xl border border-[#EADFCC] bg-[#F6EEE0] p-2 sm:p-2.5">
+              <div className="grid h-full w-full grid-cols-2 gap-2">
+                <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow-xs">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/images/gifthero1.jpg"
+                    alt="Choose your perfumes - Fragrance 1"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow-xs">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/images/gifthero3.png"
+                    alt="Choose your perfumes - Fragrance 2"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
               </div>
-              <p className="mq-serif text-lg leading-snug text-[#9C5A2B] sm:text-2xl">
-                {i + 1}. {it.text}
-              </p>
-            </li>
-          ))}
+            </div>
+            <p className="mq-serif text-lg leading-snug text-[#9C5A2B] sm:text-2xl">
+              1. Choose your perfumes
+            </p>
+          </li>
+
+          {/* Step 2: Right Side - Choose a gift box / cover */}
+          <li className="flex flex-col items-center gap-3 sm:gap-4 md:border-l md:px-6 border-[#9C5A2B]/25">
+            <div className="aspect-square w-full max-w-[16rem] overflow-hidden rounded-xl border border-[#EADFCC] bg-[#F6EEE0]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/gifthbox.png"
+                alt="Choose a gift box / cover"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <p className="mq-serif text-lg leading-snug text-[#9C5A2B] sm:text-2xl">
+              2. Choose a gift box / cover
+            </p>
+          </li>
         </ol>
       </div>
     </section>
@@ -977,8 +933,9 @@ export default function GiftPage() {
     [apiProducts]
   );
 
-  const [boxes, setBoxes] = useState<GiftBox[]>(DEFAULT_GIFT_BOXES);
+  const [boxes, setBoxes] = useState<GiftBox[]>([]);
   const [boxesLoaded, setBoxesLoaded] = useState(false);
+  const [boxesError, setBoxesError] = useState(false);
   const [modalBox, setModalBox] = useState<GiftBox | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [cartLines, setCartLines] = useState<CartLine[]>([]);
@@ -1009,22 +966,33 @@ export default function GiftPage() {
     showToast(`✓ Added ${modalBox.name} to wrap ${selectedWrapped.length} fragrance(s)!`, "/cart");
   };
 
-  // Fetch gift covers dynamically from backend
+  // Fetch gift covers dynamically from backend (no hardcoded fallback)
   useEffect(() => {
-    fetch("/api/gift-covers")
-      .then((r) => r.json())
+    let cancelled = false;
+    fetch("/api/gift-covers", { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load gift covers");
+        return r.json();
+      })
       .then((d) => {
-        if (Array.isArray(d.giftCovers) && d.giftCovers.length > 0) {
-          // Admin added covers appear automatically!
+        if (cancelled) return;
+        if (Array.isArray(d.giftCovers)) {
           setBoxes(d.giftCovers.filter((b: GiftBox) => b.isActive !== false));
+        } else {
+          setBoxes([]);
         }
       })
       .catch((err) => {
         console.error("Failed to load gift covers:", err);
+        if (!cancelled) setBoxesError(true);
       })
       .finally(() => {
-        setBoxesLoaded(true);
+        if (!cancelled) setBoxesLoaded(true);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const builderRef = useRef<HTMLElement>(null);
@@ -1199,7 +1167,7 @@ export default function GiftPage() {
       `}</style>
 
       <main>
-        <Hero onShop={scrollToBuilder} products={products} primaryBox={boxes[0]} />
+        <Hero onShop={scrollToBuilder} />
 
         {/* ─── GIFT BUILDER SECTION ─── */}
         <section
@@ -1256,22 +1224,41 @@ export default function GiftPage() {
                 )
               ) : (
                 <div>
-                  <div className={GRID}>
-                    {boxes.map((b) => (
-                      <div key={b.id} className={GRID_ITEM}>
-                        <GiftCoverCard
-                          box={b}
-                          isSelected={sel.box === b.id}
-                          onSelect={() => {
-                            setSel((s) => ({ ...s, box: b.id }));
-                            setError(null);
-                          }}
-                          onDeselect={() => setSel((s) => ({ ...s, box: null }))}
-                          onNotify={(m) => showToast(m)}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  {!boxesLoaded ? (
+                    <div className="py-16 text-center">
+                      <p className={`text-sm ${MUTED}`}>Loading luxury gift covers…</p>
+                    </div>
+                  ) : boxesError ? (
+                    <div className="py-16 text-center">
+                      <p className={`text-sm ${MUTED}`}>
+                        Could not load gift covers. Please refresh.
+                      </p>
+                    </div>
+                  ) : boxes.length === 0 ? (
+                    <div className="mx-auto max-w-md rounded-xl border border-dashed border-[#9C5A2B]/30 bg-white/60 p-8 text-center">
+                      <p className="font-medium text-[#111111]">No gift covers are currently available.</p>
+                      <p className={`mt-1 text-xs ${MUTED}`}>
+                        Please check back soon or continue with your selected fragrances.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className={GRID}>
+                      {boxes.map((b) => (
+                        <div key={b.id} className={GRID_ITEM}>
+                          <GiftCoverCard
+                            box={b}
+                            isSelected={sel.box === b.id}
+                            onSelect={() => {
+                              setSel((s) => ({ ...s, box: b.id }));
+                              setError(null);
+                            }}
+                            onDeselect={() => setSel((s) => ({ ...s, box: null }))}
+                            onNotify={(m) => showToast(m)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <GiftCardEditor
                     message={sel.message}
                     onChange={(m) => {
@@ -1306,27 +1293,38 @@ export default function GiftPage() {
               </p>
             </div>
 
-            <div className="mt-8 flex flex-wrap justify-center gap-4 sm:gap-6">
-              {boxes.map((b) => (
-                <div
-                  key={`showcase-${b.id}`}
-                  className="flex w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] max-w-sm"
-                >
-                  <GiftCoverCard
-                    box={b}
-                    isSelected={sel.box === b.id}
-                    onSelect={() => {
-                      setModalBox(b);
-                      setModalOpen(true);
-                      setSel((s) => ({ ...s, box: b.id }));
-                      setError(null);
-                    }}
-                    onDeselect={() => setSel((s) => ({ ...s, box: null }))}
-                    onNotify={(m) => showToast(m)}
-                  />
-                </div>
-              ))}
-            </div>
+            {!boxesLoaded ? (
+              <p className={`py-12 text-center text-sm ${MUTED}`}>Loading gift covers…</p>
+            ) : boxes.length === 0 ? (
+              <div className="mx-auto mt-8 max-w-md rounded-xl border border-dashed border-[#9C5A2B]/30 bg-white p-8 text-center">
+                <p className="font-medium text-[#111111]">No gift covers are available at this moment.</p>
+                <p className={`mt-1 text-xs ${MUTED}`}>
+                  New presentation boxes will appear here once added by the store administrator.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-8 flex flex-wrap justify-center gap-4 sm:gap-6">
+                {boxes.map((b) => (
+                  <div
+                    key={`showcase-${b.id}`}
+                    className="flex w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] max-w-sm"
+                  >
+                    <GiftCoverCard
+                      box={b}
+                      isSelected={sel.box === b.id}
+                      onSelect={() => {
+                        setModalBox(b);
+                        setModalOpen(true);
+                        setSel((s) => ({ ...s, box: b.id }));
+                        setError(null);
+                      }}
+                      onDeselect={() => setSel((s) => ({ ...s, box: null }))}
+                      onNotify={(m) => showToast(m)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>
