@@ -195,34 +195,35 @@ export default function ProductForm({ product }: { product?: ProductData }) {
 
     let finalUrl = "";
 
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(file.size, start + CHUNK_SIZE);
-      const chunkBlob = file.slice(start, end);
-      const chunkFile = new File([chunkBlob], file.name, { type: file.type });
+    try {
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(file.size, start + CHUNK_SIZE);
+        const chunkBlob = file.slice(start, end);
 
-      setUploadProgress(`Uploading ${kind} (${Math.round(((i + 1) / totalChunks) * 100)}%)...`);
+        setUploadProgress(`Uploading ${kind} (${Math.round(((i + 1) / totalChunks) * 100)}%)...`);
 
-      const body = new FormData();
-      body.append("uploadId", uploadId);
-      body.append("chunkIndex", String(i));
-      body.append("totalChunks", String(totalChunks));
-      body.append("filename", file.name);
-      body.append("kind", kind);
-      body.append("chunk", chunkFile);
+        const body = new FormData();
+        body.append("uploadId", uploadId);
+        body.append("chunkIndex", String(i));
+        body.append("totalChunks", String(totalChunks));
+        body.append("filename", file.name);
+        body.append("kind", kind);
+        body.append("chunk", chunkBlob, file.name);
 
-      const res = await fetch("/api/admin/uploads/chunk", { method: "POST", body });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(json.message || `Upload failed at chunk ${i + 1} of ${totalChunks}.`);
+        const res = await fetch("/api/admin/uploads/chunk", { method: "POST", body });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json.message || `Upload failed at chunk ${i + 1} of ${totalChunks}.`);
+        }
+
+        if (json.done && json.urls?.[0]) {
+          finalUrl = json.urls[0];
+        }
       }
-
-      if (json.done && json.urls?.[0]) {
-        finalUrl = json.urls[0];
-      }
+    } finally {
+      setUploadProgress("");
     }
-
-    setUploadProgress("");
     if (!finalUrl) throw new Error("File upload failed to finalize.");
     return finalUrl;
   }
