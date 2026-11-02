@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
+import { writeFile, mkdir } from "node:fs/promises";
+import path from "node:path";
 import { put } from "@vercel/blob";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { guardRequest } from "@/lib/security";
 import {
+  UPLOAD_DIR,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
   detectImageType,
@@ -24,11 +27,13 @@ const CONTENT_TYPES: Record<string, string> = {
 export async function POST(req: NextRequest) {
   const blocked = guardRequest(req, "admin-uploads", 100);
   if (blocked) return blocked;
+
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 
-  if (!process.env.BLOB_READ_WRITE_TOKEN)
-    return NextResponse.json({ message: "File storage is not set up." }, { status: 500 });
+  const hasBlobToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  const preferLocal = process.env.STORAGE_PROVIDER === "local";
+  const useBlob = hasBlobToken && !preferLocal;
 
   let form: FormData;
   try {
@@ -71,17 +76,30 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
 
-    // The original file name is ignored. A random name is safer.
+    // The original file name is replaced with a collision-free 32-hex random string
     const name = `${randomBytes(16).toString("hex")}.${type}`;
-    try {
-      const blob = await put(`products/${name}`, buf, {
-        access: "public",
-        contentType: CONTENT_TYPES[type] ?? "application/octet-stream",
-        addRandomSuffix: false,
-      });
-      urls.push(blob.url);
-    } catch {
-      return NextResponse.json({ message: "Could not save the file. Please try again." }, { status: 502 });
+
+    if (useBlob) {
+      try {
+        const blob = await put(`products/${name}`, buf, {
+          access: "public",
+          contentType: CONTENT_TYPES[type] ?? "application/octet-stream",
+          addRandomSuffix: false,
+        });
+        urls.push(blob.url);
+      } catch (e) {
+        console.error("Cloud blob upload error:", e);
+        return NextResponse.json({ message: "Could not save the file to cloud storage. Please try again." }, { status: 502 });
+      }
+    } else {
+      try {
+        await mkdir(UPLOAD_DIR, { recursive: true });
+        await writeFile(path.join(UPLOAD_DIR, name), buf);
+        urls.push(`/api/uploads/${name}`);
+      } catch (e) {
+        console.error("Local disk upload error:", e);
+        return NextResponse.json({ message: "Could not save the file to server storage. Please try again." }, { status: 500 });
+      }
     }
   }
 

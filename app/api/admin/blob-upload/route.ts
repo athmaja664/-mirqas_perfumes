@@ -1,7 +1,14 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 export async function POST(request: Request) {
+  // Enforce admin authentication before issuing any upload token
+  const auth = await requireAdmin();
+  if (auth.error) {
+    return auth.error;
+  }
+
   const body = (await request.json()) as HandleUploadBody;
 
   try {
@@ -9,16 +16,15 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async () => {
-        // put your admin auth check here, and throw an error if not admin
         return {
-         allowedContentTypes: [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "video/mp4",
-  "video/webm",
-],
-          maximumSizeInBytes: 100 * 1024 * 1024, // 100 MB
+          allowedContentTypes: [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "video/mp4",
+            "video/webm",
+          ],
+          maximumSizeInBytes: 25 * 1024 * 1024, // 25 MB max
           addRandomSuffix: true,
         };
       },

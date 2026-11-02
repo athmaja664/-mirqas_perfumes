@@ -20,6 +20,10 @@
 # production
 /build
 
+# runtime uploads
+/uploads/*
+!/uploads/products/
+
 # misc
 .DS_Store
 *.pem
@@ -30,8 +34,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+!.env.example
+.env.local
 
 # vercel
 .vercel
@@ -39,8 +45,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-.env.local
-
-
-
