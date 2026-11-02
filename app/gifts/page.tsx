@@ -1,11 +1,17 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { productHref } from "@/lib/productHref";
 import { ShopProduct, useSectionProducts } from "@/lib/sectionProducts";
+import {
+  addLineToCart,
+  toggleWishlist,
+  useWished,
+  sizesFor,
+  type WishItem,
+} from "@/lib/shopStorage";
 
 /* ───────────────────────── Brand ───────────────────────── */
 
@@ -19,38 +25,67 @@ const CARD_BORDER = "#EADFCC";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
-const BTN = "bg-[#9C5A2B] text-white transition-colors hover:bg-[#7d4720] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]";
-const BTN_LINE = "border border-[#9C5A2B] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white";
+const BTN =
+  "bg-[#9C5A2B] text-white transition-colors hover:bg-[#7d4720] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]";
+const BTN_LINE =
+  "border border-[#9C5A2B] text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B] hover:text-white";
 const LINE = "border-[#9C5A2B]/25";
 const MUTED = "text-[#111111]/60";
 const HEAD = "mq-serif font-medium text-[#9C5A2B]";
 const CAPS = "uppercase tracking-[0.12em] font-semibold";
 
 const GRID = "flex flex-wrap justify-center gap-3 sm:gap-4";
-const GRID_ITEM = "flex w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.667rem)]";
+const GRID_ITEM =
+  "flex w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.667rem)]";
 
 /* ───────────────────────── Types ───────────────────────── */
 
 type StepId = 1 | 2;
 
-// price = the 10ml price. The other sizes are worked out from it (see SIZE_STEPS).
-interface Product { id: string; name: string; category: string; price: number; color: string; image?: string }
-interface GiftBox { id: string; name: string; price: number; color: string }
-interface CartItem { id: string; title: string; lines: string[]; unitPrice: number; qty: number }
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  color: string;
+  image?: string;
+  inStock?: boolean;
+}
+
+export interface GiftBox {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  images?: string[];
+  color?: string;
+  category?: string;
+  inStock?: boolean;
+  isActive?: boolean;
+}
+
 interface Selection {
   perfumes: Record<string, number>; // key = "<perfume slug>__<ml>", value = quantity
   box: string | null;
   message: string | null;
 }
-interface LineItem { key: string; product: Product; ml: number; qty: number; unit: number }
 
-/* ───────────────────────── Data ───────────────────────── */
+interface LineItem {
+  key: string;
+  product: Product;
+  ml: number;
+  qty: number;
+  unit: number;
+}
 
-// Colour of the drawn bottle (only used when a product has no photo)
+/* ───────────────────────── Data & Defaults ───────────────────────── */
+
 const FAMILY_COLORS: Record<string, string> = {
   "Oud & Woody": "#4a3b34",
   "Fresh & Aquatic": "#7fb3c8",
-  "Floral": "#e3b5c4",
+  Floral: "#e3b5c4",
   "Citrus & Fruity": "#f0b93a",
   "Amber & Spicy": "#c9772b",
   "Musk & Powdery": "#d8cfc8",
@@ -64,12 +99,43 @@ const toGiftProduct = (p: ShopProduct): Product => ({
   price: p.price,
   color: FAMILY_COLORS[p.category] ?? "#c9772b",
   image: p.image,
+  inStock: p.inStock !== false,
 });
 
-const BOXES: GiftBox[] = [
-  { id: "midnight-blue", name: "Midnight Blue Gift Box", price: 399, color: "#1d2a44" },
-  { id: "ivory", name: "Ivory Gift Box", price: 399, color: "#efe9dc" },
-  { id: "sage-green", name: "Sage Green Gift Box", price: 399, color: "#8fa58f" },
+const DEFAULT_GIFT_BOXES: GiftBox[] = [
+  {
+    id: "midnight-blue",
+    slug: "midnight-blue-gift-box",
+    name: "Midnight Blue Gift Box",
+    description: "Deep nocturnal blue finish with gold debossed Mirqas signature. Keepsake quality.",
+    price: 399,
+    image: "/images/gift/boxes/midnight-blue.jpg",
+    color: "#1d2a44",
+    category: "Gift Cover",
+    inStock: true,
+  },
+  {
+    id: "ivory",
+    slug: "ivory-gift-box",
+    name: "Ivory Gift Box",
+    description: "Classic textured ivory finish with warm copper accents. Elegance redefined.",
+    price: 399,
+    image: "/images/gift/boxes/ivory.jpg",
+    color: "#efe9dc",
+    category: "Gift Cover",
+    inStock: true,
+  },
+  {
+    id: "sage-green",
+    slug: "sage-green-gift-box",
+    name: "Sage Green Gift Box",
+    description: "Serene botanical sage green hue with refined minimalist styling.",
+    price: 399,
+    image: "/images/gift/boxes/sage-green.jpg",
+    color: "#8fa58f",
+    category: "Gift Cover",
+    inStock: true,
+  },
 ];
 
 const SIZE_STEPS = [
@@ -82,7 +148,8 @@ const DEFAULT_ML = 10;
 
 const sizePrice = (p: Product, ml: number) =>
   Math.round(p.price * (SIZE_STEPS.find((s) => s.ml === ml)?.mult ?? 1));
-const sizeOptions = (p: Product) => SIZE_STEPS.map((s) => ({ ml: s.ml, price: sizePrice(p, s.ml) }));
+const sizeOptions = (p: Product) =>
+  SIZE_STEPS.map((s) => ({ ml: s.ml, price: sizePrice(p, s.ml) }));
 const pKey = (id: string, ml: number) => `${id}__${ml}`;
 
 function lineItems(perfumes: Record<string, number>, products: Product[]): LineItem[] {
@@ -91,7 +158,8 @@ function lineItems(perfumes: Record<string, number>, products: Product[]): LineI
     const [id, mlStr] = key.split("__");
     const product = products.find((x) => x.id === id);
     const ml = Number(mlStr);
-    if (product && qty > 0) out.push({ key, product, ml, qty, unit: sizePrice(product, ml) });
+    if (product && qty > 0)
+      out.push({ key, product, ml, qty, unit: sizePrice(product, ml) });
   }
   return out.sort(
     (a, b) => products.indexOf(a.product) - products.indexOf(b.product) || a.ml - b.ml
@@ -99,16 +167,22 @@ function lineItems(perfumes: Record<string, number>, products: Product[]): LineI
 }
 
 const STEPS: { id: StepId; label: string; title: string; hint: string }[] = [
-  { id: 1, label: "Choose Your Perfumes", title: "Choose your perfumes", hint: "Pick a size, then add as many fragrances as you like. Repeat a favourite with the + button." },
-  { id: 2, label: "Choose Your Box", title: "Choose a gift box", hint: "Pick the box your perfumes arrive in." },
+  {
+    id: 1,
+    label: "Choose Your Perfumes",
+    title: "Choose your perfumes",
+    hint: "Pick a size, then add as many fragrances as you like. Repeat a favourite with the + button.",
+  },
+  {
+    id: 2,
+    label: "Choose Your Box",
+    title: "Choose a gift box / cover",
+    hint: "Pick the box or cover your perfumes arrive in, or select gift covers individually.",
+  },
 ];
 
 const MAX_PERFUME_QTY = 20;
-const MAX_CART_QTY = 10;
 const money = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-const IMAGE_EXT = "jpg";
-const boxImg = (id: string) => `/images/gift/boxes/${id}.${IMAGE_EXT}`;
-
 const MAX_MESSAGE = 200;
 const EMPTY: Selection = { perfumes: {}, box: null, message: null };
 
@@ -116,11 +190,39 @@ const EMPTY: Selection = { perfumes: {}, box: null, message: null };
 
 function Icon({ d, size = 20, label }: { d: string; size?: number; label?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden={label ? undefined : true} aria-label={label} role={label ? "img" : undefined}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden={label ? undefined : true}
+      aria-label={label}
+      role={label ? "img" : undefined}
+    >
       <path d={d} />
     </svg>
   );
 }
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 sm:h-5 sm:w-5"
+      fill={filled ? "#C0392B" : "none"}
+      stroke={filled ? "#C0392B" : "#9C5A2B"}
+      strokeWidth={1.7}
+      aria-hidden
+    >
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+    </svg>
+  );
+}
+
 const ICONS = {
   bag: "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0",
   check: "M20 6L9 17l-5-5",
@@ -133,7 +235,13 @@ const ICONS = {
 
 function Bottle({ color, small = false }: { color: string; small?: boolean }) {
   return (
-    <svg viewBox="0 0 120 150" className="h-full w-full" role="img" aria-label="Perfume bottle" preserveAspectRatio="xMidYMid slice">
+    <svg
+      viewBox="0 0 120 150"
+      className="h-full w-full"
+      role="img"
+      aria-label="Perfume bottle"
+      preserveAspectRatio="xMidYMid slice"
+    >
       <rect width="120" height="150" fill={SAND} />
       <ellipse cx="60" cy="136" rx="30" ry="5" fill="#0001" />
       <rect x="50" y="14" width="20" height={small ? 18 : 22} rx="2" fill={COPPER} />
@@ -147,9 +255,15 @@ function Bottle({ color, small = false }: { color: string; small?: boolean }) {
   );
 }
 
-function BoxArt({ color }: { color: string }) {
+function BoxArt({ color = "#9C5A2B" }: { color?: string }) {
   return (
-    <svg viewBox="0 0 120 120" className="h-full w-full" role="img" aria-label="Gift box" preserveAspectRatio="xMidYMid slice">
+    <svg
+      viewBox="0 0 120 120"
+      className="h-full w-full"
+      role="img"
+      aria-label="Gift box"
+      preserveAspectRatio="xMidYMid slice"
+    >
       <rect width="120" height="120" fill={SAND} />
       <rect x="18" y="42" width="84" height="58" rx="3" fill={color} stroke="#0002" />
       <rect x="12" y="32" width="96" height="16" rx="3" fill={color} stroke="#0002" />
@@ -158,54 +272,123 @@ function BoxArt({ color }: { color: string }) {
   );
 }
 
-// The photo you uploaded in admin. If there is none (or it fails to load), a drawn bottle is shown.
-function PerfumeImage({ image, name, color, small = false }: { image?: string; name: string; color: string; small?: boolean }) {
+function PerfumeImage({
+  image,
+  name,
+  color,
+  small = false,
+}: {
+  image?: string;
+  name: string;
+  color: string;
+  small?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
   if (!image || failed) return <Bottle color={color} small={small} />;
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={image} alt={name} onError={() => setFailed(true)} className="h-full w-full object-cover" />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={image}
+      alt={name}
+      onError={() => setFailed(true)}
+      className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+    />
+  );
 }
 
-function BoxImage({ id, name, color }: { id: string; name: string; color: string }) {
+function CoverImageDisplay({
+  src,
+  name,
+  color = "#9C5A2B",
+}: {
+  src?: string;
+  name: string;
+  color?: string;
+}) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <BoxArt color={color} />;
-  return <Image src={boxImg(id)} alt={name} width={800} height={800} onError={() => setFailed(true)} className="h-full w-full object-cover" />;
+  if (!src || failed) return <BoxArt color={color} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={name}
+      onError={() => setFailed(true)}
+      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+    />
+  );
 }
 
 /* ───────────────────────── Components ───────────────────────── */
 
-function Hero({ onShop, products }: { onShop: () => void; products: Product[] }) {
+function Hero({
+  onShop,
+  products,
+  primaryBox,
+}: {
+  onShop: () => void;
+  products: Product[];
+  primaryBox?: GiftBox;
+}) {
   const picks = products.slice(0, 2);
   const items: { art: ReactNode; text: string }[] = [
     {
       art: (
         <div className="grid h-full w-full grid-cols-2 gap-2 bg-[#F6EEE0] p-2 sm:p-4">
           {picks.length > 0
-            ? picks.map((p) => <PerfumeImage key={p.id} image={p.image} name={p.name} color={p.color} />)
+            ? picks.map((p) => (
+                <PerfumeImage key={p.id} image={p.image} name={p.name} color={p.color} />
+              ))
             : [0, 1].map((i) => <Bottle key={i} color="#c9772b" />)}
         </div>
       ),
       text: "Choose your perfumes",
     },
-    { art: <BoxImage id={BOXES[0].id} name={BOXES[0].name} color={BOXES[0].color} />, text: "Choose a gift box" },
+    {
+      art: (
+        <CoverImageDisplay
+          src={primaryBox?.image}
+          name={primaryBox?.name || "Gift Box"}
+          color={primaryBox?.color || "#9C5A2B"}
+        />
+      ),
+      text: "Choose a gift box / cover",
+    },
   ];
+
   return (
     <section className={`border-b ${LINE}`}>
       <div className="mx-auto max-w-7xl px-4 py-10 text-center sm:px-6 sm:py-14 lg:py-20">
-        <h1 className={`${HEAD} mx-auto max-w-3xl leading-tight`} style={{ fontSize: "clamp(2.2rem, 5vw, 3.75rem)" }}>
+        <h1
+          className={`${HEAD} mx-auto max-w-3xl leading-tight`}
+          style={{ fontSize: "clamp(2.2rem, 5vw, 3.75rem)" }}
+        >
           You Know Their Taste. Build Their Gift
         </h1>
         <p className={`mx-auto mt-4 max-w-xl text-sm sm:text-base ${MUTED}`}>
-          Personalise a fragrance gift bundle in two steps: choose as many perfumes as you like, then a box they will keep.
+          Personalise a fragrance gift bundle in two steps: choose as many perfumes as you like,
+          then a box they will keep. You can also purchase luxury gift boxes individually.
         </p>
-        <button type="button" onClick={onShop} className={`${BTN} ${CAPS} mt-7 w-full px-10 py-3.5 text-[13px] sm:w-auto`}>
+        <button
+          type="button"
+          onClick={onShop}
+          className={`${BTN} ${CAPS} mt-7 w-full px-10 py-3.5 text-[13px] sm:w-auto rounded-lg`}
+        >
           Shop now
         </button>
         <ol className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-3 sm:mt-14 sm:gap-6 md:gap-0">
           {items.map((it, i) => (
-            <li key={it.text} className={`flex flex-col items-center gap-3 sm:gap-4 md:px-6 ${i > 0 ? `md:border-l ${LINE}` : ""}`}>
-              <div className="aspect-square w-full max-w-[16rem] overflow-hidden">{it.art}</div>
-              <p className="mq-serif text-lg leading-snug text-[#9C5A2B] sm:text-2xl">{i + 1}. {it.text}</p>
+            <li
+              key={it.text}
+              className={`flex flex-col items-center gap-3 sm:gap-4 md:px-6 ${
+                i > 0 ? `md:border-l ${LINE}` : ""
+              }`}
+            >
+              <div className="aspect-square w-full max-w-[16rem] overflow-hidden rounded-xl border border-[#EADFCC]">
+                {it.art}
+              </div>
+              <p className="mq-serif text-lg leading-snug text-[#9C5A2B] sm:text-2xl">
+                {i + 1}. {it.text}
+              </p>
             </li>
           ))}
         </ol>
@@ -214,7 +397,15 @@ function Hero({ onShop, products }: { onShop: () => void; products: Product[] })
   );
 }
 
-function ProgressIndicator({ step, maxReached, onGo }: { step: StepId; maxReached: StepId; onGo: (s: StepId) => void }) {
+function ProgressIndicator({
+  step,
+  maxReached,
+  onGo,
+}: {
+  step: StepId;
+  maxReached: StepId;
+  onGo: (s: StepId) => void;
+}) {
   return (
     <nav aria-label="Gift builder progress" className="mx-auto max-w-3xl">
       <ol className="flex items-start">
@@ -224,13 +415,38 @@ function ProgressIndicator({ step, maxReached, onGo }: { step: StepId; maxReache
           const reachable = s.id <= maxReached;
           return (
             <li key={s.id} className="flex flex-1 items-start last:flex-none">
-              <button type="button" disabled={!reachable} onClick={() => onGo(s.id)} aria-current={active ? "step" : undefined} className="relative z-10 flex w-20 flex-col items-center gap-2 text-center disabled:cursor-not-allowed sm:w-28">
-                <span className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm ${active || done ? "border-[#9C5A2B] bg-[#9C5A2B] text-white" : "border-[#9C5A2B]/40 bg-[#FCF8F0] text-[#9C5A2B]/60"}`}>
+              <button
+                type="button"
+                disabled={!reachable}
+                onClick={() => onGo(s.id)}
+                aria-current={active ? "step" : undefined}
+                className="relative z-10 flex w-24 flex-col items-center gap-2 text-center disabled:cursor-not-allowed sm:w-32"
+              >
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm ${
+                    active || done
+                      ? "border-[#9C5A2B] bg-[#9C5A2B] text-white"
+                      : "border-[#9C5A2B]/40 bg-[#FCF8F0] text-[#9C5A2B]/60"
+                  }`}
+                >
                   {done ? <Icon d={ICONS.check} size={16} /> : s.id}
                 </span>
-                <span className={`text-[11px] leading-tight sm:text-xs ${active ? "font-semibold text-[#9C5A2B]" : MUTED}`}>{s.label}</span>
+                <span
+                  className={`text-[11px] leading-tight sm:text-xs ${
+                    active ? "font-semibold text-[#9C5A2B]" : MUTED
+                  }`}
+                >
+                  {s.label}
+                </span>
               </button>
-              {i < STEPS.length - 1 && <span className={`pointer-events-none -mx-6 mt-4 h-px flex-1 sm:-mx-10 ${done ? "bg-[#9C5A2B]" : "bg-[#9C5A2B]/30"}`} aria-hidden />}
+              {i < STEPS.length - 1 && (
+                <span
+                  className={`pointer-events-none -mx-6 mt-4 h-px flex-1 sm:-mx-10 ${
+                    done ? "bg-[#9C5A2B]" : "bg-[#9C5A2B]/30"
+                  }`}
+                  aria-hidden
+                />
+              )}
             </li>
           );
         })}
@@ -239,99 +455,160 @@ function ProgressIndicator({ step, maxReached, onGo }: { step: StepId; maxReache
   );
 }
 
-interface CardProps {
-  id: string; name: string; subtitle: string; price: number; art: ReactNode;
-  qty: number; canAdd: boolean; multi: boolean; onAdd: () => void; onRemove: () => void;
-  sizes?: { ml: number; price: number }[];
-  selectedMl?: number;
-  onSizeChange?: (ml: number) => void;
-  href?: string;
-}
+/* ───────────────────────── Perfume Card ───────────────────────── */
 
-function SelectCard({ id, name, subtitle, price, art, qty, canAdd, multi, onAdd, onRemove, sizes, selectedMl, onSizeChange, href }: CardProps) {
+function PerfumeCard({
+  p,
+  perfumes,
+  canAdd,
+  onAdd,
+  onRemove,
+  onNotify,
+}: {
+  p: Product;
+  perfumes: Record<string, number>;
+  canAdd: boolean;
+  onAdd: (key: string) => void;
+  onRemove: (key: string) => void;
+  onNotify: (msg: string) => void;
+}) {
+  const [ml, setMl] = useState(DEFAULT_ML);
+  const key = pKey(p.id, ml);
+  const qty = perfumes[key] ?? 0;
   const selected = qty > 0;
+  const href = productHref({ slug: p.id, name: p.name });
+
+  const wished = useWished(p.id);
+
+  const handleToggleWish = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const wishItem: WishItem = {
+      slug: p.id,
+      name: p.name,
+      image: p.image,
+      sizes: sizesFor(p.price),
+      soldOut: !p.inStock,
+    };
+    toggleWishlist(wishItem);
+    onNotify(wished ? `Removed ${p.name} from wishlist.` : `Added ${p.name} to wishlist!`);
+  };
+
   return (
     <article
-      className={`group flex h-full w-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)] ${selected ? "border-[#9C5A2B]" : ""}`}
+      className={`group relative flex h-full w-full flex-col overflow-hidden rounded-[14px] border bg-white transition-shadow duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)] ${
+        selected ? "border-[#9C5A2B]" : ""
+      }`}
       style={{ borderColor: selected ? COPPER : CARD_BORDER, fontFamily: sans }}
-      aria-label={name}
+      aria-label={p.name}
     >
+      {/* Top Image area */}
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px] bg-[#F6EEE0]">
-        {href ? (
-          <Link
-            href={href}
-            aria-label={`View ${name}`}
-            className="block h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#9C5A2B]"
-          >
-            {art}
-          </Link>
-        ) : (
-          art
-        )}
+        <Link href={href} aria-label={`View ${p.name}`} className="block h-full w-full">
+          <PerfumeImage image={p.image} name={p.name} color={p.color} />
+        </Link>
+
+        {/* Wishlist Heart */}
+        <button
+          type="button"
+          onClick={handleToggleWish}
+          aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
+          className="absolute right-2.5 top-2.5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow transition hover:scale-110 sm:h-9 sm:w-9"
+        >
+          <HeartIcon filled={wished} />
+        </button>
       </div>
 
+      {/* Info Area */}
       <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
         <h3
           className="m-0 line-clamp-2 font-medium leading-[1.2]"
           style={{
             fontFamily: serif,
             color: COPPER,
-            fontSize: "clamp(1.05rem, 2vw, 1.5rem)",
-            fontVariantNumeric: "lining-nums",
-            fontFeatureSettings: '"lnum" 1',
+            fontSize: "clamp(1.05rem, 2vw, 1.45rem)",
           }}
         >
-          {href ? <Link href={href}>{name}</Link> : name}
+          <Link href={href} className="hover:underline">
+            {p.name}
+          </Link>
         </h3>
-        <p className="m-0 mt-1 text-[11px] leading-snug text-[#111111]/60 md:text-[13px]">{subtitle}</p>
-        <p className="m-0 mt-2 text-[13px] font-semibold md:mt-3 md:text-[17px]" style={{ color: COPPER }}>{money(price)}</p>
+        <p className="m-0 mt-1 text-[11px] leading-snug text-[#111111]/60 md:text-[13px]">
+          {p.category}
+        </p>
+        <p className="m-0 mt-2 text-[13px] font-semibold md:mt-3 md:text-[16px]" style={{ color: COPPER }}>
+          {money(sizePrice(p, ml))}
+        </p>
 
-        {sizes && sizes.length > 0 && (
-          <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
-            <legend className="sr-only">Choose a size</legend>
-            {sizes.map((s) => {
-              const checked = s.ml === selectedMl;
-              return (
-                <label
-                  key={s.ml}
-                  className="flex cursor-pointer items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px]"
-                  style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
+        {/* Sizes */}
+        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+          <legend className="sr-only">Choose a size</legend>
+          {sizeOptions(p).map((s) => {
+            const checked = s.ml === ml;
+            return (
+              <label
+                key={s.ml}
+                className="flex cursor-pointer items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px]"
+                style={{ color: checked ? INK : "#5F554B" }}
+              >
+                <input
+                  type="radio"
+                  name={`size-${p.id}`}
+                  value={s.ml}
+                  checked={checked}
+                  onChange={() => setMl(s.ml)}
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden
+                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
+                  style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
                 >
-                  <input
-                    type="radio"
-                    name={`size-${id}`}
-                    value={s.ml}
-                    checked={checked}
-                    onChange={() => onSizeChange?.(s.ml)}
-                    className="peer sr-only"
-                  />
-                  <span
-                    aria-hidden
-                    className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
-                    style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
-                  >
-                    {checked && <span className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]" style={{ background: COPPER }} />}
-                  </span>
-                  {s.ml}ml
-                </label>
-              );
-            })}
-          </fieldset>
-        )}
+                  {checked && (
+                    <span
+                      className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]"
+                      style={{ background: COPPER }}
+                    />
+                  )}
+                </span>
+                {s.ml}ml
+              </label>
+            );
+          })}
+        </fieldset>
 
-        <div className="mt-auto w-full pt-3 md:w-[90%] md:pt-4">
-          {multi && selected ? (
+        {/* Buttons */}
+        <div className="mt-auto w-full pt-3 md:w-[92%] md:pt-4">
+          {selected ? (
             <div className="flex items-center justify-between rounded-[6px] border border-[#9C5A2B] text-[#9C5A2B]">
-              <button type="button" aria-label={`Remove one ${name}`} onClick={onRemove} className="flex h-10 w-10 items-center justify-center md:h-11 md:w-11"><Icon d={ICONS.minus} size={16} /></button>
-              <span aria-live="polite" className="text-sm font-semibold">{qty}</span>
-              <button type="button" aria-label={`Add one more ${name}`} onClick={onAdd} disabled={!canAdd} className="flex h-10 w-10 items-center justify-center disabled:opacity-30 md:h-11 md:w-11"><Icon d={ICONS.plus} size={16} /></button>
+              <button
+                type="button"
+                aria-label={`Remove one ${p.name}`}
+                onClick={() => onRemove(key)}
+                className="flex h-10 w-10 items-center justify-center md:h-11 md:w-11 hover:bg-[#9C5A2B]/10"
+              >
+                <Icon d={ICONS.minus} size={16} />
+              </button>
+              <span aria-live="polite" className="text-sm font-semibold">
+                {qty}
+              </span>
+              <button
+                type="button"
+                aria-label={`Add one more ${p.name}`}
+                onClick={() => onAdd(key)}
+                disabled={!canAdd}
+                className="flex h-10 w-10 items-center justify-center disabled:opacity-30 md:h-11 md:w-11 hover:bg-[#9C5A2B]/10"
+              >
+                <Icon d={ICONS.plus} size={16} />
+              </button>
             </div>
-          ) : !multi && selected ? (
-            <button type="button" onClick={onRemove} aria-pressed className={`${BTN} flex h-10 w-full items-center justify-center gap-1.5 rounded-[6px] text-[10px] font-semibold uppercase tracking-[0.1em] md:h-11 md:text-[12px] md:tracking-[0.12em]`}>
-              <Icon d={ICONS.check} size={14} /> Selected
-            </button>
           ) : (
-            <button type="button" onClick={onAdd} disabled={!canAdd} className={`${BTN_LINE} flex h-10 w-full items-center justify-center rounded-[6px] bg-white text-[10px] font-semibold uppercase tracking-[0.1em] md:h-11 md:text-[12px] md:tracking-[0.12em] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:text-[#111111]/30 disabled:hover:bg-white disabled:hover:text-[#111111]/30`}>
+            <button
+              type="button"
+              onClick={() => onAdd(key)}
+              disabled={!canAdd}
+              className={`${BTN_LINE} flex h-10 w-full items-center justify-center rounded-[6px] bg-white text-[10px] font-semibold uppercase tracking-[0.1em] md:h-11 md:text-[12px] md:tracking-[0.12em] disabled:cursor-not-allowed disabled:border-[#111111]/20 disabled:text-[#111111]/30`}
+            >
               Add to Box
             </button>
           )}
@@ -341,69 +618,215 @@ function SelectCard({ id, name, subtitle, price, art, qty, canAdd, multi, onAdd,
   );
 }
 
-function PerfumeCard({
-  p, perfumes, canAdd, onAdd, onRemove,
+/* ───────────────────────── Gift Cover Card ───────────────────────── */
+
+function GiftCoverCard({
+  box,
+  isSelected,
+  onSelect,
+  onDeselect,
+  onNotify,
 }: {
-  p: Product;
-  perfumes: Record<string, number>;
-  canAdd: boolean;
-  onAdd: (key: string) => void;
-  onRemove: (key: string) => void;
+  box: GiftBox;
+  isSelected: boolean;
+  onSelect: () => void;
+  onDeselect: () => void;
+  onNotify: (msg: string) => void;
 }) {
-  const [ml, setMl] = useState(DEFAULT_ML);
-  const key = pKey(p.id, ml);
+  const href = `/product/${box.slug}`;
+  const wished = useWished(box.slug);
+  const [addingCart, setAddingCart] = useState(false);
+
+  const handleToggleWish = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const wishItem: WishItem = {
+      slug: box.slug,
+      name: box.name,
+      image: box.image,
+      sizes: [{ ml: 0, price: box.price, soldOut: !box.inStock }],
+      soldOut: !box.inStock,
+    };
+    toggleWishlist(wishItem);
+    onNotify(wished ? `Removed ${box.name} from wishlist.` : `Added ${box.name} to wishlist!`);
+  };
+
+  const handleAddToCartDirect = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!box.inStock || addingCart) return;
+
+    setAddingCart(true);
+    const wishItem: WishItem = {
+      slug: box.slug,
+      name: box.name,
+      image: box.image,
+      sizes: [{ ml: 0, price: box.price, soldOut: !box.inStock }],
+      soldOut: !box.inStock,
+    };
+    addLineToCart(wishItem, 0, 1);
+    onNotify(`Added ${box.name} to your cart!`);
+
+    setTimeout(() => {
+      setAddingCart(false);
+    }, 700);
+  };
+
   return (
-    <SelectCard
-      id={p.id}
-      name={p.name}
-      subtitle={p.category}
-      price={sizePrice(p, ml)}
-      art={<PerfumeImage image={p.image} name={p.name} color={p.color} />}
-      qty={perfumes[key] ?? 0}
-      multi
-      canAdd={canAdd}
-      onAdd={() => onAdd(key)}
-      onRemove={() => onRemove(key)}
-      sizes={sizeOptions(p)}
-      selectedMl={ml}
-      onSizeChange={setMl}
-      href={productHref({ slug: p.id, name: p.name })}
-    />
+    <article
+      className={`group relative flex h-full w-full flex-col overflow-hidden rounded-[14px] border bg-white transition-all duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)] ${
+        isSelected ? "border-[#9C5A2B] ring-2 ring-[#9C5A2B]/40" : ""
+      }`}
+      style={{ borderColor: isSelected ? COPPER : CARD_BORDER, fontFamily: sans }}
+      aria-label={box.name}
+    >
+      {/* Top Image area */}
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px] bg-[#F6EEE0]">
+        <Link href={href} aria-label={`View details of ${box.name}`} className="block h-full w-full">
+          <CoverImageDisplay src={box.image} name={box.name} color={box.color} />
+        </Link>
+
+        {/* Wishlist Heart */}
+        <button
+          type="button"
+          onClick={handleToggleWish}
+          aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
+          className="absolute right-2.5 top-2.5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow transition hover:scale-110 sm:h-9 sm:w-9"
+        >
+          <HeartIcon filled={wished} />
+        </button>
+
+        {/* Out of stock badge */}
+        {!box.inStock && (
+          <span className="absolute bottom-2.5 left-2.5 rounded bg-red-600/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+            Out of stock
+          </span>
+        )}
+      </div>
+
+      {/* Info Area */}
+      <div className="flex flex-1 flex-col items-center px-3 pb-4 pt-3 text-center sm:px-4 sm:pb-5 sm:pt-4">
+        <h3
+          className="m-0 line-clamp-2 font-medium leading-[1.2]"
+          style={{
+            fontFamily: serif,
+            color: COPPER,
+            fontSize: "clamp(1.1rem, 2vw, 1.5rem)",
+          }}
+        >
+          <Link href={href} className="hover:underline">
+            {box.name}
+          </Link>
+        </h3>
+        <p className="m-0 mt-1 line-clamp-2 text-[11px] leading-snug text-[#111111]/60 sm:text-[12px]">
+          {box.description}
+        </p>
+        <p className="m-0 mt-2 text-[14px] font-semibold sm:mt-3 sm:text-[17px]" style={{ color: COPPER }}>
+          {money(box.price)}
+        </p>
+
+        {/* Action Buttons */}
+        <div className="mt-auto flex w-full flex-col gap-2 pt-4">
+          {/* Select for bundle toggle */}
+          {isSelected ? (
+            <button
+              type="button"
+              onClick={onDeselect}
+              className={`${BTN} flex h-10 w-full items-center justify-center gap-1.5 rounded-[6px] text-[11px] font-semibold uppercase tracking-[0.1em]`}
+            >
+              <Icon d={ICONS.check} size={16} /> Selected for Bundle
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onSelect}
+              disabled={!box.inStock}
+              className={`${BTN_LINE} flex h-10 w-full items-center justify-center rounded-[6px] bg-white text-[11px] font-semibold uppercase tracking-[0.1em] hover:bg-[#9C5A2B] hover:text-white disabled:cursor-not-allowed disabled:opacity-40`}
+            >
+              Select for Bundle
+            </button>
+          )}
+
+          {/* Quick Add to Cart button */}
+          <button
+            type="button"
+            disabled={!box.inStock || addingCart}
+            onClick={handleAddToCartDirect}
+            className="flex h-9 w-full items-center justify-center gap-1.5 rounded-[6px] border border-[#111111]/20 bg-stone-50 text-[10px] font-semibold uppercase tracking-wider text-[#111111]/80 transition-colors hover:border-[#9C5A2B] hover:bg-white hover:text-[#9C5A2B] disabled:opacity-40"
+          >
+            <Icon d={ICONS.bag} size={14} />
+            {addingCart ? "Adding..." : "Add to Cart (Box Only)"}
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 
-function GiftCardEditor({ message, onChange }: { message: string | null; onChange: (m: string | null) => void }) {
+/* ───────────────────────── Gift Card Note Editor ───────────────────────── */
+
+function GiftCardEditor({
+  message,
+  onChange,
+}: {
+  message: string | null;
+  onChange: (m: string | null) => void;
+}) {
   const enabled = message !== null;
   const text = message ?? "";
   return (
-    <section aria-labelledby="card-title" className={`mt-6 border bg-white/60 p-4 sm:mt-8 sm:p-5 ${LINE}`}>
+    <section
+      aria-labelledby="card-title"
+      className={`mt-6 rounded-xl border bg-white/70 p-4 sm:mt-8 sm:p-5 ${LINE}`}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
-          <h3 id="card-title" className={`${HEAD} text-2xl`}>Add a gift card</h3>
-          <p className={`text-sm ${MUTED}`}>Write a personal note. It is printed on a card inside the box. Free.</p>
+          <h3 id="card-title" className={`${HEAD} text-2xl`}>
+            Add a personal gift card
+          </h3>
+          <p className={`text-sm ${MUTED}`}>
+            Write a personal note. It will be printed on a luxury card inside the box. Free.
+          </p>
         </div>
-        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" checked={enabled} onChange={(e) => onChange(e.target.checked ? "" : null)} className="h-4 w-4 accent-[#9C5A2B]" />
-          Include card
+        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => onChange(e.target.checked ? "" : null)}
+            className="h-4 w-4 accent-[#9C5A2B]"
+          />
+          Include gift card
         </label>
       </div>
       {enabled && (
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
-            <label htmlFor="card-text" className="mb-1 block text-sm">Your message</label>
+            <label htmlFor="card-text" className="mb-1 block text-sm font-medium">
+              Your message
+            </label>
             <textarea
-              id="card-text" value={text} maxLength={MAX_MESSAGE} rows={6}
+              id="card-text"
+              value={text}
+              maxLength={MAX_MESSAGE}
+              rows={6}
               onChange={(e) => onChange(e.target.value)}
-              placeholder="Dear Aanya, happy birthday. I chose these because they remind me of you."
-              className="w-full resize-none border border-[#9C5A2B]/40 bg-white p-3 text-base outline-none focus:border-[#9C5A2B] sm:text-sm"
+              placeholder="Dear Aanya, happy birthday! I chose these perfumes especially for you."
+              className="w-full resize-none rounded-lg border border-[#9C5A2B]/40 bg-white p-3 text-base outline-none focus:border-[#9C5A2B] sm:text-sm"
             />
-            <p className={`mt-1 text-right text-xs ${MUTED}`} aria-live="polite">{text.length}/{MAX_MESSAGE}</p>
-          </div>
-          <div aria-label="Card preview" className="flex min-h-48 flex-col justify-between border border-[#9C5A2B]/30 bg-[#F6EEE0] p-5 shadow-sm">
-            <p className="mq-serif whitespace-pre-wrap break-words text-xl italic leading-relaxed text-[#111111]">
-              {text.trim() ? text : "Your message will appear here."}
+            <p className={`mt-1 text-right text-xs ${MUTED}`} aria-live="polite">
+              {text.length}/{MAX_MESSAGE}
             </p>
-            <p className="mt-4 text-center text-[10px] tracking-[0.3em] text-[#9C5A2B]">MIRQAS PERFUMES</p>
+          </div>
+          <div
+            aria-label="Card preview"
+            className="flex min-h-48 flex-col justify-between rounded-lg border border-[#9C5A2B]/30 bg-[#F6EEE0] p-5 shadow-sm"
+          >
+            <p className="mq-serif whitespace-pre-wrap break-words text-xl italic leading-relaxed text-[#111111]">
+              {text.trim() ? text : "Your personal message will be printed here."}
+            </p>
+            <p className="mt-4 text-center text-[10px] tracking-[0.3em] text-[#9C5A2B]">
+              MIRQAS PERFUMES
+            </p>
           </div>
         </div>
       )}
@@ -411,159 +834,253 @@ function GiftCardEditor({ message, onChange }: { message: string | null; onChang
   );
 }
 
+/* ───────────────────────── Bundle Summary ───────────────────────── */
+
 interface SummaryProps {
-  step: StepId; sel: Selection; products: Product[]; perfumeCount: number; subtotal: number; error: string | null;
-  onClear: () => void; onNext: () => void; onBack: () => void;
-  onRemovePerfume: (key: string) => void; onRemoveBox: () => void; onRemoveMessage: () => void; onAddToCart: () => void;
+  step: StepId;
+  sel: Selection;
+  products: Product[];
+  boxes: GiftBox[];
+  perfumeCount: number;
+  subtotal: number;
+  error: string | null;
+  onClear: () => void;
+  onNext: () => void;
+  onBack: () => void;
+  onRemovePerfume: (key: string) => void;
+  onRemoveBox: () => void;
+  onRemoveMessage: () => void;
+  onAddToCart: () => void;
 }
 
 function BundleSummary(p: SummaryProps) {
-  const box = BOXES.find((x) => x.id === p.sel.box);
+  const box = p.boxes.find((x) => x.id === p.sel.box);
   const perfumes = lineItems(p.sel.perfumes, p.products);
   const note = p.sel.message?.trim() ? p.sel.message.trim() : null;
   const count = p.perfumeCount + (box ? 1 : 0) + (note ? 1 : 0);
-  const Row = ({ art, label, sub, onRemove }: { art: ReactNode; label: string; sub: string; onRemove: () => void }) => (
-    <li className="flex items-center gap-3 py-2">
-      <div className={`h-12 w-12 shrink-0 overflow-hidden border ${LINE}`}>{art}</div>
+
+  const Row = ({
+    art,
+    label,
+    sub,
+    onRemove,
+  }: {
+    art: ReactNode;
+    label: string;
+    sub: string;
+    onRemove: () => void;
+  }) => (
+    <li className="flex items-center gap-3 py-2.5">
+      <div className={`h-12 w-12 shrink-0 overflow-hidden rounded-md border ${LINE}`}>{art}</div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm">{label}</p>
+        <p className="truncate text-sm font-medium">{label}</p>
         <p className={`text-xs ${MUTED}`}>{sub}</p>
       </div>
-      <button type="button" aria-label={`Remove ${label}`} onClick={onRemove} className="p-1 text-[#111111]/50 hover:text-[#9C5A2B]"><Icon d={ICONS.x} size={16} /></button>
+      <button
+        type="button"
+        aria-label={`Remove ${label}`}
+        onClick={onRemove}
+        className="p-1 text-[#111111]/50 hover:text-[#9C5A2B]"
+      >
+        <Icon d={ICONS.x} size={16} />
+      </button>
     </li>
   );
+
   return (
-    <aside aria-label="Your bundle" className={`border bg-white p-5 lg:sticky lg:top-6 ${LINE}`}>
+    <aside
+      aria-label="Your bundle"
+      className={`rounded-xl border bg-white p-5 lg:sticky lg:top-6 shadow-sm ${LINE}`}
+    >
       <div className="flex items-baseline justify-between">
         <h2 className={`${HEAD} text-3xl`}>Your Bundle</h2>
-        <button type="button" onClick={p.onClear} disabled={count === 0} className="text-sm text-[#9C5A2B] underline disabled:text-[#111111]/25 disabled:no-underline">Clear</button>
+        <button
+          type="button"
+          onClick={p.onClear}
+          disabled={count === 0}
+          className="text-sm text-[#9C5A2B] underline disabled:text-[#111111]/25 disabled:no-underline"
+        >
+          Clear
+        </button>
       </div>
-      <p className={`mt-1 text-sm ${MUTED}`}>Review your bundle · {count} {count === 1 ? "item" : "items"}</p>
+      <p className={`mt-1 text-sm ${MUTED}`}>
+        Review your bundle · {count} {count === 1 ? "item" : "items"}
+      </p>
 
       {count === 0 ? (
-        <p className={`my-6 border border-dashed p-4 text-center text-sm ${LINE} ${MUTED}`}>Your bundle is empty. Start by choosing your perfumes.</p>
+        <p className={`my-6 rounded-lg border border-dashed p-4 text-center text-sm ${LINE} ${MUTED}`}>
+          Your bundle is empty. Start by choosing your perfumes.
+        </p>
       ) : (
         <ul className="my-4 divide-y divide-[#9C5A2B]/15">
           {perfumes.map((m) => (
             <Row
               key={m.key}
-              art={<PerfumeImage image={m.product.image} name={m.product.name} color={m.product.color} small />}
+              art={
+                <PerfumeImage
+                  image={m.product.image}
+                  name={m.product.name}
+                  color={m.product.color}
+                  small
+                />
+              }
               label={`${m.product.name} · ${m.ml}ml`}
               sub={`${m.qty} × ${money(m.unit)} = ${money(m.unit * m.qty)}`}
               onRemove={() => p.onRemovePerfume(m.key)}
             />
           ))}
-          {box && <Row art={<BoxImage id={box.id} name={box.name} color={box.color} />} label={box.name} sub={money(box.price)} onRemove={p.onRemoveBox} />}
-          {note && <Row art={<div className="mq-serif flex h-full w-full items-center justify-center bg-[#F6EEE0] text-xl italic text-[#9C5A2B]">“</div>} label="Gift card" sub={note.length > 36 ? `${note.slice(0, 36)}…` : note} onRemove={p.onRemoveMessage} />}
+          {box && (
+            <Row
+              art={<CoverImageDisplay src={box.image} name={box.name} color={box.color} />}
+              label={box.name}
+              sub={money(box.price)}
+              onRemove={p.onRemoveBox}
+            />
+          )}
+          {note && (
+            <Row
+              art={
+                <div className="mq-serif flex h-full w-full items-center justify-center bg-[#F6EEE0] text-xl italic text-[#9C5A2B]">
+                  “
+                </div>
+              }
+              label="Gift card"
+              sub={note.length > 36 ? `${note.slice(0, 36)}…` : note}
+              onRemove={p.onRemoveMessage}
+            />
+          )}
         </ul>
       )}
 
       <p className={`text-xs ${MUTED}`}>Perfumes selected: {p.perfumeCount}</p>
       <dl className={`mt-3 space-y-1 border-t pt-3 text-sm ${LINE}`}>
-        <div className="flex justify-between"><dt>Subtotal</dt><dd>{money(p.subtotal)}</dd></div>
-        <div className="flex justify-between text-base font-semibold text-[#9C5A2B]"><dt>Total</dt><dd>{money(p.subtotal)}</dd></div>
+        <div className="flex justify-between">
+          <dt>Subtotal</dt>
+          <dd>{money(p.subtotal)}</dd>
+        </div>
+        <div className="flex justify-between text-base font-semibold text-[#9C5A2B]">
+          <dt>Total</dt>
+          <dd>{money(p.subtotal)}</dd>
+        </div>
       </dl>
 
-      {p.error && <p role="alert" className="mt-3 border-l-2 border-red-600 bg-red-50 px-3 py-2 text-sm text-red-700">{p.error}</p>}
+      {p.error && (
+        <p role="alert" className="mt-3 rounded border-l-2 border-red-600 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {p.error}
+        </p>
+      )}
 
-      <div className="mt-4 flex flex-col gap-2">
+      <div className="mt-5 flex flex-col gap-2">
         {p.step < 2 ? (
-          <button type="button" onClick={p.onNext} className={`${BTN} ${CAPS} w-full py-3.5 text-[13px]`}>Next</button>
+          <button
+            type="button"
+            onClick={p.onNext}
+            className={`${BTN} ${CAPS} w-full rounded-lg py-3.5 text-[13px]`}
+          >
+            Next: Choose Box
+          </button>
         ) : (
-          <button type="button" onClick={p.onAddToCart} className={`${BTN} ${CAPS} w-full py-3.5 text-[13px]`}>Add to cart</button>
+          <button
+            type="button"
+            onClick={p.onAddToCart}
+            className={`${BTN} ${CAPS} w-full rounded-lg py-3.5 text-[13px]`}
+          >
+            Add Bundle to Cart
+          </button>
         )}
-        {p.step > 1 && <button type="button" onClick={p.onBack} className={`${BTN_LINE} ${CAPS} w-full py-3.5 text-[13px]`}>Back</button>}
+        {p.step > 1 && (
+          <button
+            type="button"
+            onClick={p.onBack}
+            className={`${BTN_LINE} ${CAPS} w-full rounded-lg py-3.5 text-[13px]`}
+          >
+            Back
+          </button>
+        )}
       </div>
     </aside>
   );
 }
 
-function CartDrawer({ open, items, onClose, onQty, onRemove }: { open: boolean; items: CartItem[]; onClose: () => void; onQty: (id: string, d: number) => void; onRemove: (id: string) => void }) {
-  const total = items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
-  return (
-    <div className={`fixed inset-0 z-50 ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
-      <div onClick={onClose} className={`absolute inset-0 bg-black/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} />
-      <aside role="dialog" aria-modal="true" aria-label="Shopping cart" className={`absolute right-0 top-0 flex h-[100dvh] w-full max-w-md flex-col bg-[#FCF8F0] shadow-xl transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}>
-        <div className={`flex items-center justify-between border-b p-4 ${LINE}`}>
-          <h2 className={`${HEAD} text-2xl`}>Your Cart</h2>
-          <button type="button" aria-label="Close cart" onClick={onClose} tabIndex={open ? 0 : -1} className="p-1 text-[#9C5A2B]"><Icon d={ICONS.x} /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          {items.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className={MUTED}>Your cart is empty.</p>
-              <button type="button" onClick={onClose} tabIndex={open ? 0 : -1} className={`${BTN} ${CAPS} mt-4 px-6 py-3 text-[13px]`}>Explore Products</button>
-            </div>
-          ) : (
-            <ul className="divide-y divide-[#9C5A2B]/20">
-              {items.map((it) => (
-                <li key={it.id} className="py-4">
-                  <div className="flex justify-between gap-3">
-                    <h3 className="mq-serif text-xl font-medium text-[#9C5A2B]">{it.title}</h3>
-                    <p className="text-sm">{money(it.unitPrice * it.qty)}</p>
-                  </div>
-                  <ul className={`mt-1 text-xs ${MUTED}`}>{it.lines.map((l) => <li key={l}>{l}</li>)}</ul>
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center border border-[#9C5A2B] text-[#9C5A2B]">
-                      <button type="button" aria-label="Decrease quantity" onClick={() => onQty(it.id, -1)} disabled={it.qty <= 1} className="p-2 disabled:opacity-30"><Icon d={ICONS.minus} size={14} /></button>
-                      <span className="w-8 text-center text-sm">{it.qty}</span>
-                      <button type="button" aria-label="Increase quantity" onClick={() => onQty(it.id, 1)} disabled={it.qty >= MAX_CART_QTY} className="p-2 disabled:opacity-30"><Icon d={ICONS.plus} size={14} /></button>
-                    </div>
-                    <button type="button" onClick={() => onRemove(it.id)} className="text-sm text-[#9C5A2B] underline">Remove</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {items.length > 0 && (
-          <div className={`border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))] ${LINE}`}>
-            <div className="flex justify-between text-base font-semibold text-[#9C5A2B]"><span>Total</span><span>{money(total)}</span></div>
-            <button type="button" onClick={onClose} className={`${BTN_LINE} ${CAPS} mt-3 w-full py-3.5 text-[13px]`}>Continue Shopping</button>
-            <p className={`mt-2 text-center text-xs ${MUTED}`}>Demo cart only. Checkout is not connected.</p>
-          </div>
-        )}
-      </aside>
-    </div>
-  );
-}
-
-/* ───────────────────────── Page ───────────────────────── */
+/* ───────────────────────── Page Main ───────────────────────── */
 
 export default function GiftPage() {
-  // Perfumes ticked "Gift Sets" in admin (sold-out ones are left out)
   const { products: apiProducts, loaded, error: loadError } = useSectionProducts("gift-sets");
-  const products = useMemo(() => apiProducts.filter((p) => p.inStock).map(toGiftProduct), [apiProducts]);
+  const products = useMemo(
+    () => apiProducts.filter((p) => p.inStock).map(toGiftProduct),
+    [apiProducts]
+  );
+
+  const [boxes, setBoxes] = useState<GiftBox[]>(DEFAULT_GIFT_BOXES);
+  const [boxesLoaded, setBoxesLoaded] = useState(false);
+
+  // Fetch gift covers dynamically from backend
+  useEffect(() => {
+    fetch("/api/gift-covers")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.giftCovers) && d.giftCovers.length > 0) {
+          // Admin added covers appear automatically!
+          setBoxes(d.giftCovers.filter((b: GiftBox) => b.isActive !== false));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load gift covers:", err);
+      })
+      .finally(() => {
+        setBoxesLoaded(true);
+      });
+  }, []);
 
   const builderRef = useRef<HTMLElement>(null);
   const [step, setStep] = useState<StepId>(1);
   const [maxReached, setMaxReached] = useState<StepId>(1);
   const [sel, setSel] = useState<Selection>(EMPTY);
   const [error, setError] = useState<string | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; link?: string } | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
-  const perfumeCount = useMemo(() => Object.values(sel.perfumes).reduce((a, b) => a + b, 0), [sel.perfumes]);
+  const perfumeCount = useMemo(
+    () => Object.values(sel.perfumes).reduce((a, b) => a + b, 0),
+    [sel.perfumes]
+  );
+
   const subtotal = useMemo(() => {
-    const perfumes = lineItems(sel.perfumes, products).reduce((t, l) => t + l.unit * l.qty, 0);
-    const box = BOXES.find((b) => b.id === sel.box)?.price ?? 0;
-    return perfumes + box;
-  }, [sel, products]);
-  const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+    const perfumesTotal = lineItems(sel.perfumes, products).reduce(
+      (t, l) => t + l.unit * l.qty,
+      0
+    );
+    const boxPrice = boxes.find((b) => b.id === sel.box)?.price ?? 0;
+    return perfumesTotal + boxPrice;
+  }, [sel, products, boxes]);
+
   const bundleCount = perfumeCount + (sel.box ? 1 : 0) + (sel.message?.trim() ? 1 : 0);
 
-  const scrollToBuilder = () => builderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const scrollToBuilder = () =>
+    builderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const showToast = (msg: string, link?: string) => {
+    setToast({ msg, link });
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
 
   const validate = (s: StepId): string | null => {
     if (s === 1 && perfumeCount < 1) return "Choose at least one perfume to continue.";
     if (s === 2 && !sel.box) return "Choose a gift box to complete your bundle.";
-    if (s === 2 && sel.message !== null && !sel.message.trim()) return "Write your gift card message, or untick Include card.";
+    if (s === 2 && sel.message !== null && !sel.message.trim())
+      return "Write your gift card message, or untick Include card.";
     return null;
   };
 
-  const goTo = (s: StepId) => { setError(null); setStep(s); setSummaryOpen(false); scrollToBuilder(); };
+  const goTo = (s: StepId) => {
+    setError(null);
+    setStep(s);
+    setSummaryOpen(false);
+    scrollToBuilder();
+  };
+
   const next = () => {
     const err = validate(step);
     if (err) return setError(err);
@@ -571,69 +1088,107 @@ export default function GiftPage() {
     setMaxReached((m) => (n > m ? n : m));
     goTo(n);
   };
+
   const back = () => goTo((step - 1) as StepId);
 
-  // "key" is "<perfume slug>__<ml>", so each size is counted separately
   const addPerfume = (key: string) => {
-    if (perfumeCount >= MAX_PERFUME_QTY) return setError(`You can add up to ${MAX_PERFUME_QTY} perfumes per bundle.`);
+    if (perfumeCount >= MAX_PERFUME_QTY)
+      return setError(`You can add up to ${MAX_PERFUME_QTY} perfumes per bundle.`);
     setError(null);
-    setSel((s) => ({ ...s, perfumes: { ...s.perfumes, [key]: (s.perfumes[key] ?? 0) + 1 } }));
+    setSel((s) => ({
+      ...s,
+      perfumes: { ...s.perfumes, [key]: (s.perfumes[key] ?? 0) + 1 },
+    }));
   };
+
   const removePerfume = (key: string) => {
     setError(null);
     setSel((s) => {
       const q = (s.perfumes[key] ?? 0) - 1;
       const perfumes = { ...s.perfumes };
-      if (q <= 0) delete perfumes[key]; else perfumes[key] = q;
+      if (q <= 0) delete perfumes[key];
+      else perfumes[key] = q;
       return { ...s, perfumes };
     });
   };
-  const removePerfumeAll = (key: string) => setSel((s) => { const perfumes = { ...s.perfumes }; delete perfumes[key]; return { ...s, perfumes }; });
 
-  const clear = () => { setSel(EMPTY); setError(null); setStep(1); setMaxReached(1); };
+  const removePerfumeAll = (key: string) =>
+    setSel((s) => {
+      const perfumes = { ...s.perfumes };
+      delete perfumes[key];
+      return { ...s, perfumes };
+    });
 
-  const addToCart = () => {
+  const clear = () => {
+    setSel(EMPTY);
+    setError(null);
+    setStep(1);
+    setMaxReached(1);
+  };
+
+  /* Add whole bundle into the real cart */
+  const addBundleToCart = () => {
     const err = validate(1) ?? validate(2);
     if (err) {
       setError(err);
       if (perfumeCount < 1) setStep(1);
       return;
     }
-    const box = BOXES.find((b) => b.id === sel.box);
+    const box = boxes.find((b) => b.id === sel.box);
     if (!box) return;
-    const chosen = lineItems(sel.perfumes, products);
-    const key = chosen.map((m) => `${m.product.id}-${m.ml}x${m.qty}`).join("_");
-    const note = sel.message?.trim() || null;
-    const id = `${key}__${box.id}__${note ?? ""}`;
-    const lines = [
-      ...chosen.map((m) => `${m.qty} × ${m.product.name} (${m.ml}ml)`),
-      box.name,
-      ...(note ? [`Card: “${note}”`] : []),
-    ];
-    setCart((c) => {
-      const found = c.find((i) => i.id === id);
-      if (found) return c.map((i) => (i.id === id ? { ...i, qty: Math.min(MAX_CART_QTY, i.qty + 1) } : i));
-      return [...c, { id, title: "Custom Gift Bundle", lines, unitPrice: subtotal, qty: 1 }];
-    });
-    setToast("Your gift bundle was added to the cart.");
-    setTimeout(() => setToast(null), 3500);
-    setSel(EMPTY); setStep(1); setMaxReached(1); setError(null);
-    setSummaryOpen(false);
-    setCartOpen(true);
-  };
 
-  const cartQty = (id: string, d: number) => setCart((c) => c.map((i) => (i.id === id ? { ...i, qty: Math.min(MAX_CART_QTY, Math.max(1, i.qty + d)) } : i)));
-  const cartRemove = (id: string) => setCart((c) => c.filter((i) => i.id !== id));
+    const chosen = lineItems(sel.perfumes, products);
+
+    // 1. Add chosen perfumes to real cart
+    for (const m of chosen) {
+      const item: WishItem = {
+        slug: m.product.id,
+        name: m.product.name,
+        image: m.product.image,
+        sizes: sizesFor(m.product.price),
+        soldOut: false,
+      };
+      addLineToCart(item, m.ml, m.qty);
+    }
+
+    // 2. Add chosen gift cover to real cart (ml: 0)
+    const boxItem: WishItem = {
+      slug: box.slug,
+      name: box.name,
+      image: box.image,
+      sizes: [{ ml: 0, price: box.price, soldOut: false }],
+      soldOut: false,
+    };
+    addLineToCart(boxItem, 0, 1);
+
+    // 3. Feedback and reset
+    showToast("✓ Your custom gift bundle was added to the cart!", "/cart");
+    setSel(EMPTY);
+    setStep(1);
+    setMaxReached(1);
+    setError(null);
+    setSummaryOpen(false);
+  };
 
   const summary = (
     <BundleSummary
-      step={step} sel={sel} products={products} perfumeCount={perfumeCount} subtotal={subtotal} error={error}
-      onClear={clear} onNext={next} onBack={back} onAddToCart={addToCart}
+      step={step}
+      sel={sel}
+      products={products}
+      boxes={boxes}
+      perfumeCount={perfumeCount}
+      subtotal={subtotal}
+      error={error}
+      onClear={clear}
+      onNext={next}
+      onBack={back}
+      onAddToCart={addBundleToCart}
       onRemovePerfume={removePerfumeAll}
       onRemoveBox={() => setSel((s) => ({ ...s, box: null }))}
       onRemoveMessage={() => setSel((s) => ({ ...s, message: null }))}
     />
   );
+
   const cur = STEPS[step - 1];
 
   return (
@@ -644,14 +1199,30 @@ export default function GiftPage() {
       `}</style>
 
       <main>
-        <Hero onShop={scrollToBuilder} products={products} />
+        <Hero onShop={scrollToBuilder} products={products} primaryBox={boxes[0]} />
 
-        <section ref={builderRef} id="builder" aria-labelledby="builder-title" className="mx-auto max-w-7xl scroll-mt-4 px-4 py-8 pb-28 sm:px-6 sm:py-12 sm:pb-32 lg:pb-12">
+        {/* ─── GIFT BUILDER SECTION ─── */}
+        <section
+          ref={builderRef}
+          id="builder"
+          aria-labelledby="builder-title"
+          className="mx-auto max-w-7xl scroll-mt-4 px-4 py-8 pb-28 sm:px-6 sm:py-12 sm:pb-32 lg:pb-16"
+        >
           <ProgressIndicator step={step} maxReached={maxReached} onGo={goTo} />
           <div className="mt-10 text-center">
-            <h2 id="builder-title" className={`${HEAD}`} style={{ fontSize: "clamp(2rem, 4vw, 3rem)" }}>{cur.title}</h2>
+            <h2
+              id="builder-title"
+              className={`${HEAD}`}
+              style={{ fontSize: "clamp(2rem, 4vw, 3rem)" }}
+            >
+              {cur.title}
+            </h2>
             <p className={`mx-auto mt-1 max-w-md text-sm ${MUTED}`}>{cur.hint}</p>
-            {step === 1 && <p className="mt-2 text-sm font-medium text-[#9C5A2B]" aria-live="polite">{perfumeCount} {perfumeCount === 1 ? "perfume" : "perfumes"} selected</p>}
+            {step === 1 && (
+              <p className="mt-2 text-sm font-medium text-[#9C5A2B]" aria-live="polite">
+                {perfumeCount} {perfumeCount === 1 ? "perfume" : "perfumes"} selected
+              </p>
+            )}
           </div>
 
           <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
@@ -660,9 +1231,13 @@ export default function GiftPage() {
                 !loaded ? (
                   <p className={`py-16 text-center ${MUTED}`}>Loading perfumes…</p>
                 ) : loadError ? (
-                  <p className={`py-16 text-center ${MUTED}`}>Could not load perfumes. Please refresh.</p>
+                  <p className={`py-16 text-center ${MUTED}`}>
+                    Could not load perfumes. Please refresh.
+                  </p>
                 ) : products.length === 0 ? (
-                  <p className={`py-16 text-center ${MUTED}`}>No gift perfumes are available right now.</p>
+                  <p className={`py-16 text-center ${MUTED}`}>
+                    No gift perfumes are available right now.
+                  </p>
                 ) : (
                   <div className={GRID}>
                     {products.map((p) => (
@@ -673,6 +1248,7 @@ export default function GiftPage() {
                           canAdd={perfumeCount < MAX_PERFUME_QTY}
                           onAdd={addPerfume}
                           onRemove={removePerfume}
+                          onNotify={(m) => showToast(m)}
                         />
                       </div>
                     ))}
@@ -681,24 +1257,75 @@ export default function GiftPage() {
               ) : (
                 <div>
                   <div className={GRID}>
-                    {BOXES.map((b) => (
+                    {boxes.map((b) => (
                       <div key={b.id} className={GRID_ITEM}>
-                        <SelectCard
-                          id={b.id} name={b.name} subtitle="Fits your whole selection"
-                          price={b.price} art={<BoxImage id={b.id} name={b.name} color={b.color} />}
-                          qty={sel.box === b.id ? 1 : 0} multi={false} canAdd
-                          onAdd={() => { setSel((s) => ({ ...s, box: b.id })); setError(null); }}
-                          onRemove={() => setSel((s) => ({ ...s, box: null }))}
+                        <GiftCoverCard
+                          box={b}
+                          isSelected={sel.box === b.id}
+                          onSelect={() => {
+                            setSel((s) => ({ ...s, box: b.id }));
+                            setError(null);
+                          }}
+                          onDeselect={() => setSel((s) => ({ ...s, box: null }))}
+                          onNotify={(m) => showToast(m)}
                         />
                       </div>
                     ))}
                   </div>
-                  <GiftCardEditor message={sel.message} onChange={(m) => { setSel((x) => ({ ...x, message: m })); setError(null); }} />
+                  <GiftCardEditor
+                    message={sel.message}
+                    onChange={(m) => {
+                      setSel((x) => ({ ...x, message: m }));
+                      setError(null);
+                    }}
+                  />
                 </div>
               )}
             </div>
 
             <div className="hidden lg:block">{summary}</div>
+          </div>
+        </section>
+
+        {/* ─── STANDALONE GIFT COVERS SECTION (Browse & Buy Boxes) ─── */}
+        <section className={`border-t bg-white/50 py-12 sm:py-16 ${LINE}`}>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="text-center">
+              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-[#9C5A2B]">
+                Mirqas Collection
+              </span>
+              <h2
+                className={`${HEAD} mt-1`}
+                style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.6rem)" }}
+              >
+                Signature Gift Boxes & Covers
+              </h2>
+              <p className={`mx-auto mt-2 max-w-xl text-sm ${MUTED}`}>
+                Handcrafted presentation cases designed to preserve and showcase your luxury fragrances.
+                Available individually with full wishlist and cart support.
+              </p>
+            </div>
+
+            <div className="mt-8 flex flex-wrap justify-center gap-4 sm:gap-6">
+              {boxes.map((b) => (
+                <div
+                  key={`showcase-${b.id}`}
+                  className="flex w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] max-w-sm"
+                >
+                  <GiftCoverCard
+                    box={b}
+                    isSelected={sel.box === b.id}
+                    onSelect={() => {
+                      setSel((s) => ({ ...s, box: b.id }));
+                      setError(null);
+                      scrollToBuilder();
+                    }}
+                    onDeselect={() => setSel((s) => ({ ...s, box: null }))}
+                    onNotify={(m) => showToast(m)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </main>
@@ -708,36 +1335,79 @@ export default function GiftPage() {
         {summaryOpen && (
           <div className="fixed inset-0 z-40">
             <div onClick={() => setSummaryOpen(false)} className="absolute inset-0 bg-black/40" />
-            <div role="dialog" aria-modal="true" aria-label="Your bundle" className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto bg-[#FCF8F0] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl">
-              <button type="button" onClick={() => setSummaryOpen(false)} aria-label="Close bundle" className="mb-2 ml-auto flex p-1 text-[#9C5A2B]"><Icon d={ICONS.x} /></button>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Your bundle"
+              className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto bg-[#FCF8F0] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl rounded-t-2xl"
+            >
+              <button
+                type="button"
+                onClick={() => setSummaryOpen(false)}
+                aria-label="Close bundle"
+                className="mb-2 ml-auto flex p-1 text-[#9C5A2B]"
+              >
+                <Icon d={ICONS.x} />
+              </button>
               {summary}
             </div>
           </div>
         )}
-        <div className={`fixed inset-x-0 bottom-0 z-30 border-t bg-[#FCF8F0] px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${LINE}`}>
-          {error && !summaryOpen && <p role="alert" className="mb-2 border-l-2 border-red-600 bg-red-50 px-3 py-1.5 text-xs text-red-700">{error}</p>}
+        <div
+          className={`fixed inset-x-0 bottom-0 z-30 border-t bg-[#FCF8F0] px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${LINE}`}
+        >
+          {error && !summaryOpen && (
+            <p role="alert" className="mb-2 rounded border-l-2 border-red-600 bg-red-50 px-3 py-1.5 text-xs text-red-700">
+              {error}
+            </p>
+          )}
           <div className="flex items-stretch gap-2">
-            <button type="button" aria-expanded={summaryOpen} onClick={() => setSummaryOpen(true)} className={`${BTN_LINE} flex min-h-[48px] flex-1 flex-col items-center justify-center px-2 text-xs leading-tight`}>
+            <button
+              type="button"
+              aria-expanded={summaryOpen}
+              onClick={() => setSummaryOpen(true)}
+              className={`${BTN_LINE} flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-lg px-2 text-xs leading-tight`}
+            >
               <span className="font-semibold">Your Bundle ({bundleCount})</span>
               <span>{money(subtotal)}</span>
             </button>
-            {step < 2
-              ? <button type="button" onClick={next} className={`${BTN} ${CAPS} min-h-[48px] flex-1 text-xs`}>Next</button>
-              : <button type="button" onClick={addToCart} className={`${BTN} ${CAPS} min-h-[48px] flex-1 text-xs`}>Add to cart</button>}
+            {step < 2 ? (
+              <button
+                type="button"
+                onClick={next}
+                className={`${BTN} ${CAPS} min-h-[48px] flex-1 rounded-lg text-xs`}
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={addBundleToCart}
+                className={`${BTN} ${CAPS} min-h-[48px] flex-1 rounded-lg text-xs`}
+              >
+                Add to Cart
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {cartCount > 0 && !cartOpen && (
-        <button type="button" aria-label={`Open cart, ${cartCount} items`} onClick={() => setCartOpen(true)} className={`${BTN} fixed bottom-24 right-4 z-40 flex items-center gap-2 px-4 py-3 text-sm shadow-lg lg:bottom-4`}>
-          <Icon d={ICONS.bag} size={18} /> Cart ({cartCount})
-        </button>
-      )}
-
-      <CartDrawer open={cartOpen} items={cart} onClose={() => setCartOpen(false)} onQty={cartQty} onRemove={cartRemove} />
-
+      {/* Toast Notification */}
       {toast && (
-        <div role="status" className="fixed bottom-24 left-1/2 z-[60] lg:bottom-4 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 bg-[#9C5A2B] px-4 py-3 text-center text-sm text-white shadow-lg">{toast}</div>
+        <div
+          role="status"
+          className="fixed bottom-24 left-1/2 z-[60] flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center justify-between gap-3 rounded-lg bg-[#9C5A2B] px-4 py-3 text-sm text-white shadow-xl lg:bottom-6"
+        >
+          <span>{toast.msg}</span>
+          {toast.link && (
+            <Link
+              href={toast.link}
+              className="shrink-0 rounded bg-white px-2.5 py-1 text-xs font-semibold text-[#9C5A2B] hover:bg-stone-100"
+            >
+              View Cart →
+            </Link>
+          )}
+        </div>
       )}
     </div>
   );

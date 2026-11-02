@@ -181,8 +181,15 @@ function ProductDetail() {
   const images = product.images;
 
   // Prices are worked out the same way as on the shop cards
-  const sizes = sizesFor(product.basePrice, product.mrpBase);
-  const current = sizes[sizeIndex];
+  const isGiftCover =
+    product.category === "Gift Cover" ||
+    product.category === "Gift Covers" ||
+    product.family === "Gift Cover";
+
+  const sizes = isGiftCover
+    ? [{ ml: 0, price: product.basePrice, originalPrice: product.mrpBase, soldOut: !product.inStock }]
+    : sizesFor(product.basePrice, product.mrpBase);
+  const current = sizes[sizeIndex] ?? sizes[0];
   const price = current.price;
   const mrp = current.originalPrice;
   const discount = mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
@@ -231,9 +238,15 @@ function ProductDetail() {
             Home
           </Link>
           <span className="mx-2">/</span>
-          <Link href="/shopallperfume" className="hover:text-[#9C5A2B]">
-            Shop All Perfumes
-          </Link>
+          {isGiftCover ? (
+            <Link href="/gifts" className="hover:text-[#9C5A2B]">
+              Gifts & Covers
+            </Link>
+          ) : (
+            <Link href="/shopallperfume" className="hover:text-[#9C5A2B]">
+              Shop All Perfumes
+            </Link>
+          )}
           <span className="mx-2">/</span>
           <span className="text-[#111111]">{product.name}</span>
         </nav>
@@ -394,26 +407,35 @@ function ProductDetail() {
             <RatingSummary slug={product.slug} />
 
             {/* Size */}
-            <div className="mt-6">
-              <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em]">Size</p>
-              <div className="flex flex-wrap gap-2">
-                {sizes.map((s, i) => (
-                  <button
-                    key={s.ml}
-                    type="button"
-                    onClick={() => setSizeIndex(i)}
-                    aria-pressed={sizeIndex === i}
-                    className={`rounded-[6px] border px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] transition ${
-                      sizeIndex === i
-                        ? "border-[#9C5A2B] bg-[#9C5A2B] text-white"
-                        : "border-[#EADFCC] bg-white hover:border-[#9C5A2B]"
-                    }`}
-                  >
-                    {s.ml}ml
-                  </button>
-                ))}
+            {!isGiftCover ? (
+              <div className="mt-6">
+                <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em]">Size</p>
+                <div className="flex flex-wrap gap-2">
+                  {sizes.map((s, i) => (
+                    <button
+                      key={s.ml}
+                      type="button"
+                      onClick={() => setSizeIndex(i)}
+                      aria-pressed={sizeIndex === i}
+                      className={`rounded-[6px] border px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] transition ${
+                        sizeIndex === i
+                          ? "border-[#9C5A2B] bg-[#9C5A2B] text-white"
+                          : "border-[#EADFCC] bg-white hover:border-[#9C5A2B]"
+                      }`}
+                    >
+                      {s.ml}ml
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="mt-6">
+                <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em]">Size</p>
+                <span className="inline-block rounded-[6px] border border-[#9C5A2B] bg-[#9C5A2B] px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-white">
+                  Standard Size
+                </span>
+              </div>
+            )}
 
             {/* Quantity */}
             <div className="mt-6">

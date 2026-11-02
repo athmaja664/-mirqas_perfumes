@@ -196,41 +196,47 @@ function CartCard({
             )}
           </div>
 
-          {/* 4 sizes in one line: change the size right here */}
-          <fieldset className="m-0 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-0 p-0 sm:gap-x-4">
-            <legend className="sr-only">Choose a size</legend>
-            {item.sizes.map((s) => {
-              const checked = s.ml === item.ml;
-              const disabled = !!s.soldOut;
-              return (
-                <label
-                  key={s.ml}
-                  className={`flex items-center gap-1 whitespace-nowrap text-[11px] lowercase sm:text-[12px] ${
-                    disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
-                  }`}
-                  style={{ color: checked ? INK : "#5F554B" }}
-                >
-                  <input
-                    type="radio"
-                    name={radioName}
-                    value={s.ml}
-                    checked={checked}
-                    disabled={disabled && !checked}
-                    onChange={() => onSize(s.ml)}
-                    className="peer sr-only"
-                  />
-                  <span
-                    aria-hidden
-                    className="flex h-[11px] w-[11px] shrink-0 items-center justify-center rounded-[3px] border transition-colors peer-focus-visible:ring-1"
-                    style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
+          {/* Size selection if multiple sizes available, else display standard/size */}
+          {item.sizes.length > 1 ? (
+            <fieldset className="m-0 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-0 p-0 sm:gap-x-4">
+              <legend className="sr-only">Choose a size</legend>
+              {item.sizes.map((s) => {
+                const checked = s.ml === item.ml;
+                const disabled = !!s.soldOut;
+                return (
+                  <label
+                    key={s.ml}
+                    className={`flex items-center gap-1 whitespace-nowrap text-[11px] lowercase sm:text-[12px] ${
+                      disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+                    }`}
+                    style={{ color: checked ? INK : "#5F554B" }}
                   >
-                    {checked && <span className="h-[6px] w-[6px] rounded-[2px]" style={{ background: COPPER }} />}
-                  </span>
-                  {s.ml}ml
-                </label>
-              );
-            })}
-          </fieldset>
+                    <input
+                      type="radio"
+                      name={radioName}
+                      value={s.ml}
+                      checked={checked}
+                      disabled={disabled && !checked}
+                      onChange={() => onSize(s.ml)}
+                      className="peer sr-only"
+                    />
+                    <span
+                      aria-hidden
+                      className="flex h-[11px] w-[11px] shrink-0 items-center justify-center rounded-[3px] border transition-colors peer-focus-visible:ring-1"
+                      style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
+                    >
+                      {checked && <span className="h-[6px] w-[6px] rounded-[2px]" style={{ background: COPPER }} />}
+                    </span>
+                    {s.ml}ml
+                  </label>
+                );
+              })}
+            </fieldset>
+          ) : (
+            <div className="mt-2 text-xs font-medium text-[#111111]/70">
+              Size: {item.ml > 0 ? `${item.ml}ml` : "Standard"}
+            </div>
+          )}
         </div>
 
         {/* quantity + line total */}

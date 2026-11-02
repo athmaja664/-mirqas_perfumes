@@ -271,46 +271,52 @@ function WishCard({ item, onRemove }: { item: WishItem; onRemove: (slug: string)
           )}
         </div>
 
-        {/* Sizes in ONE line: 10ml 30ml 50ml 100ml */}
-        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
-          <legend className="sr-only">Choose a size</legend>
-          {sizes.map((s) => {
-            const checked = s.ml === selectedMl;
-            const disabled = !!item.soldOut || !!s.soldOut;
-            return (
-              <label
-                key={s.ml}
-                className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
-                  disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
-                }`}
-                style={{ color: checked ? INK : "#5F554B" }}
-              >
-                <input
-                  type="radio"
-                  name={radioName}
-                  value={s.ml}
-                  checked={checked}
-                  disabled={disabled && !checked}
-                  onChange={() => setSelectedMl(s.ml)}
-                  className="peer sr-only"
-                />
-                <span
-                  aria-hidden
-                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
-                  style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
+        {/* Sizes in ONE line if multiple sizes exist */}
+        {sizes.length > 1 ? (
+          <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+            <legend className="sr-only">Choose a size</legend>
+            {sizes.map((s) => {
+              const checked = s.ml === selectedMl;
+              const disabled = !!item.soldOut || !!s.soldOut;
+              return (
+                <label
+                  key={s.ml}
+                  className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
+                    disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+                  }`}
+                  style={{ color: checked ? INK : "#5F554B" }}
                 >
-                  {checked && (
-                    <span
-                      className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]"
-                      style={{ background: COPPER }}
-                    />
-                  )}
-                </span>
-                {s.ml}ml
-              </label>
-            );
-          })}
-        </fieldset>
+                  <input
+                    type="radio"
+                    name={radioName}
+                    value={s.ml}
+                    checked={checked}
+                    disabled={disabled && !checked}
+                    onChange={() => setSelectedMl(s.ml)}
+                    className="peer sr-only"
+                  />
+                  <span
+                    aria-hidden
+                    className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
+                    style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
+                  >
+                    {checked && (
+                      <span
+                        className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]"
+                        style={{ background: COPPER }}
+                      />
+                    )}
+                  </span>
+                  {s.ml}ml
+                </label>
+              );
+            })}
+          </fieldset>
+        ) : (
+          <div className="mt-2 text-center text-[10px] font-medium text-[#111111]/70 md:text-xs">
+            Size: {sizes[0]?.ml > 0 ? `${sizes[0].ml}ml` : "Standard"}
+          </div>
+        )}
 
         {/* Buttons */}
         <div className="mt-auto flex w-full flex-col items-stretch gap-1.5 pt-3 md:w-[90%] md:gap-2 md:pt-4">

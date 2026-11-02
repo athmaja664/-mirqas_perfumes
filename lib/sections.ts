@@ -1,4 +1,4 @@
-// One list that matches the navbar. Edit here and the form, validation and API all follow.
+// One list that matches the navbar and sections. Edit here and the form, validation and API all follow.
 export const SHOP_SECTIONS = [
   { value: "shop-all", label: "Shop All Perfumes" },
   { value: "men", label: "Men (For Him)" },
@@ -7,6 +7,7 @@ export const SHOP_SECTIONS = [
   { value: "luxury", label: "Luxury Collection" },
   { value: "oud-arabian", label: "Oud & Arabian" },
   { value: "gift-sets", label: "Gift Sets" },
+  { value: "gift-covers", label: "Gift Covers" },
   // { value: "new-arrivals", label: "New Arrivals" },
 ];
 

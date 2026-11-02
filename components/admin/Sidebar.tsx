@@ -47,6 +47,16 @@ const links = [
     ),
   },
   {
+    href: "/admin/gift-covers",
+    label: "Gift Covers",
+    icon: (
+      <svg {...svg}>
+        <rect x="3" y="8" width="18" height="12" rx="2" />
+        <path d="M12 8v12M3 12h18M8 8a3 3 0 0 1 4-3 3 3 0 0 1 4 3" />
+      </svg>
+    ),
+  },
+  {
     href: "/admin/products/new",
     label: "Add New Product",
     icon: (

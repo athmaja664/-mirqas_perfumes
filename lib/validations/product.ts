@@ -11,7 +11,7 @@ export const FRAGRANCE_FAMILIES = [
   "Sweet & Gourmand",
 ] as const;
 
-// Only site paths (/images/x.jpg) or https links. This blocks things like javascript: URLs.
+// Only site paths (/images/x.jpg, /api/uploads/x.jpg) or https links. This blocks things like javascript: URLs.
 const mediaUrl = z
   .string()
   .trim()
@@ -25,7 +25,7 @@ const shape = {
   description: z.string().trim().max(3000).optional(),
   price: z.number().int("Price must be a whole number of paise.").min(1).max(100_000_000),
   salePrice: z.number().int().min(1).nullable().optional(),
-  category: z.enum(FRAGRANCE_FAMILIES),
+  category: z.string().trim().min(1, "Please choose or enter a category.").max(80),
   images: z.array(mediaUrl).max(10).optional(),
   video: mediaUrl.or(z.literal("")).optional(),
   stock: z.number().int().min(0).max(100000).optional(),
@@ -39,7 +39,7 @@ const shape = {
   isFeatured: z.boolean().optional(),
   sales: z.number().int().min(0).optional(),
 
-  // NEW: where the product shows on the website
+  // where the product shows on the website
   sections: z
     .array(z.string().refine((v) => SECTION_VALUES.includes(v), "Unknown website section."))
     .max(12)
@@ -48,7 +48,7 @@ const shape = {
     .array(z.string().refine((v) => COLLECTION_VALUES.includes(v), "Unknown collection."))
     .max(12)
     .optional(),
-    showInNewArrivals: z.boolean().optional(),
+  showInNewArrivals: z.boolean().optional(),
 };
 
 export const SALE_MESSAGE = "Sale price must be lower than the price.";
