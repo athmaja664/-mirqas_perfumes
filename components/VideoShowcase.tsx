@@ -21,9 +21,9 @@ const sans = "Inter, system-ui, sans-serif";
 type Item = { src: string; poster?: string; href: string; alt: string };
 
 const ITEMS: Item[] = [
-  { src: "/videos/hemesection1.mp4", href: "/shopallperfume", alt: "Applying perfume to the wrist" },
-  { src: "/videos/homesection2.mp4", href: "/shopallperfume", alt: "Holding a crystal perfume bottle" },
-  { src: "/videos/homesection3.mp4", href: "/shopallperfume", alt: "Opening a perfume gift box" },
+  { src: "/videos/perfume-six.mp4", href: "/shopallperfume", alt: "Applying perfume to the wrist" },
+  { src: "/videos/perfume-seven.mp4", href: "/shopallperfume", alt: "Holding a crystal perfume bottle" },
+  { src: "/videos/perfume-five.mp4", href: "/shopallperfume", alt: "Opening a perfume gift box" },
 ];
 
 const FOCUS =
@@ -56,17 +56,24 @@ function VideoCard({ item, centered }: { item: Item; centered: boolean }) {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  // track whether the card is on screen
+  // Track whether the card is on screen (lowered threshold to 0.15 for early loading)
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
     v.muted = true;
     const io = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), {
-      threshold: 0.35,
+      threshold: 0.15,
     });
     io.observe(v);
     return () => io.disconnect();
   }, []);
+
+  // Force video reload when src changes
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.load();
+  }, [item.src]);
 
   // Phones: only the centered video plays. Desktop: every video on screen plays.
   const shouldPlay = !reduced && onScreen && (isDesktop || centered);
@@ -74,8 +81,11 @@ function VideoCard({ item, centered }: { item: Item; centered: boolean }) {
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
-    if (shouldPlay && !pausedByUser.current) v.play().catch(() => {});
-    else v.pause();
+    if (shouldPlay && !pausedByUser.current) {
+      v.play().catch(() => {});
+    } else {
+      v.pause();
+    }
   }, [shouldPlay]);
 
   const toggle = () => {
@@ -100,12 +110,14 @@ function VideoCard({ item, centered }: { item: Item; centered: boolean }) {
         <div className="relative aspect-[4/5] bg-black">
           <video
             ref={ref}
+            key={item.src}
             src={item.src}
             poster={item.poster}
             muted
             loop
+            autoPlay
             playsInline
-            preload="metadata"
+            preload="auto"
             aria-label={item.alt}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
