@@ -1,29 +1,7 @@
-// import type { NextConfig } from "next";
-
-// const nextConfig: NextConfig = {
-//   /* config options here */
-//   experimental: {
-//     agentFeedback: true,
-//   },
-//   cacheComponents: true,
-//   partialPrefetching: true,
-//   turbopack: {
-//     rules: {
-//       "*.css": {
-//         loaders: ["@tailwindcss/turbopack"],
-//         as: "*.css",
-//       },
-//     },
-//   },
-// };
-
-// export default nextConfig;
-
-
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["sequelize"],
+  serverExternalPackages: ["sequelize", "mysql2"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "plus.unsplash.com" },
@@ -31,6 +9,14 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.pexels.com" },
       { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
     ],
+  },
+  async redirects() {
+    return [
+      { source: "/shop", destination: "/shopallperfume", permanent: false },
+      { source: "/collections", destination: "/shopallperfume", permanent: false },
+      { source: "/collections/:path*", destination: "/shopallperfume", permanent: false },
+      { source: "/search", destination: "/shopallperfume", permanent: false },
+    ];
   },
 };
 

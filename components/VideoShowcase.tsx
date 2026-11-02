@@ -21,9 +21,9 @@ const sans = "Inter, system-ui, sans-serif";
 type Item = { src: string; poster?: string; href: string; alt: string };
 
 const ITEMS: Item[] = [
-  { src: "/videos/hemesection1.mp4", poster: "/images/showcase-1.jpg", href: "/shopallperfume", alt: "Applying perfume to the wrist" },
-  { src: "/videos/homesection2.mp4", poster: "/images/showcase-2.jpg", href: "/shopallperfume", alt: "Holding a crystal perfume bottle" },
-  { src: "/videos/homesection3.mp4", poster: "/images/showcase-3.jpg", href: "/shopallperfume", alt: "Opening a perfume gift box" },
+  { src: "/videos/hemesection1.mp4", href: "/shopallperfume", alt: "Applying perfume to the wrist" },
+  { src: "/videos/homesection2.mp4", href: "/shopallperfume", alt: "Holding a crystal perfume bottle" },
+  { src: "/videos/homesection3.mp4", href: "/shopallperfume", alt: "Opening a perfume gift box" },
 ];
 
 const FOCUS =
