@@ -20,9 +20,8 @@
 # production
 /build
 
-# runtime uploads
-/uploads/*
-!/uploads/products/
+# runtime uploads – never commit uploaded files to git
+/uploads/
 
 # misc
 .DS_Store
