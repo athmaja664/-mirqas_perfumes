@@ -66,7 +66,11 @@ export async function POST(req: NextRequest) {
       );
 
     const buf = Buffer.from(await file.arrayBuffer());
-    const type = kind === "video" ? detectVideoType(buf) : detectImageType(buf);
+    const type =
+      kind === "video"
+        ? detectVideoType(buf, file.name, file.type)
+        : detectImageType(buf, file.name);
+
     if (!type)
       return NextResponse.json(
         {
@@ -99,7 +103,6 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // Primary Server-Side Storage: Persist in the database
-      // This is 100% persistent on Vercel, VPS, and localhost without ephemeral disk loss.
       let saved = false;
       try {
         await connectDB();

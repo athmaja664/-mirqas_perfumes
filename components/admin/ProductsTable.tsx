@@ -304,7 +304,6 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
           });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not update the product.");
-      showAlert(`"${item.name}" has been ${item.isActive ? "deactivated" : "activated"}.`, "success");
       setReload((n) => n + 1);
     } catch (e) {
       showAlert(e instanceof Error ? e.message : "Could not update the product.", "error");
@@ -320,7 +319,6 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
       const res = await fetch(`/api/admin/products/${item.id}?permanent=true`, { method: "DELETE" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.message || `Could not delete the product (error ${res.status}).`);
-      showAlert(json.message || `"${item.name}" deleted permanently.`, "success", "Product Deleted");
       if (data && data.items.length === 1 && page > 1) setPage((n) => n - 1);
       setReload((n) => n + 1);
     } catch (e) {
