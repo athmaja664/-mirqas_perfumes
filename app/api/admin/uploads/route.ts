@@ -41,7 +41,11 @@ export async function POST(req: NextRequest) {
   }
 
   const kind = form.get("kind") === "video" ? "video" : "image";
-  const files = form.getAll("files").filter((f): f is File => f instanceof File);
+  const files = [
+    ...form.getAll("files"),
+    ...form.getAll("file"),
+  ].filter((f): f is File => f instanceof File);
+
   if (files.length === 0) return NextResponse.json({ message: "No files were sent." }, { status: 400 });
 
   const maxFiles = kind === "video" ? 1 : 10;
@@ -137,5 +141,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ urls }, { status: 201 });
+  return NextResponse.json({ urls, url: urls[0] || null }, { status: 201 });
 }

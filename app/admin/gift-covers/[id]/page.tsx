@@ -32,3 +32,4 @@ export default async function EditGiftCoverPage({ params }: { params: Promise<{ 
     </AdminShell>
   );
 }
+

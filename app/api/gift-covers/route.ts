@@ -101,3 +101,4 @@ export async function GET() {
     return NextResponse.json({ giftCovers: DEFAULT_GIFT_COVERS, isDefault: true });
   }
 }
+

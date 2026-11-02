@@ -52,27 +52,33 @@ export default function GiftCoverForm({ giftCover }: { giftCover?: GiftCoverData
 
     setUploading(true);
     try {
-      const uploadedUrls: string[] = [];
+      const formData = new FormData();
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const formData = new FormData();
-        formData.append("file", file);
+        formData.append("files", files[i]);
+      }
+      formData.append("kind", "image");
 
-        const res = await fetch("/api/admin/uploads", {
-          method: "POST",
-          body: formData,
-        });
+      const res = await fetch("/api/admin/uploads", {
+        method: "POST",
+        body: formData,
+      });
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || `Failed to upload ${file.name}`);
-        }
-
-        const data = await res.json();
-        if (data.url) uploadedUrls.push(data.url);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to upload image(s).");
       }
 
-      setImages((prev) => [...prev, ...uploadedUrls]);
+      const newUrls: string[] = Array.isArray(data.urls)
+        ? data.urls
+        : data.url
+        ? [data.url]
+        : [];
+
+      if (newUrls.length > 0) {
+        setImages((prev) => [...prev, ...newUrls]);
+      } else {
+        throw new Error("No URL returned from server.");
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Image upload failed.";
       setAlert({ open: true, title: "Upload Error", message: msg, type: "error" });
@@ -105,10 +111,6 @@ export default function GiftCoverForm({ giftCover }: { giftCover?: GiftCoverData
     const priceNum = Number(price);
     if (!priceNum || priceNum <= 0) {
       return setAlert({ open: true, title: "Invalid Price", message: "Please enter a valid price in rupees.", type: "error" });
-    }
-
-    if (!description.trim()) {
-      return setAlert({ open: true, title: "Missing Description", message: "Please provide a description.", type: "error" });
     }
 
     if (images.length === 0) {
@@ -259,11 +261,10 @@ export default function GiftCoverForm({ giftCover }: { giftCover?: GiftCoverData
 
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#111111]/70">
-                Description <span className="text-red-500">*</span>
+                Description <span className="text-stone-400 font-normal">(optional)</span>
               </label>
               <textarea
                 rows={3}
-                required
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe the material, color, design, and size compatibility..."

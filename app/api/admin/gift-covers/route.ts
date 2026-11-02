@@ -142,3 +142,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Could not save the gift cover." }, { status: 500 });
   }
 }
+

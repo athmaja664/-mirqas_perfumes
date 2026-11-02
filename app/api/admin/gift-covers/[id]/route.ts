@@ -129,3 +129,4 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   await product.update({ isActive: false });
   return NextResponse.json({ message: "Gift cover disabled." });
 }
+

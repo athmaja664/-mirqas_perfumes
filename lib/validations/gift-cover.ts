@@ -9,7 +9,7 @@ const mediaUrl = z
 
 export const giftCoverSchema = z.object({
   name: z.string().trim().min(2, "Gift cover name must be at least 2 characters.").max(120),
-  description: z.string().trim().min(2, "Please enter a description for the gift cover.").max(3000),
+  description: z.string().trim().max(3000).default("").optional(),
   price: z.number().int("Price must be a whole number of paise.").min(1, "Price must be at least 1 paise.").max(100_000_000),
   salePrice: z.number().int().min(1).nullable().optional(),
   category: z.string().trim().max(80).default("Gift Cover"),

@@ -23,7 +23,7 @@ type Item = { src: string; poster?: string; href: string; alt: string };
 const ITEMS: Item[] = [
   { src: "/videos/perfume-six.mp4", href: "/shopallperfume", alt: "Applying perfume to the wrist" },
   { src: "/videos/perfume-seven.mp4", href: "/shopallperfume", alt: "Holding a crystal perfume bottle" },
-  { src: "/videos/perfume-five.mp4", href: "/shopallperfume", alt: "Opening a perfume gift box" },
+  { src: "/videos/w-video.mp4", href: "/shopallperfume", alt: "Opening a perfume gift box" },
 ];
 
 const FOCUS =
@@ -82,7 +82,7 @@ function VideoCard({ item, centered }: { item: Item; centered: boolean }) {
     const v = ref.current;
     if (!v) return;
     if (shouldPlay && !pausedByUser.current) {
-      v.play().catch(() => {});
+      v.play().catch(() => { });
     } else {
       v.pause();
     }
@@ -93,7 +93,7 @@ function VideoCard({ item, centered }: { item: Item; centered: boolean }) {
     if (!v) return;
     if (v.paused) {
       pausedByUser.current = false;
-      v.play().catch(() => {});
+      v.play().catch(() => { });
     } else {
       pausedByUser.current = true;
       v.pause();
@@ -102,9 +102,8 @@ function VideoCard({ item, centered }: { item: Item; centered: boolean }) {
 
   return (
     <li
-      className={`w-[78vw] shrink-0 snap-center transition-all duration-500 ease-out motion-reduce:transition-none md:w-auto md:shrink md:scale-100 md:opacity-100 ${
-        centered ? "scale-100 opacity-100" : "scale-90 opacity-70"
-      }`}
+      className={`w-[78vw] shrink-0 snap-center transition-all duration-500 ease-out motion-reduce:transition-none md:w-auto md:shrink md:scale-100 md:opacity-100 ${centered ? "scale-100 opacity-100" : "scale-90 opacity-70"
+        }`}
     >
       <div className="overflow-hidden rounded-2xl border bg-white" style={{ borderColor: "rgba(156,90,43,0.28)" }}>
         <div className="relative aspect-[4/5] bg-black">
