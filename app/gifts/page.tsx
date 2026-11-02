@@ -286,7 +286,15 @@ function CoverImageDisplay({
 
 /* ───────────────────────── Components ───────────────────────── */
 
-function Hero({ onShop }: { onShop: () => void }) {
+function Hero({
+  onShop,
+  onChoosePerfumes,
+  onChooseBox,
+}: {
+  onShop: () => void;
+  onChoosePerfumes?: () => void;
+  onChooseBox?: () => void;
+}) {
   return (
     <section className={`border-b ${LINE}`}>
       <div className="mx-auto max-w-7xl px-4 py-10 text-center sm:px-6 sm:py-14 lg:py-20">
@@ -298,7 +306,7 @@ function Hero({ onShop }: { onShop: () => void }) {
         </h1>
         <p className={`mx-auto mt-4 max-w-xl text-sm sm:text-base ${MUTED}`}>
           Personalise a fragrance gift bundle in two steps: choose as many perfumes as you like,
-          then a box they will keep. You can also purchase luxury gift boxes individually.
+          then a box they will keep.
         </p>
         <button
           type="button"
@@ -309,8 +317,11 @@ function Hero({ onShop }: { onShop: () => void }) {
         </button>
         <ol className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-3 sm:mt-14 sm:gap-6 md:gap-0">
           {/* Step 1: Left Side - Choose your perfumes */}
-          <li className="flex flex-col items-center gap-3 sm:gap-4 md:px-6">
-            <div className="aspect-square w-full max-w-[16rem] overflow-hidden rounded-xl border border-[#EADFCC] bg-[#F6EEE0] p-2 sm:p-2.5">
+          <li
+            onClick={onChoosePerfumes}
+            className="group flex cursor-pointer flex-col items-center gap-3 sm:gap-4 md:px-6"
+          >
+            <div className="aspect-square w-full max-w-[16rem] overflow-hidden rounded-xl border border-[#EADFCC] bg-[#F6EEE0] p-2 transition-transform duration-300 group-hover:scale-105 group-hover:border-[#9C5A2B] sm:p-2.5">
               <div className="grid h-full w-full grid-cols-2 gap-2">
                 <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow-xs">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -330,14 +341,17 @@ function Hero({ onShop }: { onShop: () => void }) {
                 </div>
               </div>
             </div>
-            <p className="mq-serif text-lg leading-snug text-[#9C5A2B] sm:text-2xl">
+            <p className="mq-serif text-lg leading-snug text-[#9C5A2B] transition-colors group-hover:underline sm:text-2xl">
               1. Choose your perfumes
             </p>
           </li>
 
           {/* Step 2: Right Side - Choose a gift box / cover */}
-          <li className="flex flex-col items-center gap-3 sm:gap-4 md:border-l md:px-6 border-[#9C5A2B]/25">
-            <div className="aspect-square w-full max-w-[16rem] overflow-hidden rounded-xl border border-[#EADFCC] bg-[#F6EEE0]">
+          <li
+            onClick={onChooseBox}
+            className="group flex cursor-pointer flex-col items-center gap-3 border-[#9C5A2B]/25 sm:gap-4 md:border-l md:px-6"
+          >
+            <div className="aspect-square w-full max-w-[16rem] overflow-hidden rounded-xl border border-[#EADFCC] bg-[#F6EEE0] transition-transform duration-300 group-hover:scale-105 group-hover:border-[#9C5A2B]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/images/gifthbox.png"
@@ -345,7 +359,7 @@ function Hero({ onShop }: { onShop: () => void }) {
                 className="h-full w-full object-cover"
               />
             </div>
-            <p className="mq-serif text-lg leading-snug text-[#9C5A2B] sm:text-2xl">
+            <p className="mq-serif text-lg leading-snug text-[#9C5A2B] transition-colors group-hover:underline sm:text-2xl">
               2. Choose a gift box / cover
             </p>
           </li>
@@ -375,7 +389,6 @@ function ProgressIndicator({
             <li key={s.id} className="flex flex-1 items-start last:flex-none">
               <button
                 type="button"
-                disabled={!reachable}
                 onClick={() => onGo(s.id)}
                 aria-current={active ? "step" : undefined}
                 className="relative z-10 flex w-24 flex-col items-center gap-2 text-center disabled:cursor-not-allowed sm:w-32"
@@ -1059,8 +1072,7 @@ export default function GiftPage() {
   };
 
   const next = () => {
-    const err = validate(step);
-    if (err) return setError(err);
+    setError(null);
     const n = (step + 1) as StepId;
     setMaxReached((m) => (n > m ? n : m));
     goTo(n);
@@ -1181,7 +1193,14 @@ export default function GiftPage() {
       `}</style>
 
       <main>
-        <Hero onShop={scrollToBuilder} />
+        <Hero
+          onShop={scrollToBuilder}
+          onChoosePerfumes={() => goTo(1)}
+          onChooseBox={() => {
+            setMaxReached(2);
+            goTo(2);
+          }}
+        />
 
         {/* ─── GIFT BUILDER SECTION ─── */}
         <section
@@ -1285,60 +1304,6 @@ export default function GiftPage() {
             </div>
 
             <div className="hidden lg:block">{summary}</div>
-          </div>
-        </section>
-
-        {/* ─── STANDALONE GIFT COVERS SECTION (Browse & Buy Boxes) ─── */}
-        <section className={`border-t bg-white/50 py-12 sm:py-16 ${LINE}`}>
-          <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <div className="text-center">
-              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-[#9C5A2B]">
-                Mirqas Collection
-              </span>
-              <h2
-                className={`${HEAD} mt-1`}
-                style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.6rem)" }}
-              >
-                Signature Gift Boxes & Covers
-              </h2>
-              <p className={`mx-auto mt-2 max-w-xl text-sm ${MUTED}`}>
-                Handcrafted presentation cases designed to preserve and showcase your luxury fragrances.
-                Available individually with full wishlist and cart support.
-              </p>
-            </div>
-
-            {!boxesLoaded ? (
-              <p className={`py-12 text-center text-sm ${MUTED}`}>Loading gift covers…</p>
-            ) : boxes.length === 0 ? (
-              <div className="mx-auto mt-8 max-w-md rounded-xl border border-dashed border-[#9C5A2B]/30 bg-white p-8 text-center">
-                <p className="font-medium text-[#111111]">No gift covers are available at this moment.</p>
-                <p className={`mt-1 text-xs ${MUTED}`}>
-                  New presentation boxes will appear here once added by the store administrator.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-8 flex flex-wrap justify-center gap-4 sm:gap-6">
-                {boxes.map((b) => (
-                  <div
-                    key={`showcase-${b.id}`}
-                    className="flex w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] max-w-sm"
-                  >
-                    <GiftCoverCard
-                      box={b}
-                      isSelected={sel.box === b.id}
-                      onSelect={() => {
-                        setModalBox(b);
-                        setModalOpen(true);
-                        setSel((s) => ({ ...s, box: b.id }));
-                        setError(null);
-                      }}
-                      onDeselect={() => setSel((s) => ({ ...s, box: null }))}
-                      onNotify={(m) => showToast(m)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </section>
       </main>
