@@ -41,6 +41,7 @@ export type CartLine = {
   qty: number;
   isGiftCover?: boolean;
   wrappedItems?: WrappedItemRef[];
+  giftCardMessage?: string;
 };
 
 // The normal price is the 10ml price. The other sizes are worked out from it.
@@ -141,7 +142,7 @@ export function addLineToCart(
   item: WishItem,
   ml: number,
   qty = 1,
-  options?: { isGiftCover?: boolean; wrappedItems?: WrappedItemRef[] }
+  options?: { isGiftCover?: boolean; wrappedItems?: WrappedItemRef[]; giftCardMessage?: string }
 ) {
   const cart = readList<CartLine>(CART_KEY);
   const isGift = options?.isGiftCover ?? (ml === 0);
@@ -153,6 +154,7 @@ export function addLineToCart(
       qty: isGift ? 1 : cart[i].qty + qty,
       isGiftCover: isGift,
       wrappedItems: options?.wrappedItems ?? cart[i].wrappedItems,
+      giftCardMessage: options?.giftCardMessage ?? cart[i].giftCardMessage,
     };
   } else {
     cart.push({
@@ -165,6 +167,7 @@ export function addLineToCart(
       qty,
       isGiftCover: isGift,
       wrappedItems: options?.wrappedItems,
+      giftCardMessage: options?.giftCardMessage,
     });
   }
   writeList(CART_KEY, cart);

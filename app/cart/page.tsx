@@ -41,6 +41,7 @@ type CartItem = {
   qty: number;
   isGiftCover?: boolean;
   wrappedItems?: WrappedItemRef[];
+  giftCardMessage?: string;
 };
 
 // Prices show like Rs. 799.00
@@ -395,6 +396,15 @@ function GiftCoverCartCard({
               </div>
             )}
           </div>
+{/* Printed Gift Card Note if provided */}
+          {item.giftCardMessage && (
+            <div className="mt-2.5 rounded-[8px] border border-[#9C5A2B]/20 bg-[#FCF8F0] p-2.5 text-xs">
+              <span className="font-semibold text-[#9C5A2B]">💌 Printed Gift Card Note:</span>
+              <p className="m-0 mt-1 italic text-stone-800 font-serif text-[13px] leading-relaxed">
+                "{item.giftCardMessage}"
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Quantity line total */}

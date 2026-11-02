@@ -1153,7 +1153,8 @@ export default function GiftPage() {
       name: m.product.name,
       ml: m.ml,
     }));
-    addLineToCart(boxItem, 0, 1, { isGiftCover: true, wrappedItems });
+    const giftCardMessage = sel.message?.trim() ? sel.message.trim() : undefined;
+    addLineToCart(boxItem, 0, 1, { isGiftCover: true, wrappedItems, giftCardMessage });
 
     // 3. Feedback and reset
     showToast("✓ Your custom gift bundle was added to the cart!", "/cart");

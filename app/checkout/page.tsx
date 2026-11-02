@@ -177,14 +177,21 @@ export default function CheckoutPage() {
           items: items.map((l) => ({ slug: l.slug, ml: l.ml, qty: l.qty })),
           shipping,
           note: (() => {
-            const giftWrappingNotes = items
-              .filter((l) => (l.isGiftCover || l.ml === 0) && l.wrappedItems && l.wrappedItems.length > 0)
-              .map(
-                (l) =>
-                  `[Gift Wrap: ${l.name} wrapping ${l.wrappedItems!.map((w) => `${w.name} (${w.ml}ml)`).join(", ")}]`
-              )
-              .join("\n");
-            return [form.note.trim(), giftWrappingNotes].filter(Boolean).join("\n\n");
+            const giftLines: string[] = [];
+            for (const l of items) {
+              if (l.isGiftCover || l.ml === 0) {
+                if (l.wrappedItems && l.wrappedItems.length > 0) {
+                  giftLines.push(
+                    `[Gift Wrap: ${l.name} wrapping ${l.wrappedItems.map((w) => `${w.name} (${w.ml}ml)`).join(", ")}]`
+                  );
+                }
+                if (l.giftCardMessage) {
+                  giftLines.push(`[Gift Card Note: "${l.giftCardMessage}"]`);
+                }
+              }
+            }
+            const giftWrapNotes = giftLines.join("\n");
+            return [form.note.trim(), giftWrapNotes].filter(Boolean).join("\n\n");
           })(),
           paymentMethod: "cod",
           idempotencyKey: keyRef.current,

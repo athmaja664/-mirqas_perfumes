@@ -516,10 +516,10 @@ export default async function AdminOrderDetailPage({
             const rawNote = o.note || "";
             const lines = rawNote.split("\n").map((s) => s.trim()).filter(Boolean);
             const giftWrapLines = lines
-              .filter((l) => l.startsWith("[Gift Wrap:") && l.endsWith("]"))
+              .filter((l) => (l.startsWith("[Gift Wrap:") || l.startsWith("[Gift Card Note:")) && l.endsWith("]"))
               .map((l) => l.slice(1, -1));
             const cleanNote = lines
-              .filter((l) => !(l.startsWith("[Gift Wrap:") && l.endsWith("]")))
+              .filter((l) => !((l.startsWith("[Gift Wrap:") || l.startsWith("[Gift Card Note:")) && l.endsWith("]")))
               .join("\n");
 
             return (
@@ -528,12 +528,18 @@ export default async function AdminOrderDetailPage({
                   <div className="rounded-lg border-2 border-[#9C5A2B]/40 bg-[#FFF9F3] p-3.5">
                     <div className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-[#9C5A2B]">
                       <span className="text-sm">🎁</span>
-                      <span>Gift Wrapping Instructions (Packing Alert)</span>
+                      <span>Gift Wrapping & Card Instructions (Packing Alert)</span>
                     </div>
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-[13px] text-black/85">
+                    <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[13px] text-black/85">
                       {giftWrapLines.map((line, idx) => (
                         <li key={idx} className="font-medium">
-                          {line}
+                          {line.startsWith("Gift Card Note:") ? (
+                            <span className="text-[#9C5A2B]">
+                              💌 <strong>{line}</strong>
+                            </span>
+                          ) : (
+                            line
+                          )}
                         </li>
                       ))}
                     </ul>
