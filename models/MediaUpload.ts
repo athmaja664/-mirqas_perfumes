@@ -53,3 +53,4 @@ export function initMediaUpload(): typeof MediaUpload {
   initialized = true;
   return MediaUpload;
 }
+

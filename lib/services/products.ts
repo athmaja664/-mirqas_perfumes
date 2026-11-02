@@ -34,11 +34,27 @@ function ensureArray(val: unknown): string[] {
   return [];
 }
 
+export function normalizeMediaUrl(url: string): string {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("/api/uploads/") || trimmed.startsWith("/images/") || trimmed.startsWith("/uploads/")) {
+    return trimmed;
+  }
+  if (/^[a-f0-9]{32}\.(jpg|png|webp|mp4|webm)$/i.test(trimmed)) {
+    return `/api/uploads/${trimmed}`;
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
 // The shape the browser receives. Prices are in paise.
 export function toProduct(p: Record<string, unknown> | IProduct | Product) {
   const data = (typeof (p as Product).toJSON === "function" ? (p as Product).toJSON() : p) as Record<string, unknown>;
   const id = String(data.id ?? data._id);
-  const images = ensureArray(data.images);
+  const images = ensureArray(data.images).map(normalizeMediaUrl);
+  const video = normalizeMediaUrl(String(data.video || ""));
   const occasion = ensureArray(data.occasion);
   const notes = ensureArray(data.notes);
   const sections = ensureArray(data.sections);
@@ -55,7 +71,7 @@ export function toProduct(p: Record<string, unknown> | IProduct | Product) {
     salePrice: data.salePrice != null ? Number(data.salePrice) : null,
     category: String(data.category || ""),
     images,
-    video: String(data.video || ""),
+    video,
     stock,
     inStock: stock > 0,
     isActive: Boolean(data.isActive),
