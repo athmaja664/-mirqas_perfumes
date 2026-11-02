@@ -124,8 +124,11 @@ export async function listProducts(sp: URLSearchParams, activeOnly: boolean) {
   // Website section, e.g. ?section=men  (shop-all means no filter)
   const section = sp.get("section");
   if (section && section !== "shop-all" && section !== "new-arrivals" && SECTION_VALUES.includes(section)) {
+    const existingAnd = (where[Op.and as unknown as symbol] as unknown[]) || [];
     where[Op.and as unknown as symbol] = [
+      ...existingAnd,
       literal(`JSON_CONTAINS(sections, ${JSON.stringify(JSON.stringify(section))})`),
+      ...(section === "gift-sets" ? [{ category: { [Op.notIn]: ["Gift Cover", "Gift Covers", "Gift Box", "Gift Boxes"] } }] : []),
     ];
   }
 

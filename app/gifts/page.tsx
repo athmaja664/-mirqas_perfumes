@@ -926,10 +926,24 @@ function BundleSummary(p: SummaryProps) {
 
 /* ───────────────────────── Page Main ───────────────────────── */
 
+export function isGiftCoverCategory(category?: string): boolean {
+  if (!category) return false;
+  const c = category.toLowerCase().trim();
+  return (
+    c === "gift cover" ||
+    c === "gift covers" ||
+    c === "gift box" ||
+    c === "gift boxes" ||
+    c.includes("gift cover") ||
+    c.includes("gift box") ||
+    c === "packaging"
+  );
+}
+
 export default function GiftPage() {
   const { products: apiProducts, loaded, error: loadError } = useSectionProducts("gift-sets");
   const products = useMemo(
-    () => apiProducts.filter((p) => p.inStock).map(toGiftProduct),
+    () => apiProducts.filter((p) => p.inStock && !isGiftCoverCategory(p.category)).map(toGiftProduct),
     [apiProducts]
   );
 

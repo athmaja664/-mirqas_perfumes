@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       badge: "",
       isFeatured: false,
       sales: 0,
-      sections: ["gift-covers", "gift-sets"],
+      sections: ["gift-covers"],
       collections: [],
       showInNewArrivals: false,
     });
