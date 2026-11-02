@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { upload } from "@vercel/blob/client";
 import { FRAGRANCE_FAMILIES } from "@/lib/validations/product";
 import { SHOP_SECTIONS, COLLECTION_SECTIONS } from "@/lib/sections";
 import MultiSelect from "@/components/MultiSelect";
@@ -98,18 +97,6 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [uploadingMedia, setUploadingMedia] = useState(false);
 
   async function uploadOne(file: File, kind: "image" | "video"): Promise<string> {
-    // 1. Try Vercel Blob client upload first if in supported cloud environment
-    try {
-      const res = await upload(`products/${file.name}`, file, {
-        access: "public",
-        handleUploadUrl: "/api/admin/blob-upload",
-      });
-      if (res?.url) return res.url;
-    } catch {
-      // Direct blob upload unavailable or failed, fall back to server upload
-    }
-
-    // 2. Server-side upload via /api/admin/uploads
     const body = new FormData();
     if (kind === "video") body.append("kind", "video");
     body.append("files", file);
