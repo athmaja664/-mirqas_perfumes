@@ -6,6 +6,7 @@ import { useState } from "react";
 import { FRAGRANCE_FAMILIES } from "@/lib/validations/product";
 import { SHOP_SECTIONS, COLLECTION_SECTIONS } from "@/lib/sections";
 import MultiSelect from "@/components/MultiSelect";
+import AlertModal from "@/components/admin/AlertModal";
 
 const COPPER = "#9C5A2B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
@@ -72,8 +73,6 @@ export type ProductData = {
   salePrice: number | null; // paise
   category: string;
   images: string[];
-  // The "card media": ONE video OR ONE image, shown on the product card when it is
-  // hovered (laptop) or scrolled into view (phone). It is saved in the same "video" field.
   video: string;
   stock: number;
   isActive: boolean;
@@ -87,19 +86,17 @@ type CardMedia = "none" | "video" | "image";
 
 const toRupees = (paise: number) => String(paise / 100);
 
-// A saved link ending in .mp4 or .webm is a video. Any other link is an image.
 const isVideoUrl = (url: string) => /\.(mp4|webm)(\?.*)?$/i.test(url);
 
-// Shows one image. If the browser cannot load it, a message appears instead of a blank box.
 function Thumb({ url, onClick }: { url: string; onClick?: () => void }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
       <div
         onClick={onClick}
-        className="flex aspect-square w-full cursor-pointer items-center justify-center bg-[#F3E7D5] px-2 text-center text-[11px] text-black/60"
+        className="flex aspect-square w-full cursor-pointer items-center justify-center bg-[#F3E7D5] px-2 text-center text-[11px] text-black/60 hover:opacity-85"
       >
-        Could not load
+        Click to view
       </div>
     );
   }
@@ -108,7 +105,7 @@ function Thumb({ url, onClick }: { url: string; onClick?: () => void }) {
     <img
       src={url}
       alt="Thumbnail"
-      title="Click to view full image details"
+      title="Click to view details"
       onClick={onClick}
       onError={() => setFailed(true)}
       className={`aspect-square w-full bg-[#F3E7D5] object-cover transition-opacity ${
@@ -131,7 +128,6 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [stock, setStock] = useState(String(product?.stock ?? 0));
   const [images, setImages] = useState<string[]>(product?.images ?? []);
 
-  // Card media: none, one video, or one image (saved in the "video" field)
   const [media, setMedia] = useState(product?.video ?? "");
   const [mediaType, setMediaType] = useState<CardMedia>(
     !product?.video ? "none" : isVideoUrl(product.video) ? "video" : "image"
@@ -140,7 +136,6 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [isBestSeller, setIsBestSeller] = useState(product?.isBestSeller ?? false);
 
-  // Where the product shows on the website.
   const [sections, setSections] = useState<string[]>(
     (product?.sections ?? ["shop-all"]).filter((s) => s !== "new-arrivals")
   );
@@ -148,11 +143,26 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [showInNewArrivals, setShowInNewArrivals] = useState(product?.showInNewArrivals ?? true);
 
   const [error, setError] = useState("");
+  const [alertData, setAlertData] = useState<{
+    open: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "error" | "success";
+  }>({
+    open: false,
+    message: "",
+  });
+
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  function showAlert(message: string, type: "info" | "error" | "success" = "error", title?: string) {
+    setError(type === "error" ? message : "");
+    setAlertData({ open: true, message, type, title });
+  }
 
   async function uploadOne(file: File, kind: "image" | "video"): Promise<string> {
     const body = new FormData();
@@ -172,27 +182,33 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.target;
     const picked = Array.from(input.files ?? []);
-    input.value = ""; // lets the admin pick the same file again later
+    input.value = "";
     if (picked.length === 0) return;
 
     setError("");
-    if (images.length + picked.length > MAX_IMAGES)
-      return setError(`A product can have at most ${MAX_IMAGES} images.`);
+    if (images.length + picked.length > MAX_IMAGES) {
+      showAlert(`A product can have at most ${MAX_IMAGES} images.`, "error");
+      return;
+    }
+
     const tooBig = picked.find((f) => f.size > MAX_BYTES);
-    if (tooBig) return setError(`${tooBig.name} is too large. Please choose a file under 4 MB.`);
+    if (tooBig) {
+      showAlert(`${tooBig.name} is too large. Please select a file under 4 MB.`, "error");
+      return;
+    }
 
     setUploading(true);
     try {
       const compressed = await Promise.all(picked.map((f) => compressImage(f)));
       const results: string[] = [];
-      // Upload sequentially to avoid combined payload size spikes
       for (const f of compressed) {
         const u = await uploadOne(f, "image");
         results.push(u);
       }
       setImages((prev) => [...prev, ...results]);
+      showAlert(`Successfully uploaded ${results.length} image(s).`, "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
+      showAlert(err instanceof Error ? err.message : "Upload failed.", "error");
     } finally {
       setUploading(false);
     }
@@ -204,9 +220,9 @@ export default function ProductForm({ product }: { product?: ProductData }) {
 
   function makeMain(url: string) {
     setImages((prev) => [url, ...prev.filter((u) => u !== url)]);
+    showAlert("Main thumbnail updated.", "success");
   }
 
-  // Choosing a different card media type clears the old file, so only ONE kind is ever saved
   function changeMediaType(t: CardMedia) {
     if (t === mediaType) return;
     setMediaType(t);
@@ -223,15 +239,19 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     setError("");
     const isVideo = mediaType === "video";
     const limit = isVideo ? MAX_VIDEO_BYTES : MAX_BYTES;
-    if (file.size > limit) return setError(`${file.name} is larger than ${limit / 1024 / 1024} MB.`);
+    if (file.size > limit) {
+      showAlert(`${file.name} is larger than ${limit / 1024 / 1024} MB.`, "error");
+      return;
+    }
 
     setUploadingMedia(true);
     try {
       const ready = isVideo ? file : await compressImage(file);
       const url = await uploadOne(ready, isVideo ? "video" : "image");
       setMedia(url);
+      showAlert(`${isVideo ? "Video" : "Hover image"} uploaded successfully.`, "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
+      showAlert(err instanceof Error ? err.message : "Upload failed.", "error");
     } finally {
       setUploadingMedia(false);
     }
@@ -241,7 +261,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     if (!product?.id) return;
     if (
       !window.confirm(
-        `Are you sure you want to permanently delete "${product.name}"?\nThis will remove the product, reviews, and cart entries. This cannot be undone.`
+        `Delete "${product.name}" permanently?\n\nThis will remove the product, reviews, and cart entries. This cannot be undone.`
       )
     )
       return;
@@ -255,7 +275,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       router.push("/admin/products");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete product.");
+      showAlert(err instanceof Error ? err.message : "Could not delete product.", "error");
       setDeleting(false);
     }
   }
@@ -263,33 +283,51 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (uploading || uploadingMedia) return setError("Please wait for the uploads to finish.");
+    if (uploading || uploadingMedia) {
+      showAlert("Please wait for file uploads to finish before saving.", "info");
+      return;
+    }
 
-    // Rupees typed by the admin become whole paise (₹1,499 -> 149900).
     const priceNum = Number(price);
-    if (!Number.isFinite(priceNum) || priceNum <= 0) return setError("Enter a valid price in rupees.");
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      showAlert("Enter a valid price in rupees.", "error");
+      return;
+    }
     const pricePaise = Math.round(priceNum * 100);
 
     let salePaise: number | null = null;
     if (salePrice.trim() !== "") {
       const s = Number(salePrice);
-      if (!Number.isFinite(s) || s <= 0) return setError("Enter a valid sale price in rupees, or leave it empty.");
+      if (!Number.isFinite(s) || s <= 0) {
+        showAlert("Enter a valid sale price in rupees, or leave it empty.", "error");
+        return;
+      }
       salePaise = Math.round(s * 100);
-      if (salePaise >= pricePaise) return setError("Sale price must be lower than the price.");
+      if (salePaise >= pricePaise) {
+        showAlert("Sale price must be lower than the original price.", "error");
+        return;
+      }
     }
 
     const stockNum = Number(stock);
-    if (!Number.isInteger(stockNum) || stockNum < 0) return setError("Stock must be a whole number, 0 or more.");
+    if (!Number.isInteger(stockNum) || stockNum < 0) {
+      showAlert("Stock must be a whole number, 0 or more.", "error");
+      return;
+    }
 
-    if (images.length === 0) return setError("Add at least one image. The first image is the card thumbnail.");
-    if (mediaType !== "none" && !media)
-      return setError(
-        mediaType === "video"
-          ? "Upload the video, or choose “No hover media”."
-          : "Upload the hover image, or choose “No hover media”."
+    if (images.length === 0) {
+      showAlert("Add at least one product image before saving.", "error");
+      return;
+    }
+
+    if (mediaType !== "none" && !media) {
+      showAlert(
+        mediaType === "video" ? "Upload the video, or select 'No hover media'." : "Upload the hover image, or select 'No hover media'.",
+        "error"
       );
+      return;
+    }
 
-    // The gender follows the sections: only Men -> Men, only Women -> Women, anything else -> Unisex
     const isMen = sections.includes("men");
     const isWomen = sections.includes("women");
     const gender = isMen && !isWomen ? "Men" : isWomen && !isMen ? "Women" : "Unisex";
@@ -324,12 +362,11 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       router.push("/admin/products");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save the product.");
+      showAlert(err instanceof Error ? err.message : "Could not save the product.", "error");
       setSaving(false);
     }
   }
 
-  // 16px text on phones stops iPhones from zooming in when a field is tapped.
   const input =
     "w-full border border-black/10 bg-white px-3 py-3 text-[16px] outline-none focus:border-black/40 sm:py-2.5 sm:text-[14px]";
   const label = "mb-2 block text-[11px] uppercase tracking-[0.2em] text-black/55 cursor-pointer";
@@ -346,6 +383,15 @@ export default function ProductForm({ product }: { product?: ProductData }) {
 
   return (
     <>
+      {/* ── Custom Alert Modal Box ──────────────────────────────────── */}
+      <AlertModal
+        open={alertData.open}
+        title={alertData.title}
+        message={alertData.message}
+        type={alertData.type}
+        onClose={() => setAlertData((prev) => ({ ...prev, open: false }))}
+      />
+
       {/* ── Image Details / Preview Modal ────────────────────────────── */}
       {previewUrl && (
         <div

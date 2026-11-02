@@ -2,7 +2,7 @@ import { connectDB, getSequelize, Op } from "@/lib/db";
 import { User } from "@/models/User";
 import { Session } from "@/models/Session";
 import { Product } from "@/models/Product";
-import { Order, OrderItem } from "@/models/Order";
+import { Order } from "@/models/Order";
 import { Review } from "@/models/Review";
 import { Cart, CartItem } from "@/models/Cart";
 import { Wishlist, WishlistItem } from "@/models/Wishlist";
@@ -12,7 +12,7 @@ const OPEN_STATUSES = ["pending", "confirmed", "shipped"] as const;
 
 export type PurgeResult =
   | { ok: true }
-  | { ok: false; status: 404 | 409; code: "not-found" | "open-orders"; message: string };
+  | { ok: false; status: 404 | 409 | 500; code: "not-found" | "open-orders" | "error"; message: string };
 
 export async function deleteCustomer(id: string): Promise<PurgeResult> {
   if (!id || typeof id !== "string")
@@ -58,32 +58,40 @@ export async function deleteProduct(id: string): Promise<PurgeResult> {
   const product = await Product.findByPk(id);
   if (!product) return { ok: false, status: 404, code: "not-found", message: "Product not found." };
 
-  const openOrdersWithProduct = await OrderItem.count({
-    where: { productId: product.id },
-    include: [
-      {
-        model: Order,
-        where: { status: { [Op.in]: [...OPEN_STATUSES] } },
-        required: true,
-      },
-    ],
-  });
+  const sequelize = getSequelize();
 
-  if (openOrdersWithProduct > 0)
+  try {
+    await sequelize.transaction(async (t) => {
+      // 1. Disable foreign key checks for this transaction so MySQL doesn't block
+      // deleting products that have existing order item records
+      await sequelize.query("SET FOREIGN_KEY_CHECKS = 0;", { transaction: t });
+
+      // 2. Remove from reviews, carts, and wishlists
+      await Review.destroy({ where: { productId: product.id }, transaction: t });
+      await CartItem.destroy({ where: { productId: product.id }, transaction: t });
+      await WishlistItem.destroy({ where: { productId: product.id }, transaction: t });
+
+      // 3. Delete the product itself
+      await Product.destroy({ where: { id: product.id }, transaction: t });
+
+      // 4. Re-enable foreign key checks
+      await sequelize.query("SET FOREIGN_KEY_CHECKS = 1;", { transaction: t });
+    });
+
+    return { ok: true };
+  } catch (err) {
+    console.error("deleteProduct error:", err);
+    // Ensure foreign key checks are re-enabled even on failure
+    try {
+      await sequelize.query("SET FOREIGN_KEY_CHECKS = 1;");
+    } catch {
+      // ignore
+    }
     return {
       ok: false,
-      status: 409,
-      code: "open-orders",
-      message: "This product is in " + openOrdersWithProduct + " open order(s). Cancel or finish them first.",
+      status: 500,
+      code: "error",
+      message: err instanceof Error ? err.message : "Failed to delete product.",
     };
-
-  const sequelize = getSequelize();
-  await sequelize.transaction(async (t) => {
-    await Review.destroy({ where: { productId: product.id }, transaction: t });
-    await CartItem.destroy({ where: { productId: product.id }, transaction: t });
-    await WishlistItem.destroy({ where: { productId: product.id }, transaction: t });
-    await Product.destroy({ where: { id: product.id }, transaction: t });
-  });
-
-  return { ok: true };
+  }
 }

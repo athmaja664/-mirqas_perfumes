@@ -5,6 +5,8 @@ import path from "node:path";
 import { put } from "@vercel/blob";
 import { getCurrentUser } from "@/lib/auth/session";
 import { guardRequest } from "@/lib/security";
+import { connectDB } from "@/lib/db";
+import { initMediaUpload } from "@/models/MediaUpload";
 import {
   UPLOAD_DIR,
   MAX_IMAGE_BYTES,
@@ -77,12 +79,13 @@ export async function POST(req: NextRequest) {
       );
 
     const name = `${randomBytes(16).toString("hex")}.${type}`;
+    const mimeType = CONTENT_TYPES[type] || "application/octet-stream";
 
     if (useBlob) {
       try {
         const blob = await put(`reviews/${name}`, buf, {
           access: "public",
-          contentType: CONTENT_TYPES[type] ?? "application/octet-stream",
+          contentType: mimeType,
           addRandomSuffix: false,
         });
         urls.push(blob.url);
@@ -94,16 +97,35 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
+      let saved = false;
       try {
-        await mkdir(UPLOAD_DIR, { recursive: true });
-        await writeFile(path.join(UPLOAD_DIR, name), buf);
+        await connectDB();
+        const MediaModel = initMediaUpload();
+        await MediaModel.sync();
+        await MediaModel.upsert({
+          name,
+          mimeType,
+          data: buf,
+          size: buf.length,
+        });
         urls.push(`/api/uploads/${name}`);
-      } catch (e) {
-        console.error("Server disk upload error (review):", e);
-        return NextResponse.json(
-          { message: "Could not save the file to server storage. Please try again." },
-          { status: 500 }
-        );
+        saved = true;
+      } catch (dbErr) {
+        console.warn("Review DB media storage failed:", dbErr);
+      }
+
+      if (!saved) {
+        try {
+          await mkdir(UPLOAD_DIR, { recursive: true });
+          await writeFile(path.join(UPLOAD_DIR, name), buf);
+          urls.push(`/api/uploads/${name}`);
+        } catch (e) {
+          console.error("Server disk upload error (review):", e);
+          return NextResponse.json(
+            { message: "Could not save the file to server storage. Please try again." },
+            { status: 500 }
+          );
+        }
       }
     }
   }

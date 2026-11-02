@@ -5,6 +5,8 @@ import path from "node:path";
 import { put } from "@vercel/blob";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { guardRequest } from "@/lib/security";
+import { connectDB } from "@/lib/db";
+import { initMediaUpload } from "@/models/MediaUpload";
 import {
   UPLOAD_DIR,
   MAX_IMAGE_BYTES,
@@ -78,12 +80,13 @@ export async function POST(req: NextRequest) {
 
     // Collision-free unique 32-hex filename
     const name = `${randomBytes(16).toString("hex")}.${type}`;
+    const mimeType = CONTENT_TYPES[type] || "application/octet-stream";
 
     if (useBlob) {
       try {
         const blob = await put(`products/${name}`, buf, {
           access: "public",
-          contentType: CONTENT_TYPES[type] ?? "application/octet-stream",
+          contentType: mimeType,
           addRandomSuffix: false,
         });
         urls.push(blob.url);
@@ -95,16 +98,38 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
+      // Primary Server-Side Storage: Persist in the database
+      // This is 100% persistent on Vercel, VPS, and localhost without ephemeral disk loss.
+      let saved = false;
       try {
-        await mkdir(UPLOAD_DIR, { recursive: true });
-        await writeFile(path.join(UPLOAD_DIR, name), buf);
+        await connectDB();
+        const MediaModel = initMediaUpload();
+        await MediaModel.sync();
+        await MediaModel.upsert({
+          name,
+          mimeType,
+          data: buf,
+          size: buf.length,
+        });
         urls.push(`/api/uploads/${name}`);
-      } catch (e) {
-        console.error("Server disk upload error:", e);
-        return NextResponse.json(
-          { message: "Could not save the file to server storage. Please try again." },
-          { status: 500 }
-        );
+        saved = true;
+      } catch (dbErr) {
+        console.warn("Database media storage failed, falling back to disk:", dbErr);
+      }
+
+      if (!saved) {
+        // Fallback: server disk storage
+        try {
+          await mkdir(UPLOAD_DIR, { recursive: true });
+          await writeFile(path.join(UPLOAD_DIR, name), buf);
+          urls.push(`/api/uploads/${name}`);
+        } catch (diskErr) {
+          console.error("Server disk upload error:", diskErr);
+          return NextResponse.json(
+            { message: "Could not save the file to server storage. Please try again." },
+            { status: 500 }
+          );
+        }
       }
     }
   }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import ConfirmDeleteButton from "@/components/admin/ConfirmDeleteButton";
+import AlertModal from "@/components/admin/AlertModal";
 
 const COPPER = "#9C5A2B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
@@ -90,12 +91,11 @@ function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void
         onClick={(e) => e.stopPropagation()}
         className="relative flex w-full max-w-2xl flex-col gap-0 border border-black/10 bg-[#FCF8F0] shadow-2xl"
       >
-        {/* Close */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center bg-white/80 text-black/60 hover:text-black"
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 cursor-pointer items-center justify-center bg-white/80 text-black/60 transition-colors hover:text-black"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M18 6 6 18M6 6l12 12" />
@@ -103,7 +103,6 @@ function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void
         </button>
 
         <div className="flex flex-col sm:flex-row">
-          {/* Image panel */}
           <div className="relative w-full shrink-0 bg-[#F3E7D5] sm:w-64">
             {images.length > 0 ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -123,7 +122,7 @@ function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void
                   type="button"
                   disabled={imgIdx === 0}
                   onClick={() => setImgIdx((i) => i - 1)}
-                  className="px-2 py-1 text-[12px] disabled:opacity-30"
+                  className="cursor-pointer px-2 py-1 text-[12px] disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   ‹ Prev
                 </button>
@@ -134,13 +133,12 @@ function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void
                   type="button"
                   disabled={imgIdx === images.length - 1}
                   onClick={() => setImgIdx((i) => i + 1)}
-                  className="px-2 py-1 text-[12px] disabled:opacity-30"
+                  className="cursor-pointer px-2 py-1 text-[12px] disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   Next ›
                 </button>
               </div>
             )}
-            {/* Thumbnail strip */}
             {images.length > 1 && (
               <div className="flex gap-1 overflow-x-auto px-2 pb-2">
                 {images.map((url, i) => (
@@ -150,14 +148,15 @@ function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void
                     src={url}
                     alt=""
                     onClick={() => setImgIdx(i)}
-                    className={`h-10 w-10 shrink-0 object-cover ${i === imgIdx ? "ring-2 ring-[#9C5A2B]" : "opacity-60 hover:opacity-100"}`}
+                    className={`h-10 w-10 shrink-0 cursor-pointer object-cover ${
+                      i === imgIdx ? "ring-2 ring-[#9C5A2B]" : "opacity-60 hover:opacity-100"
+                    }`}
                   />
                 ))}
               </div>
             )}
           </div>
 
-          {/* Info panel */}
           <div className="flex flex-1 flex-col gap-3 p-5">
             <div>
               <h2 className="m-0 text-2xl font-medium" style={{ fontFamily: serif, color: COPPER }}>
@@ -194,7 +193,7 @@ function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void
             <div className="mt-auto pt-2">
               <Link
                 href={`/admin/products/${item.id}`}
-                className="inline-block px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white"
+                className="inline-block cursor-pointer px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:opacity-90"
                 style={{ background: COPPER }}
                 onClick={onClose}
               >
@@ -205,7 +204,7 @@ function ProductDetailModal({ item, onClose }: { item: Item; onClose: () => void
         </div>
       </div>
     </div>,
-    document.body,
+    document.body
   );
 }
 
@@ -218,14 +217,16 @@ function Thumb({ url, onClick }: { url?: string; onClick: () => void }) {
       alt="View details"
       title="Click to view product details"
       onClick={onClick}
-      className="h-14 w-14 shrink-0 border border-black/10 bg-[#F3E7D5] object-cover xl:h-12 xl:w-12"
+      className="h-14 w-14 shrink-0 cursor-pointer border border-black/10 bg-[#F3E7D5] object-cover transition-opacity hover:opacity-85 xl:h-12 xl:w-12"
     />
   ) : (
     <div
       onClick={onClick}
       title="Click to view product details"
-      className="h-14 w-14 shrink-0 border border-black/10 bg-[#F3E7D5] xl:h-12 xl:w-12"
-    />
+      className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center border border-black/10 bg-[#F3E7D5] text-[10px] text-black/50 transition-opacity hover:opacity-85 xl:h-12 xl:w-12"
+    >
+      Details
+    </div>
   );
 }
 
@@ -238,10 +239,22 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
   const [reload, setReload] = useState(0);
   const [data, setData] = useState<ListResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState("");
   const [detail, setDetail] = useState<Item | null>(null);
+
+  const [alertData, setAlertData] = useState<{
+    open: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "error" | "success";
+  }>({
+    open: false,
+    message: "",
+  });
+
+  function showAlert(message: string, type: "info" | "error" | "success" = "error", title?: string) {
+    setAlertData({ open: true, message, type, title });
+  }
 
   // Wait a moment after typing before searching.
   useEffect(() => {
@@ -255,7 +268,6 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
   useEffect(() => {
     const ctrl = new AbortController();
     setLoading(true);
-    setError("");
 
     const p = new URLSearchParams({ page: String(page), limit: "10" });
     if (query) p.set("search", query);
@@ -268,7 +280,9 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
         setData(json);
       })
       .catch((e: unknown) => {
-        if (e instanceof Error && e.name !== "AbortError") setError(e.message);
+        if (e instanceof Error && e.name !== "AbortError") {
+          showAlert(e.message, "error");
+        }
       })
       .finally(() => {
         if (!ctrl.signal.aborted) setLoading(false);
@@ -280,8 +294,6 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
   async function toggle(item: Item) {
     if (item.isActive && !window.confirm(`Deactivate "${item.name}"? Customers will no longer see it.`)) return;
     setBusyId(item.id);
-    setError("");
-    setNotice("");
     try {
       const res = item.isActive
         ? await fetch(`/api/admin/products/${item.id}`, { method: "DELETE" })
@@ -292,31 +304,29 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
           });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not update the product.");
+      showAlert(`"${item.name}" has been ${item.isActive ? "deactivated" : "activated"}.`, "success");
       setReload((n) => n + 1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not update the product.");
+      showAlert(e instanceof Error ? e.message : "Could not update the product.", "error");
     } finally {
       setBusyId("");
     }
   }
 
-  // Permanent delete — available to all admins (server enforces owner-only rule).
+  // Permanent delete — available to all admins
   async function deleteForever(item: Item) {
     setBusyId(item.id);
-    setError("");
-    setNotice("");
     try {
       const res = await fetch(`/api/admin/products/${item.id}?permanent=true`, { method: "DELETE" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.message || `Could not delete the product (error ${res.status}).`);
-      setNotice(json.message || "Product deleted.");
+      showAlert(json.message || `"${item.name}" deleted permanently.`, "success", "Product Deleted");
       if (data && data.items.length === 1 && page > 1) setPage((n) => n - 1);
       setReload((n) => n + 1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not delete the product.");
+      showAlert(e instanceof Error ? e.message : "Could not delete the product.", "error");
     } finally {
       setBusyId("");
-      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }
 
@@ -328,6 +338,16 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
 
   return (
     <>
+      {/* ── Custom Alert Modal Box ──────────────────────────────────── */}
+      <AlertModal
+        open={alertData.open}
+        title={alertData.title}
+        message={alertData.message}
+        type={alertData.type}
+        onClose={() => setAlertData((prev) => ({ ...prev, open: false }))}
+      />
+
+      {/* ── Product Detail Modal ────────────────────────────────────── */}
       {detail && <ProductDetailModal item={detail} onClose={() => setDetail(null)} />}
 
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -339,7 +359,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
         </div>
         <Link
           href="/admin/products/new"
-          className="w-full px-5 py-3 text-center text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#7d4720] sm:w-auto"
+          className="w-full cursor-pointer px-5 py-3 text-center text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#7d4720] sm:w-auto"
           style={{ background: COPPER }}
         >
           Add product
@@ -360,24 +380,13 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
             setStatus(e.target.value);
             setPage(1);
           }}
-          className={`${field} w-full sm:w-auto`}
+          className={`${field} cursor-pointer w-full sm:w-auto`}
         >
           <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
       </div>
-
-      {error && (
-        <p role="alert" className="mt-4 border border-[#A32A1F]/30 bg-[#F8E3E0] px-4 py-3 text-[14px] text-[#A32A1F]">
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p role="status" className="mt-4 border border-[#1F7A3A]/30 bg-[#E3F2E6] px-4 py-3 text-[14px] text-[#1F7A3A]">
-          {notice}
-        </p>
-      )}
 
       <div className="mt-5 border border-black/10 bg-white">
         {loading && !data ? (
@@ -396,7 +405,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                       <button
                         type="button"
                         onClick={() => setDetail(p)}
-                        className="m-0 break-words text-left text-[15px] font-medium hover:underline"
+                        className="m-0 cursor-pointer break-words text-left text-[15px] font-medium hover:underline"
                       >
                         {p.name}
                       </button>
@@ -414,7 +423,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                   <div className="mt-4 flex items-center gap-3 text-[12px] uppercase tracking-[0.15em]">
                     <Link
                       href={`/admin/products/${p.id}`}
-                      className="flex-1 border px-3 py-3 text-center font-semibold"
+                      className="flex-1 cursor-pointer border px-3 py-3 text-center font-semibold"
                       style={{ borderColor: COPPER, color: COPPER }}
                     >
                       Edit
@@ -423,7 +432,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                       type="button"
                       onClick={() => toggle(p)}
                       disabled={busyId === p.id}
-                      className="flex-1 border border-black/25 px-3 py-3 font-semibold uppercase tracking-[0.15em] disabled:opacity-40"
+                      className="flex-1 cursor-pointer border border-black/25 px-3 py-3 font-semibold uppercase tracking-[0.15em] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {busyId === p.id ? "Saving..." : p.isActive ? "Deactivate" : "Activate"}
                     </button>
@@ -463,7 +472,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                             <button
                               type="button"
                               onClick={() => setDetail(p)}
-                              className="m-0 text-left font-medium hover:underline"
+                              className="m-0 cursor-pointer text-left font-medium hover:underline"
                             >
                               {p.name}
                             </button>
@@ -481,14 +490,14 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-4 text-[12px] uppercase tracking-[0.15em]">
-                          <Link href={`/admin/products/${p.id}`} className="underline underline-offset-4" style={{ color: COPPER }}>
+                          <Link href={`/admin/products/${p.id}`} className="cursor-pointer underline underline-offset-4" style={{ color: COPPER }}>
                             Edit
                           </Link>
                           <button
                             type="button"
                             onClick={() => toggle(p)}
                             disabled={busyId === p.id}
-                            className="uppercase tracking-[0.15em] underline underline-offset-4 disabled:opacity-40"
+                            className="cursor-pointer uppercase tracking-[0.15em] underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {busyId === p.id ? "Saving..." : p.isActive ? "Deactivate" : "Activate"}
                           </button>
@@ -517,7 +526,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
             type="button"
             disabled={page <= 1}
             onClick={() => setPage((n) => n - 1)}
-            className="border border-black/20 px-4 py-3 uppercase tracking-[0.15em] disabled:opacity-30 sm:py-2"
+            className="cursor-pointer border border-black/20 px-4 py-3 uppercase tracking-[0.15em] disabled:cursor-not-allowed disabled:opacity-30 sm:py-2"
           >
             Previous
           </button>
@@ -528,7 +537,7 @@ export default function ProductsTable({ isOwner = false }: { isOwner?: boolean }
             type="button"
             disabled={page >= data.pages}
             onClick={() => setPage((n) => n + 1)}
-            className="border border-black/20 px-4 py-3 uppercase tracking-[0.15em] disabled:opacity-30 sm:py-2"
+            className="cursor-pointer border border-black/20 px-4 py-3 uppercase tracking-[0.15em] disabled:cursor-not-allowed disabled:opacity-30 sm:py-2"
           >
             Next
           </button>

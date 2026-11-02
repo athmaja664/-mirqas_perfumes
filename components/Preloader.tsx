@@ -1,57 +1,42 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import gsap from "gsap";
 
 export default function Preloader() {
-  const pathname = usePathname();
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
   const overlayRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
-    // Never show the full-screen splash preloader in the admin dashboard
-    if (pathname?.startsWith("/admin")) {
-      return;
-    }
-
-    // Only show the intro splash once per browser session
-    try {
-      if (sessionStorage.getItem("mirqas_splash_shown")) {
-        return;
-      }
-      sessionStorage.setItem("mirqas_splash_shown", "1");
-    } catch {
-      // Ignore if sessionStorage is disabled
-    }
-
-    setVisible(true);
-
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ onComplete: () => setVisible(false) });
-
-      // Snappy, elegant entrance
-      tl.from(logoRef.current, {
-        scale: reduce ? 1 : 2.2,
-        opacity: 0,
-        duration: reduce ? 0.3 : 0.65,
-        ease: "power3.out",
+      const tl = gsap.timeline({
+        onComplete: () => {
+          setVisible(false);
+        },
       });
 
-      // Quick hold and smooth fade away
+      // Zoom-out entrance: starts large and transparent, settles to normal size
+      tl.from(logoRef.current, {
+        scale: reduce ? 1 : 2.8,
+        opacity: 0,
+        duration: reduce ? 0.4 : 1.2,
+        ease: "power4.out",
+      });
+
+      // Hold the logo, then fade the whole overlay away (total ~3.5s)
       tl.to(overlayRef.current, {
         opacity: 0,
-        duration: 0.45,
+        duration: 0.8,
         ease: "power2.inOut",
-        delay: 0.35,
+        delay: 1.5, // 1.2s entrance + 1.5s hold + 0.8s fade = 3.5 seconds total
       });
     }, overlayRef);
 
     return () => ctx.revert();
-  }, [pathname]);
+  }, []);
 
   if (!visible) return null;
 
@@ -80,7 +65,7 @@ export default function Preloader() {
         src="/images/logoo.png"
         alt="Mirqas Perfumes"
         style={{
-          width: "min(50vw, 320px)",
+          width: "min(60vw, 360px)",
           height: "auto",
           display: "block",
           mixBlendMode: "multiply",

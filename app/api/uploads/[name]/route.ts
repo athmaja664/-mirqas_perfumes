@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { UPLOAD_DIR } from "@/lib/uploads";
+import { connectDB } from "@/lib/db";
+import { initMediaUpload } from "@/models/MediaUpload";
 
 export const runtime = "nodejs";
 
@@ -24,20 +26,37 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (!match) return new NextResponse("Not found", { status: 404 });
 
   let file: Buffer | null = null;
+  let contentType = TYPES[match[1]] || "application/octet-stream";
 
-  // Search primary UPLOAD_DIR, then fallback paths (/tmp or process.cwd())
-  const candidatePaths = [
-    path.join(UPLOAD_DIR, name),
-    path.join(os.tmpdir(), "uploads", "products", name),
-    path.join(process.cwd(), "uploads", "products", name),
-  ];
+  // 1. Try reading from persistent database storage
+  try {
+    await connectDB();
+    const MediaModel = initMediaUpload();
+    const record = await MediaModel.findByPk(name);
+    if (record && record.data) {
+      file = Buffer.from(record.data);
+      if (record.mimeType) contentType = record.mimeType;
+    }
+  } catch (dbErr) {
+    console.warn("DB media fetch failed, checking disk:", dbErr);
+  }
 
-  for (const p of candidatePaths) {
-    try {
-      file = await readFile(p);
-      break;
-    } catch {
-      // continue to next path
+  // 2. If not in DB, search primary UPLOAD_DIR and fallback disk paths
+  if (!file) {
+    const candidatePaths = [
+      path.join(UPLOAD_DIR, name),
+      path.join(os.tmpdir(), "uploads", "products", name),
+      path.join(process.cwd(), "uploads", "products", name),
+      path.join(process.cwd(), "public", "uploads", "products", name),
+    ];
+
+    for (const p of candidatePaths) {
+      try {
+        file = await readFile(p);
+        break;
+      } catch {
+        // continue searching
+      }
     }
   }
 
@@ -46,7 +65,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   }
 
   const headers: Record<string, string> = {
-    "Content-Type": TYPES[match[1]] || "application/octet-stream",
+    "Content-Type": contentType,
     "Cache-Control": "public, max-age=31536000, immutable",
     "X-Content-Type-Options": "nosniff",
     "Accept-Ranges": "bytes",
