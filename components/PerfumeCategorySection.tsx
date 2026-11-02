@@ -75,9 +75,12 @@ function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: s
   const [videoFailed, setVideoFailed] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
 
-  const showVideo = !!video && !videoFailed;
+  const isVideo = !!video && /\.(mp4|webm|mov)(\?.*)?$/i.test(video);
+  const showVideo = isVideo && !videoFailed;
+  const hoverFlipImage = !isVideo && !!video ? video : null;
 
   useEffect(() => {
+    if (!showVideo) return;
     const v = videoRef.current;
     const box = boxRef.current;
     if (!v || !box) return;
@@ -92,9 +95,7 @@ function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: s
 
     const play = () => {
       if (reduce || !visible) return;
-      v.play().catch(() => {
-        // Blocked: it will retry on the first touch below
-      });
+      v.play().catch(() => {});
     };
 
     const io = new IntersectionObserver(
@@ -116,10 +117,10 @@ function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: s
       v.removeEventListener("loadeddata", play);
       v.pause();
     };
-  }, [video]);
+  }, [showVideo]);
 
   return (
-    <div ref={boxRef} className="relative h-full w-full bg-[#F6EEE0]">
+    <div ref={boxRef} className="relative h-full w-full overflow-hidden bg-[#F6EEE0]">
       {showVideo ? (
         <video
           ref={videoRef}
@@ -135,12 +136,35 @@ function ProductMedia({ src, video, alt }: { src: string; video?: string; alt: s
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
       ) : src && !imgFailed ? (
+        <>
+          {/* Main image */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            onError={() => setImgFailed(true)}
+            className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+              hoverFlipImage ? "group-hover:opacity-0" : ""
+            }`}
+          />
+          {/* Flip image on hover */}
+          {hoverFlipImage && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={hoverFlipImage}
+              alt={`${alt} hover`}
+              loading="lazy"
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            />
+          )}
+        </>
+      ) : hoverFlipImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={src}
+          src={hoverFlipImage}
           alt={alt}
           loading="lazy"
-          onError={() => setImgFailed(true)}
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
       ) : (

@@ -12,7 +12,6 @@ const COPPER = "#9C5A2B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const MAX_IMAGES = 10;
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB client check
-const MAX_VIDEO_BYTES = 30 * 1024 * 1024; // 30 MB (uploaded via chunking)
 const COMPRESS_TARGET = 3 * 1024 * 1024; // auto-compress images above 3 MB
 
 // Resize + JPEG-compress an image client-side so it easily fits within Vercel's 4.5 MB body limit.
@@ -73,7 +72,7 @@ export type ProductData = {
   salePrice: number | null; // paise
   category: string;
   images: string[];
-  video: string;
+  video: string; // stores hover flip image URL or ""
   stock: number;
   isActive: boolean;
   isBestSeller: boolean;
@@ -82,11 +81,9 @@ export type ProductData = {
   showInNewArrivals?: boolean;
 };
 
-type CardMedia = "none" | "video" | "image";
+type CardMedia = "none" | "image";
 
 const toRupees = (paise: number) => String(paise / 100);
-
-const isVideoUrl = (url: string) => /\.(mp4|webm|mov)(\?.*)?$/i.test(url);
 
 function Thumb({ url, onClick }: { url: string; onClick?: () => void }) {
   const [failed, setFailed] = useState(false);
@@ -128,10 +125,9 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [stock, setStock] = useState(String(product?.stock ?? 0));
   const [images, setImages] = useState<string[]>(product?.images ?? []);
 
+  // Card hover media: either "none" or "image" (saved in the existing product.video string field)
   const [media, setMedia] = useState(product?.video ?? "");
-  const [mediaType, setMediaType] = useState<CardMedia>(
-    !product?.video ? "none" : isVideoUrl(product.video) ? "video" : "image"
-  );
+  const [mediaType, setMediaType] = useState<CardMedia>(!product?.video ? "none" : "image");
 
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [isBestSeller, setIsBestSeller] = useState(product?.isBestSeller ?? false);
@@ -157,75 +153,26 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // Only used for actual errors that require user attention
+  // Used only for actual errors
   function showAlert(message: string, type: "info" | "error" | "success" = "error", title?: string) {
     setError(type === "error" ? message : "");
     setAlertData({ open: true, message, type, title });
   }
 
-  async function uploadOne(file: File, kind: "image" | "video"): Promise<string> {
-    const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB slices
+  async function uploadOne(file: File): Promise<string> {
+    const body = new FormData();
+    body.append("files", file);
 
-    // Direct upload for files 3.5 MB or smaller
-    if (file.size <= 3.5 * 1024 * 1024) {
-      const body = new FormData();
-      if (kind === "video") body.append("kind", "video");
-      body.append("files", file);
-
-      const res = await fetch("/api/admin/uploads", { method: "POST", body });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(json.message || "Upload failed.");
-      }
-      const url = (json.urls as string[])?.[0];
-      if (!url) throw new Error("Server returned no URL for uploaded file.");
-      return url;
+    const res = await fetch("/api/admin/uploads", { method: "POST", body });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(json.message || "Upload failed.");
     }
-
-    // Chunked upload for larger files (e.g. videos 3.5 MB - 30 MB)
-    // Completely bypasses Vercel's 4.5 MB request body limit
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    const uploadId =
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15) +
-      Date.now().toString(36);
-
-    let finalUrl = "";
-
-    try {
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(file.size, start + CHUNK_SIZE);
-        const chunkBlob = file.slice(start, end);
-
-        setUploadProgress(`Uploading ${kind} (${Math.round(((i + 1) / totalChunks) * 100)}%)...`);
-
-        const body = new FormData();
-        body.append("uploadId", uploadId);
-        body.append("chunkIndex", String(i));
-        body.append("totalChunks", String(totalChunks));
-        body.append("filename", file.name);
-        body.append("kind", kind);
-        body.append("chunk", chunkBlob, file.name);
-
-        const res = await fetch("/api/admin/uploads/chunk", { method: "POST", body });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(json.message || `Upload failed at chunk ${i + 1} of ${totalChunks}.`);
-        }
-
-        if (json.done && json.urls?.[0]) {
-          finalUrl = json.urls[0];
-        }
-      }
-    } finally {
-      setUploadProgress("");
-    }
-    if (!finalUrl) throw new Error("File upload failed to finalize.");
-    return finalUrl;
+    const url = (json.urls as string[])?.[0];
+    if (!url) throw new Error("Server returned no URL for uploaded file.");
+    return url;
   }
 
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
@@ -251,16 +198,14 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       const compressed = await Promise.all(picked.map((f) => compressImage(f)));
       const results: string[] = [];
       for (const f of compressed) {
-        const u = await uploadOne(f, "image");
+        const u = await uploadOne(f);
         results.push(u);
       }
       setImages((prev) => [...prev, ...results]);
-      // Silently added to state without popup alert
     } catch (err) {
       showAlert(err instanceof Error ? err.message : "Upload failed.", "error");
     } finally {
       setUploading(false);
-      setUploadProgress("");
     }
   }
 
@@ -270,7 +215,6 @@ export default function ProductForm({ product }: { product?: ProductData }) {
 
   function makeMain(url: string) {
     setImages((prev) => [url, ...prev.filter((u) => u !== url)]);
-    // Silently updated without popup alert
   }
 
   function changeMediaType(t: CardMedia) {
@@ -287,24 +231,20 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     if (!file || mediaType === "none") return;
 
     setError("");
-    const isVideo = mediaType === "video";
-    const limit = isVideo ? MAX_VIDEO_BYTES : MAX_BYTES;
-    if (file.size > limit) {
-      showAlert(`${file.name} is larger than ${limit / 1024 / 1024} MB.`, "error");
+    if (file.size > MAX_BYTES) {
+      showAlert(`${file.name} is larger than 4 MB. Please select a smaller image.`, "error");
       return;
     }
 
     setUploadingMedia(true);
     try {
-      const ready = isVideo ? file : await compressImage(file);
-      const url = await uploadOne(ready, isVideo ? "video" : "image");
+      const ready = await compressImage(file);
+      const url = await uploadOne(ready);
       setMedia(url);
-      // Silently set media without popup alert
     } catch (err) {
       showAlert(err instanceof Error ? err.message : "Upload failed.", "error");
     } finally {
       setUploadingMedia(false);
-      setUploadProgress("");
     }
   }
 
@@ -371,11 +311,8 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       return;
     }
 
-    if (mediaType !== "none" && !media) {
-      showAlert(
-        mediaType === "video" ? "Upload the video, or select 'No hover media'." : "Upload the hover image, or select 'No hover media'.",
-        "error"
-      );
+    if (mediaType === "image" && !media) {
+      showAlert("Upload the hover flip image, or select 'No hover image'.", "error");
       return;
     }
 
@@ -427,9 +364,8 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const hint = "m-0 mb-3 text-[13px] leading-relaxed text-black/55";
 
   const mediaOptions: { value: CardMedia; title: string; text: string }[] = [
-    { value: "none", title: "No hover media", text: "The card shows only the first image." },
-    { value: "video", title: "Video", text: "A video plays when the card is hovered or scrolled into view." },
-    { value: "image", title: "One image", text: "The card changes to this image when hovered or scrolled into view." },
+    { value: "none", title: "No hover image", text: "The card shows only the main product image." },
+    { value: "image", title: "Hover flip image", text: "The card flips to this image when hovered or viewed." },
   ];
 
   return (
@@ -648,7 +584,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
           />
           {uploading && (
             <p className="mb-0 mt-2 text-[13px] font-medium text-[#9C5A2B]">
-              {uploadProgress || "Uploading images…"}
+              Uploading images…
             </p>
           )}
 
@@ -675,15 +611,14 @@ export default function ProductForm({ product }: { product?: ProductData }) {
           )}
         </div>
 
-        {/* 2. Card media: ONE video OR ONE image */}
+        {/* 2. Card hover flip image (optional) */}
         <fieldset className="m-0 min-w-0 border-0 p-0">
-          <legend className={label}>Card hover media (choose one, optional)</legend>
+          <legend className={label}>Card hover image (optional)</legend>
           <p className={hint}>
-            This shows on the product card after the thumbnail. Choose a video <strong>or</strong> one image,
-            not both.
+            Choose whether the product card flips to a second image when hovered on desktop or scrolled into view on mobile.
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {mediaOptions.map((o) => {
               const active = mediaType === o.value;
               return (
@@ -710,46 +645,31 @@ export default function ProductForm({ product }: { product?: ProductData }) {
             })}
           </div>
 
-          {mediaType !== "none" && (
+          {mediaType === "image" && (
             <div className="mt-4">
               <label className={label} htmlFor="mediaFile">
-                {mediaType === "video"
-                  ? "Video (MP4, WebM or MOV, up to 30 MB)"
-                  : "Hover image (JPG, PNG or WebP, auto-compressed)"}
+                Hover flip image (JPG, PNG or WebP, auto-compressed)
               </label>
               <input
                 id="mediaFile"
-                key={mediaType}
                 type="file"
-                accept={mediaType === "video" ? "video/mp4,video/webm,video/quicktime,video/*" : "image/jpeg,image/png,image/webp"}
+                accept="image/jpeg,image/png,image/webp"
                 disabled={uploadingMedia}
                 onChange={onPickMedia}
                 className={filePicker}
               />
               {uploadingMedia && (
                 <p className="mb-0 mt-2 text-[13px] font-medium text-[#9C5A2B]">
-                  {uploadProgress || (mediaType === "video" ? "Uploading video…" : "Uploading image…")}
+                  Uploading hover image…
                 </p>
               )}
 
               {media && (
                 <div className="mt-4 w-full max-w-[12rem] border border-black/10">
-                  {isVideoUrl(media) ? (
-                    <video
-                      key={media}
-                      src={media}
-                      muted
-                      loop
-                      autoPlay
-                      playsInline
-                      className="aspect-square w-full bg-[#F3E7D5] object-cover"
-                    />
-                  ) : (
-                    <Thumb url={media} onClick={() => setPreviewUrl(media)} />
-                  )}
+                  <Thumb url={media} onClick={() => setPreviewUrl(media)} />
                   <div className="px-2 py-1 text-[11px] uppercase tracking-[0.12em]">
                     <button type="button" onClick={() => setMedia("")} className={smallLink}>
-                      {mediaType === "video" ? "Remove video" : "Remove image"}
+                      Remove hover image
                     </button>
                   </div>
                 </div>
