@@ -97,12 +97,19 @@ function ArrowButton({ dir, onClick }: { dir: "prev" | "next"; onClick: () => vo
       type="button"
       onClick={onClick}
       aria-label={dir === "prev" ? "Previous sizes" : "Next sizes"}
-      className={`absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border bg-transparent transition-colors hover:bg-[#9C5A2B] hover:text-white md:flex ${
+      className={`absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[#9C5A2B]/40 bg-[#FFFFFF] text-[#9C5A2B] transition-colors duration-200 hover:border-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-[#FFFFFF] md:flex ${
         dir === "prev" ? "left-0" : "right-0"
       }`}
-      style={{ borderColor: COPPER_SOFT, color: COPPER }}
     >
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <svg
+        viewBox="0 0 24 24"
+        className="h-4 w-4 stroke-current transition-colors duration-200"
+        fill="none"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
         <path d={dir === "prev" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
       </svg>
     </button>

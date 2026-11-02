@@ -125,9 +125,11 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [stock, setStock] = useState(String(product?.stock ?? 0));
   const [images, setImages] = useState<string[]>(product?.images ?? []);
 
-  // Card hover media: either "none" or "image" (saved in the existing product.video string field)
-  const [media, setMedia] = useState(product?.video ?? "");
-  const [mediaType, setMediaType] = useState<CardMedia>(!product?.video ? "none" : "image");
+  // Card hover image: either "none" or "image" (stored in product.video column, ignoring any legacy .mp4/.webm videos)
+  const isLegacyVideo = Boolean(product?.video && /\.(mp4|webm|mov)(\?.*)?$/i.test(product.video));
+  const initialHoverImage = isLegacyVideo ? "" : (product?.video ?? "");
+  const [media, setMedia] = useState(initialHoverImage);
+  const [mediaType, setMediaType] = useState<CardMedia>(!initialHoverImage ? "none" : "image");
 
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [isBestSeller, setIsBestSeller] = useState(product?.isBestSeller ?? false);
