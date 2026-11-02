@@ -190,6 +190,12 @@ export default function CheckoutPage() {
                 }
               }
             }
+            try {
+              const localGiftNote = localStorage.getItem("mirqas_gift_note") || "";
+              if (localGiftNote && !giftLines.some((g) => g.includes(localGiftNote))) {
+                giftLines.push(`[Gift Card Note: "${localGiftNote}"]`);
+              }
+            } catch {}
             const giftWrapNotes = giftLines.join("\n");
             return [form.note.trim(), giftWrapNotes].filter(Boolean).join("\n\n");
           })(),
@@ -211,6 +217,7 @@ export default function CheckoutPage() {
 
       // Success: the order is saved. Now clear the browser cart.
       writeList(CART_KEY, []);
+      try { localStorage.removeItem("mirqas_gift_note"); } catch {}
       setItems([]);
       setPlaced(data.order as Placed);
 

@@ -143,7 +143,7 @@ const STEPS: { id: StepId; label: string; title: string; hint: string }[] = [
     id: 2,
     label: "Choose Your Box",
     title: "Choose a gift box / cover",
-    hint: "Pick the box or cover your perfumes arrive in, or select gift covers individually.",
+    hint: "Select a luxury presentation box, or choose standard packaging without extra charge.",
   },
 ];
 
@@ -1058,7 +1058,6 @@ export default function GiftPage() {
 
   const validate = (s: StepId): string | null => {
     if (s === 1 && perfumeCount < 1) return "Choose at least one perfume to continue.";
-    if (s === 2 && !sel.box) return "Choose a gift box to complete your bundle.";
     if (s === 2 && sel.message !== null && !sel.message.trim())
       return "Write your gift card message, or untick Include card.";
     return null;
@@ -1123,9 +1122,6 @@ export default function GiftPage() {
       if (perfumeCount < 1) setStep(1);
       return;
     }
-    const box = boxes.find((b) => b.id === sel.box);
-    if (!box) return;
-
     const chosen = lineItems(sel.perfumes, products);
 
     // 1. Add chosen perfumes to real cart
@@ -1140,21 +1136,31 @@ export default function GiftPage() {
       addLineToCart(item, m.ml, m.qty);
     }
 
-    // 2. Add chosen gift cover to real cart (ml: 0)
-    const boxItem: WishItem = {
-      slug: box.slug,
-      name: box.name,
-      image: box.image,
-      sizes: [{ ml: 0, price: box.price, soldOut: false }],
-      soldOut: false,
-    };
-    const wrappedItems: WrappedItemRef[] = chosen.map((m) => ({
-      slug: m.product.id,
-      name: m.product.name,
-      ml: m.ml,
-    }));
+    // 2. Add chosen gift cover to real cart (ml: 0) if one is selected
+    const box = boxes.find((b) => b.id === sel.box);
     const giftCardMessage = sel.message?.trim() ? sel.message.trim() : undefined;
-    addLineToCart(boxItem, 0, 1, { isGiftCover: true, wrappedItems, giftCardMessage });
+
+    if (box) {
+      const boxItem: WishItem = {
+        slug: box.slug,
+        name: box.name,
+        image: box.image,
+        sizes: [{ ml: 0, price: box.price, soldOut: false }],
+        soldOut: false,
+      };
+      const wrappedItems: WrappedItemRef[] = chosen.map((m) => ({
+        slug: m.product.id,
+        name: m.product.name,
+        ml: m.ml,
+      }));
+      addLineToCart(boxItem, 0, 1, { isGiftCover: true, wrappedItems, giftCardMessage });
+    } else if (giftCardMessage) {
+      try {
+        localStorage.setItem("mirqas_gift_note", giftCardMessage);
+      } catch {
+        // ignore
+      }
+    }
 
     // 3. Feedback and reset
     showToast("✓ Your custom gift bundle was added to the cart!", "/cart");
@@ -1268,15 +1274,59 @@ export default function GiftPage() {
                         Could not load gift covers. Please refresh.
                       </p>
                     </div>
-                  ) : boxes.length === 0 ? (
-                    <div className="mx-auto max-w-md rounded-xl border border-dashed border-[#9C5A2B]/30 bg-white/60 p-8 text-center">
-                      <p className="font-medium text-[#111111]">No gift covers are currently available.</p>
-                      <p className={`mt-1 text-xs ${MUTED}`}>
-                        Please check back soon or continue with your selected fragrances.
-                      </p>
-                    </div>
                   ) : (
                     <div className={GRID}>
+                      <div className={GRID_ITEM}>
+                        <article
+                          className={`group relative flex h-full w-full flex-col overflow-hidden rounded-[14px] border bg-white transition-all duration-300 hover:shadow-[0_10px_30px_rgba(120,80,30,0.12)] ${
+                            sel.box === null ? "border-[#9C5A2B] ring-2 ring-[#9C5A2B]/40" : ""
+                          }`}
+                          style={{ borderColor: sel.box === null ? COPPER : CARD_BORDER, fontFamily: sans }}
+                        >
+                          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-[14px] bg-[#F6EEE0] flex flex-col items-center justify-center p-6 text-center">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#9C5A2B]/10 text-[#9C5A2B] sm:h-16 sm:w-16">
+                              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <rect x="3" y="8" width="18" height="13" rx="2" />
+                                <path d="M16 8V5a4 4 0 0 0-8 0v3" />
+                              </svg>
+                            </div>
+                            <span className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-[#9C5A2B]">
+                              Standard Packaging
+                            </span>
+                          </div>
+                          <div className="flex flex-1 flex-col items-center px-3 pb-4 pt-3 text-center sm:px-4 sm:pb-5 sm:pt-4">
+                            <h3
+                              className="m-0 font-medium leading-[1.2]"
+                              style={{ fontFamily: serif, color: COPPER, fontSize: "clamp(1.1rem, 2vw, 1.4rem)" }}
+                            >
+                              No Gift Box
+                            </h3>
+                            <p className="m-0 mt-1 line-clamp-2 text-[11px] leading-snug text-[#111111]/60 sm:text-[12px]">
+                              Standard Mirqas delivery packaging. Clean, secure, and no extra charge.
+                            </p>
+                            <p className="m-0 mt-2 text-[14px] font-semibold text-emerald-700 sm:mt-3 sm:text-[16px]">
+                              Free (₹0)
+                            </p>
+                            <div className="mt-auto flex w-full flex-col gap-2 pt-4">
+                              <button
+                                type="button"
+                                onClick={() => setSel((s) => ({ ...s, box: null }))}
+                                className={`${
+                                  sel.box === null ? BTN : BTN_LINE
+                                } flex h-10 w-full items-center justify-center gap-1.5 rounded-[6px] text-[11px] font-semibold uppercase tracking-[0.1em] transition-all`}
+                              >
+                                {sel.box === null ? (
+                                  <>
+                                    <Icon d={ICONS.check} size={16} /> Selected (No Box)
+                                  </>
+                                ) : (
+                                  "Select (No Box)"
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </article>
+                      </div>
                       {boxes.map((b) => (
                         <div key={b.id} className={GRID_ITEM}>
                           <GiftCoverCard
