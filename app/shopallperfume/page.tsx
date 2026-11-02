@@ -93,7 +93,47 @@ type ApiProduct = {
   occasion: string[];
   family: string;
   notes: string[];
+  category?: string;
+  sections?: string[];
 };
+
+function isGiftCoverProduct(p: {
+  category?: string;
+  family?: string;
+  name?: string;
+  sections?: string[];
+}): boolean {
+  const cat = (p.category || "").toLowerCase().trim();
+  const fam = (p.family || "").toLowerCase().trim();
+  const name = (p.name || "").toLowerCase().trim();
+  const sections = Array.isArray(p.sections) ? p.sections : [];
+
+  if (
+    cat === "gift cover" ||
+    cat === "gift covers" ||
+    cat === "gift box" ||
+    cat === "gift boxes" ||
+    cat.includes("gift cover") ||
+    cat.includes("gift box") ||
+    cat === "packaging"
+  ) {
+    return true;
+  }
+
+  if (fam === "gift cover" || fam.includes("gift cover")) {
+    return true;
+  }
+
+  if (sections.includes("gift-covers")) {
+    return true;
+  }
+
+  if (name.includes("gift cover") || name.includes("gift box")) {
+    return true;
+  }
+
+  return false;
+}
 
 // One item in the browser wishlist (prices in rupees)
 type WishItem = {
@@ -770,8 +810,9 @@ function ShopAllPerfumes() {
       .then((r) => r.json())
       .then((d: { items: ApiProduct[] }) => {
         if (cancelled) return;
+        const perfumeItems = (d.items || []).filter((item) => !isGiftCoverProduct(item));
         setPerfumes(
-          d.items.map((a): Perfume => {
+          perfumeItems.map((a): Perfume => {
             const onSale = a.salePrice != null;
 
             // Card media rule:

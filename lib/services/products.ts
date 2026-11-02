@@ -109,7 +109,31 @@ export async function listProducts(sp: URLSearchParams, activeOnly: boolean) {
   const limit = num(sp.get("limit"), 12, 1, 48);
 
   const where: Record<string | symbol, unknown> = {};
-  if (activeOnly) where.isActive = true;
+  if (activeOnly) {
+    where.isActive = true;
+    const existingAnd = (where[Op.and as unknown as symbol] as unknown[]) || [];
+    where[Op.and as unknown as symbol] = [
+      ...existingAnd,
+      {
+        [Op.or]: [
+          { category: null },
+          {
+            [Op.and]: [
+              { category: { [Op.notIn]: ["Gift Cover", "Gift Covers", "Gift Box", "Gift Boxes"] } },
+              { category: { [Op.notLike]: "%Gift Cover%" } },
+              { category: { [Op.notLike]: "%Gift Box%" } },
+            ],
+          },
+        ],
+      },
+      {
+        [Op.or]: [
+          { family: null },
+          { family: { [Op.ne]: "Gift Cover" } },
+        ],
+      },
+    ];
+  }
   else if (sp.get("status") === "active") where.isActive = true;
   else if (sp.get("status") === "inactive") where.isActive = false;
 
