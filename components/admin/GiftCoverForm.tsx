@@ -277,7 +277,7 @@ export default function GiftCoverForm({ giftCover }: { giftCover?: GiftCoverData
 
         {/* Media & Images Card */}
         <div className="rounded-xl border bg-white p-5 shadow-sm sm:p-6" style={{ borderColor: CARD_LINE }}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-[#111111]">Images <span className="text-red-500">*</span></h2>
               <p className="mt-0.5 text-xs text-[#111111]/60">
@@ -288,7 +288,7 @@ export default function GiftCoverForm({ giftCover }: { giftCover?: GiftCoverData
               type="button"
               disabled={uploading}
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-lg border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white disabled:opacity-50"
+              className="w-full shrink-0 rounded-lg border px-3.5 py-2 text-xs font-semibold uppercase tracking-wider text-[#9C5A2B] hover:bg-[#9C5A2B] hover:text-white disabled:opacity-50 sm:w-auto"
               style={{ borderColor: COPPER }}
             >
               {uploading ? "Uploading..." : "+ Upload Image"}
@@ -420,10 +420,10 @@ export default function GiftCoverForm({ giftCover }: { giftCover?: GiftCoverData
         </div>
 
         {/* Submit Actions */}
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-end">
           <Link
             href="/admin/gift-covers"
-            className="rounded-lg border px-5 py-3 text-sm font-semibold text-stone-700 hover:bg-stone-100"
+            className="w-full rounded-lg border px-5 py-3 text-center text-sm font-semibold text-stone-700 hover:bg-stone-100 sm:w-auto"
             style={{ borderColor: CARD_LINE }}
           >
             Cancel
@@ -431,7 +431,7 @@ export default function GiftCoverForm({ giftCover }: { giftCover?: GiftCoverData
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex min-w-[150px] items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-95 disabled:opacity-50"
+            className="inline-flex w-full min-w-[150px] items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-95 disabled:opacity-50 sm:w-auto"
             style={{ background: COPPER }}
           >
             {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Gift Cover"}
