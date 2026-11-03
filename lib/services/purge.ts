@@ -2,7 +2,7 @@ import { connectDB, getSequelize, Op } from "@/lib/db";
 import { User } from "@/models/User";
 import { Session } from "@/models/Session";
 import { Product } from "@/models/Product";
-import { Order } from "@/models/Order";
+import { Order, OrderItem, OrderStatusHistory } from "@/models/Order";
 import { Review } from "@/models/Review";
 import { Cart, CartItem } from "@/models/Cart";
 import { Wishlist, WishlistItem } from "@/models/Wishlist";
@@ -92,6 +92,42 @@ export async function deleteProduct(id: string): Promise<PurgeResult> {
       status: 500,
       code: "error",
       message: err instanceof Error ? err.message : "Failed to delete product.",
+    };
+  }
+}
+
+export async function deleteOrder(id: string): Promise<PurgeResult> {
+  if (!id || typeof id !== "string")
+    return { ok: false, status: 404, code: "not-found", message: "Order not found." };
+
+  await connectDB();
+  const order = await Order.findByPk(id);
+  if (!order) return { ok: false, status: 404, code: "not-found", message: "Order not found." };
+
+  const sequelize = getSequelize();
+
+  try {
+    await sequelize.transaction(async (t) => {
+      await sequelize.query("SET FOREIGN_KEY_CHECKS = 0;", { transaction: t });
+      await OrderItem.destroy({ where: { orderId: order.id }, transaction: t });
+      await OrderStatusHistory.destroy({ where: { orderId: order.id }, transaction: t });
+      await Order.destroy({ where: { id: order.id }, transaction: t });
+      await sequelize.query("SET FOREIGN_KEY_CHECKS = 1;", { transaction: t });
+    });
+
+    return { ok: true };
+  } catch (err) {
+    console.error("deleteOrder error:", err);
+    try {
+      await sequelize.query("SET FOREIGN_KEY_CHECKS = 1;");
+    } catch {
+      // ignore
+    }
+    return {
+      ok: false,
+      status: 500,
+      code: "error",
+      message: err instanceof Error ? err.message : "Failed to delete order.",
     };
   }
 }

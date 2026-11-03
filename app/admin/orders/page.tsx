@@ -1,14 +1,30 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { connectDB, Op } from "@/lib/db";
 import { Order, OrderItem, ORDER_STATUSES, type OrderStatus, type PaymentMethod, type PaymentStatus } from "@/models/Order";
 import { isOrderStatus } from "@/lib/services/order-status";
 import { formatPaise } from "@/lib/money";
+import { deleteOrder } from "@/lib/services/purge";
 import AdminShell from "@/components/admin/AdminShell";
 import { StatusBadge, label, paymentText } from "@/components/admin/OrderBadges";
+import ConfirmDeleteButton from "@/components/admin/ConfirmDeleteButton";
 
 export const dynamic = "force-dynamic";
+
+async function deleteOrderAction(formData: FormData) {
+  "use server";
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") redirect("/login");
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const result = await deleteOrder(id);
+  revalidatePath("/admin/orders");
+  redirect(result.ok ? "/admin/orders?done=deleted" : "/admin/orders?error=failed");
+}
 
 const COPPER = "#9C5A2B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
@@ -80,6 +96,17 @@ export default async function AdminOrdersPage({
       </h1>
       <p className="mb-6 mt-0 text-[14px] text-black/55 md:mb-8">Pending orders: {pendingCount}</p>
 
+      {sp.done === "deleted" && (
+        <p role="status" className="mb-4 px-3 py-2 text-[13px]" style={{ background: "#E3F2E6", color: "#1F7A3A" }}>
+          Order deleted successfully.
+        </p>
+      )}
+      {sp.error === "failed" && (
+        <p role="alert" className="mb-4 px-3 py-2 text-[13px]" style={{ background: "#F8E3E0", color: "#A32A1F" }}>
+          Could not delete order. Please try again.
+        </p>
+      )}
+
       {/* Filter: search takes the full row on phones, then the dropdown and button share the next row */}
       <form method="get" className="mb-5 flex flex-wrap gap-3">
         <input
@@ -141,13 +168,23 @@ export default async function AdminOrdersPage({
                     {new Date(o.createdAt).toLocaleDateString("en-IN")}
                   </p>
 
-                  <Link
-                    href={`/admin/orders/${String(o._id)}`}
-                    className="mt-2 inline-block py-2 text-[13px] underline underline-offset-4"
-                    style={{ color: COPPER }}
-                  >
-                    View order
-                  </Link>
+                  <div className="mt-2 flex items-center justify-between">
+                    <Link
+                      href={`/admin/orders/${String(o._id)}`}
+                      className="py-1 text-[13px] underline underline-offset-4"
+                      style={{ color: COPPER }}
+                    >
+                      View order
+                    </Link>
+                    <form action={deleteOrderAction} className="m-0 flex items-center">
+                      <input type="hidden" name="id" value={String(o._id)} />
+                      <ConfirmDeleteButton
+                        label={`Delete order ${o.orderNumber}`}
+                        title="Delete order?"
+                        message={`Delete order ${o.orderNumber} for good?\n\nThis cannot be undone.`}
+                      />
+                    </form>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -183,9 +220,19 @@ export default async function AdminOrdersPage({
                         <StatusBadge status={o.status} />
                       </td>
                       <td className="px-4 py-3">
-                        <Link href={`/admin/orders/${String(o._id)}`} className="underline underline-offset-4">
-                          View
-                        </Link>
+                        <div className="flex h-8 items-center gap-3">
+                          <Link href={`/admin/orders/${String(o._id)}`} className="underline underline-offset-4">
+                            View
+                          </Link>
+                          <form action={deleteOrderAction} className="m-0 flex h-8 items-center">
+                            <input type="hidden" name="id" value={String(o._id)} />
+                            <ConfirmDeleteButton
+                              label={`Delete order ${o.orderNumber}`}
+                              title="Delete order?"
+                              message={`Delete order ${o.orderNumber} for good?\n\nThis cannot be undone.`}
+                            />
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   ))}
