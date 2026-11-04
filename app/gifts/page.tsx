@@ -939,7 +939,7 @@ function BundleSummary(p: SummaryProps) {
 
 /* ───────────────────────── Page Main ───────────────────────── */
 
-export function isGiftCoverCategory(category?: string): boolean {
+function isGiftCoverCategory(category?: string): boolean {
   if (!category) return false;
   const c = category.toLowerCase().trim();
   return (

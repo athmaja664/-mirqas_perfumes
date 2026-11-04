@@ -27,6 +27,7 @@
     "react-dom": "19.3.0",
     "react-icons": "^5.7.0",
     "react-toastify": "^11.1.0",
+    "resend": "^6.37.0",
     "sequelize": "^6.37.8",
     "toast": "^0.5.4",
     "zod": "^4.6.7"

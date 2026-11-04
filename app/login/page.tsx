@@ -21,6 +21,7 @@ const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
 type Tab = "login" | "register";
+type RegMethod = "email" | "phone";
 
 function EyeIcon({ off }: { off: boolean }) {
   return (
@@ -40,7 +41,7 @@ const Spinner = () => (
 );
 
 function Field({
-  label, id, type = "text", value, onChange, autoComplete, placeholder, inputMode, toggle,
+  label, id, type = "text", value, onChange, autoComplete, placeholder, inputMode, toggle, headerRight,
 }: {
   label: string;
   id: string;
@@ -51,16 +52,20 @@ function Field({
   placeholder?: string;
   inputMode?: "text" | "email" | "tel";
   toggle?: { shown: boolean; onToggle: () => void };
+  headerRight?: React.ReactNode;
 }) {
   return (
     <div>
-      <label
-        htmlFor={id}
-        className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em]"
-        style={{ color: MUTED }}
-      >
-        {label}
-      </label>
+      <div className="mb-2 flex items-center justify-between">
+        <label
+          htmlFor={id}
+          className="block text-[11px] font-medium uppercase tracking-[0.16em]"
+          style={{ color: MUTED }}
+        >
+          {label}
+        </label>
+        {headerRight}
+      </div>
       <div className="relative">
         <input
           id={id}
@@ -95,13 +100,15 @@ function Field({
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("login");
+  const [regMethod, setRegMethod] = useState<RegMethod>("email");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState(""); // For login: email or phone
+  const [email, setEmail] = useState(""); // For registration
+  const [phone, setPhone] = useState(""); // For registration
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -120,10 +127,20 @@ export default function LoginPage() {
   };
 
   const validate = (): string => {
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return "Please enter a valid email address.";
-    if (tab === "login") return password ? "" : "Please enter your password.";
+    if (tab === "login") {
+      if (!identifier.trim()) return "Please enter your email address or phone number.";
+      if (!password) return "Please enter your password.";
+      return "";
+    }
+
     if (name.trim().length < 2) return "Please enter your full name.";
-    if (!/^\+?[0-9\s-]{7,15}$/.test(phone.trim())) return "Please enter a valid mobile number.";
+
+    if (regMethod === "email") {
+      if (!/^\S+@\S+\.\S+$/.test(email.trim())) return "Please enter a valid email address.";
+    } else {
+      if (!/^\+?[0-9\s-]{7,15}$/.test(phone.trim())) return "Please enter a valid mobile number.";
+    }
+
     if (password.length < 8) return "Password must be at least 8 characters.";
     if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password))
       return "Password must include a letter and a number.";
@@ -145,8 +162,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (tab === "login") {
-        // One login form for everyone: the server reads the role from the database.
-        const data = await loginRequest(email.trim(), password, false);
+        // One login form for everyone: supports email or phone
+        const data = await loginRequest(identifier.trim(), password, false);
         if (data?.user?.id) {
           setActiveUserId(String(data.user.id));
         }
@@ -155,16 +172,18 @@ export default function LoginPage() {
       } else {
         await registerRequest({
           name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
+          registrationMethod: regMethod,
+          email: regMethod === "email" ? email.trim() : undefined,
+          phone: regMethod === "phone" ? phone.trim() : undefined,
           password,
           confirmPassword: confirm,
         });
         setTab("login");
+        setIdentifier(regMethod === "email" ? email.trim() : phone.trim());
         setPassword("");
         setConfirm("");
         setTerms(false);
-        setSuccess("Account created. Please sign in.");
+        setSuccess("Account created successfully. Please sign in.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -173,7 +192,7 @@ export default function LoginPage() {
     }
   };
 
-  // Tabs: copper when active, white with a copper outline when not (same as the Add to cart button)
+  // Main Tab Buttons (Login vs Register)
   const tabBtn = (t: Tab, label: string) => (
     <button
       type="button"
@@ -256,30 +275,92 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* Registration Method Choice */}
             {tab === "register" && (
-              <Field label="Full name" id="name" value={name} onChange={setName} autoComplete="name" />
+              <div>
+                <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em]" style={{ color: MUTED }}>
+                  Register With
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegMethod("email");
+                      setError("");
+                    }}
+                    className={`h-10 rounded-[6px] border text-xs font-semibold uppercase tracking-wider transition-colors ${
+                      regMethod === "email"
+                        ? "border-[#9C5A2B] bg-[#9C5A2B]/10 text-[#9C5A2B]"
+                        : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                    }`}
+                  >
+                    Email Address
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegMethod("phone");
+                      setError("");
+                    }}
+                    className={`h-10 rounded-[6px] border text-xs font-semibold uppercase tracking-wider transition-colors ${
+                      regMethod === "phone"
+                        ? "border-[#9C5A2B] bg-[#9C5A2B]/10 text-[#9C5A2B]"
+                        : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                    }`}
+                  >
+                    Phone Number
+                  </button>
+                </div>
+              </div>
             )}
 
-            <Field
-              label="Email"
-              id="email"
-              type="email"
-              inputMode="email"
-              value={email}
-              onChange={setEmail}
-              autoComplete="email"
-            />
-
             {tab === "register" && (
+              <Field label="Full name" id="name" value={name} onChange={setName} autoComplete="name" placeholder="e.g. Ayesha Khan" />
+            )}
+
+            {/* Login Identifier */}
+            {tab === "login" && (
               <Field
-                label="Mobile number"
-                id="phone"
-                type="tel"
-                inputMode="tel"
-                value={phone}
-                onChange={setPhone}
-                autoComplete="tel"
+                label="Email Address or Phone Number"
+                id="identifier"
+                type="text"
+                value={identifier}
+                onChange={setIdentifier}
+                autoComplete="username"
+                placeholder="Enter your email or phone number"
               />
+            )}
+
+            {/* Register: Email or Phone depending on chosen method */}
+            {tab === "register" && regMethod === "email" && (
+              <Field
+                label="Email Address"
+                id="email"
+                type="email"
+                inputMode="email"
+                value={email}
+                onChange={setEmail}
+                autoComplete="email"
+                placeholder="name@example.com"
+              />
+            )}
+
+            {tab === "register" && regMethod === "phone" && (
+              <div>
+                <Field
+                  label="Phone Number"
+                  id="phone"
+                  type="tel"
+                  inputMode="tel"
+                  value={phone}
+                  onChange={setPhone}
+                  autoComplete="tel"
+                  placeholder="+91 98765 43210"
+                />
+                <p className="mt-1 text-[11px] text-black/50">
+                  Includes international country code (e.g. +91 for India).
+                </p>
+              </div>
             )}
 
             <Field
@@ -288,7 +369,19 @@ export default function LoginPage() {
               value={password}
               onChange={setPassword}
               autoComplete={tab === "login" ? "current-password" : "new-password"}
+              placeholder="Enter your password"
               toggle={{ shown: showPw, onToggle: () => setShowPw((v) => !v) }}
+              headerRight={
+                tab === "login" ? (
+                  <Link
+                    href="/forgot-password"
+                    className="text-[12px] font-medium underline underline-offset-4 transition-colors hover:text-[#7d4720]"
+                    style={{ color: COPPER }}
+                  >
+                    Forgot Password?
+                  </Link>
+                ) : undefined
+              }
             />
 
             {tab === "register" && (
@@ -298,6 +391,7 @@ export default function LoginPage() {
                 value={confirm}
                 onChange={setConfirm}
                 autoComplete="new-password"
+                placeholder="Confirm your password"
                 toggle={{ shown: showConfirm, onToggle: () => setShowConfirm((v) => !v) }}
               />
             )}
@@ -315,7 +409,7 @@ export default function LoginPage() {
                 />
                 <span>
                   I agree to the{" "}
-                  <Link href="/terms" className="underline underline-offset-4 hover:text-[#9C5A2B]">
+                  <Link href="/terms-and-conditions" className="underline underline-offset-4 hover:text-[#9C5A2B]">
                     Terms &amp; Conditions
                   </Link>
                 </span>
