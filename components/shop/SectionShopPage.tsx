@@ -126,6 +126,7 @@ function addLineToCart(item: Omit<CartLine, "qty">, ml: number) {
 // ---------------------------------------------------------------------------
 const DEFAULT_STEPS = [
   { ml: 10, mult: 1 },
+  { ml: 15, mult: 1.35 },
   { ml: 30, mult: 2.25 },
   { ml: 50, mult: 3.4 },
   { ml: 100, mult: 5.6 },
@@ -410,7 +411,7 @@ function ProductCard({
       </div>
 
       {/* Details */}
-      <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
+      <div className="flex flex-1 flex-col items-center px-1.5 sm:px-2 md:px-3 pb-3 pt-3 text-center md:pb-5 md:pt-4">
         <h3
           className="m-0 line-clamp-2 font-medium leading-[1.2]"
           style={{
@@ -464,7 +465,7 @@ function ProductCard({
         </div>
 
         {/* Sizes in ONE line */}
-        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-between sm:justify-center gap-0.5 sm:gap-1 md:gap-1.5 lg:gap-2 border-0 p-0">
           <legend className="sr-only">Choose a size</legend>
           {sizes.map((s) => {
             const checked = s.ml === selectedMl;
@@ -472,7 +473,7 @@ function ProductCard({
             return (
               <label
                 key={s.ml}
-                className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
+                className={`flex shrink-0 items-center gap-[2px] sm:gap-[3px] md:gap-1 whitespace-nowrap text-[8.5px] sm:text-[9.5px] md:text-[10px] lg:text-[11.5px] lowercase ${
                   disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
                 }`}
                 style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
@@ -488,12 +489,12 @@ function ProductCard({
                 />
                 <span
                   aria-hidden
-                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
+                  className="flex h-[7px] w-[7px] sm:h-[8px] sm:w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[10px] md:w-[10px] md:rounded-[3px]"
                   style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
                 >
                   {checked && (
                     <span
-                      className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]"
+                      className="h-[3.5px] w-[3.5px] sm:h-[4px] sm:w-[4px] rounded-[1px] md:h-[5px] md:w-[5px] md:rounded-[2px]"
                       style={{ background: COPPER }}
                     />
                   )}
@@ -829,7 +830,7 @@ export default function SectionShopPage({
         .dual-range::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:9999px;background:${COPPER};border:0;cursor:pointer}
       `}</style>
 
-      <div className="mx-auto max-w-[1400px]">
+      <div className="mx-auto max-w-[1600px] px-3 sm:px-4 md:px-8 lg:px-12">
         {/* Banner */}
         <section className="relative mb-6 h-[260px] w-full overflow-hidden bg-[#111111] sm:mb-8 sm:h-[360px] lg:h-[420px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -933,7 +934,7 @@ export default function SectionShopPage({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4 lg:gap-6 xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 md:grid-cols-2 lg:grid-cols-3 md:gap-4 lg:gap-6">
                   {shown.map((p) => (
                     <ProductCard
                       key={p.slug}

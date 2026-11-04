@@ -47,7 +47,7 @@ type Product = {
   inStock: boolean;
 };
 
-const SIZE_LABELS = ["10ml", "30ml", "50ml", "100ml"];
+const SIZE_LABELS = ["10ml", "15ml", "30ml", "50ml", "100ml"];
 
 const DEFAULT_DESCRIPTION =
   "A smooth and warm fragrance with a silky finish. Made for evenings and special occasions, it stays close to the skin and lasts for hours.";
@@ -118,6 +118,12 @@ function ProductDetail() {
     const i = SIZE_LABELS.indexOf(sizeParam ?? "");
     return i >= 0 ? i : 0; // starts on 10ml, the same size the cards start on
   });
+
+  useEffect(() => {
+    if (!sizeParam) return;
+    const i = SIZE_LABELS.indexOf(sizeParam);
+    if (i >= 0) setSizeIndex(i);
+  }, [sizeParam]);
   const [qty, setQty] = useState(1);
   const [cartStatus, setCartStatus] = useState<"idle" | "adding" | "added" | "going">("idle");
   const [openAcc, setOpenAcc] = useState<number | null>(0);

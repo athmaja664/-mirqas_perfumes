@@ -7,7 +7,6 @@ export const SHOP_SECTIONS = [
   { value: "luxury", label: "Luxury Collection" },
   { value: "oud-arabian", label: "Oud & Arabian" },
   { value: "gift-sets", label: "Gift Sets" },
-  { value: "gift-covers", label: "Gift Covers" },
   // { value: "new-arrivals", label: "New Arrivals" },
 ];
 
@@ -22,5 +21,5 @@ export const COLLECTION_SECTIONS = [
   { value: "sweet-gourmand", label: "Sweet & Gourmand" },
 ];
 
-export const SECTION_VALUES = [...SHOP_SECTIONS.map((s) => s.value), "new-arrivals"];
+export const SECTION_VALUES = [...SHOP_SECTIONS.map((s) => s.value), "gift-covers", "new-arrivals"];
 export const COLLECTION_VALUES = COLLECTION_SECTIONS.map((s) => s.value);

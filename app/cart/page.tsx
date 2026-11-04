@@ -4,7 +4,7 @@
 // Visit: http://localhost:3000/cart
 // Self-contained page: the cart is saved in localStorage under "mirqas-cart".
 // Each cart item is a rounded card in the Shop All style, with the 4 sizes
-// (10ml 30ml 50ml 100ml) to switch, quantity buttons and a remove button.
+// (10ml 15ml 30ml 50ml 100ml) to switch, quantity buttons and a remove button.
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -36,7 +36,7 @@ type CartItem = {
   name: string;
   image?: string;
   notes?: string[];
-  sizes: SizeOption[]; // 10ml, 30ml, 50ml, 100ml
+  sizes: SizeOption[]; // 10ml, 15ml, 30ml, 50ml, 100ml
   ml: number; // chosen size
   qty: number;
   isGiftCover?: boolean;

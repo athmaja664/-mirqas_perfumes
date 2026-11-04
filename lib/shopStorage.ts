@@ -48,6 +48,7 @@ export type CartLine = {
 // (Same numbers as the shop cards, so the price is the same everywhere.)
 const DEFAULT_STEPS = [
   { ml: 10, mult: 1 },
+  { ml: 15, mult: 1.35 },
   { ml: 30, mult: 2.25 },
   { ml: 50, mult: 3.4 },
   { ml: 100, mult: 5.6 },

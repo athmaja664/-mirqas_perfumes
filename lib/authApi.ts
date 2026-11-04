@@ -21,6 +21,7 @@ export const loginRequest = (identifier: string, password: string, remember: boo
 export const registerRequest = (d: {
   name: string;
   registrationMethod?: "email" | "phone";
+  identifier?: string;
   email?: string;
   phone?: string;
   password: string;

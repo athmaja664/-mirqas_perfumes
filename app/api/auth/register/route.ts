@@ -17,40 +17,40 @@ export async function POST(req: NextRequest) {
   if (!parsed.success)
     return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
 
-  const { name, registrationMethod, email: rawEmail, phone: rawPhone, password, otp } = parsed.data;
+  const { name, registrationMethod, identifier: rawId, email: rawEmail, phone: rawPhone, password, otp } = parsed.data;
   await connectDB();
   await ensureUserAuthColumns();
 
+  // Detect whether input is an email address or a phone number
+  let isEmailReg = true;
+  let emailValue = (rawEmail || "").trim().toLowerCase();
+  let phoneValue = (rawPhone || "").trim();
+
+  if (rawId) {
+    const trimmedId = rawId.trim();
+    if (trimmedId.includes("@")) {
+      isEmailReg = true;
+      emailValue = trimmedId.toLowerCase();
+    } else {
+      isEmailReg = false;
+      phoneValue = trimmedId;
+    }
+  } else if (registrationMethod === "phone" || phoneValue) {
+    isEmailReg = false;
+  }
+
   // A. Phone Registration Path
-  if (registrationMethod === "phone") {
-    if (!rawPhone) {
+  if (!isEmailReg) {
+    if (!phoneValue) {
       return NextResponse.json({ message: "Please provide a valid phone number." }, { status: 400 });
     }
 
-    if (!isSmsConfigured()) {
-      return NextResponse.json(
-        {
-          message:
-            "SMS verification service is not currently configured on the server. Please register using your email address, or contact store support.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const normalizedPhone = normalizePhone(rawPhone);
+    const normalizedPhone = normalizePhone(phoneValue);
     const existingPhone = await User.count({ where: { phone: normalizedPhone } });
     if (existingPhone > 0) {
       return NextResponse.json(
         { message: "An account with this phone number already exists." },
         { status: 409 }
-      );
-    }
-
-    // Require OTP verification before account creation when SMS is active
-    if (!otp) {
-      return NextResponse.json(
-        { message: "An OTP verification code is required to complete phone registration." },
-        { status: 400 }
       );
     }
 
@@ -65,12 +65,12 @@ export async function POST(req: NextRequest) {
         phone: normalizedPhone,
         passwordHash: await bcrypt.hash(password, 12),
         role: "customer",
-        phoneVerified: true,
+        phoneVerified: false,
         emailVerified: false,
       });
 
       return NextResponse.json(
-        { message: "Account created and phone number verified. Please sign in." },
+        { message: "Account created successfully. Please sign in." },
         { status: 201 }
       );
     } catch (e: unknown) {
@@ -83,11 +83,11 @@ export async function POST(req: NextRequest) {
   }
 
   // B. Email Registration Path
-  if (!rawEmail) {
+  if (!emailValue) {
     return NextResponse.json({ message: "Email address is required." }, { status: 400 });
   }
 
-  const normalizedEmail = rawEmail.toLowerCase().trim();
+  const normalizedEmail = emailValue.toLowerCase().trim();
   const count = await User.count({ where: { email: normalizedEmail } });
   if (count > 0) {
     return NextResponse.json(
@@ -96,31 +96,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const normalizedPhone = rawPhone ? normalizePhone(rawPhone) : "";
-  if (normalizedPhone) {
-    const phoneCount = await User.count({ where: { phone: normalizedPhone } });
-    if (phoneCount > 0) {
-      return NextResponse.json(
-        { message: "An account with this phone number already exists." },
-        { status: 409 }
-      );
-    }
-  }
-
   try {
     const rawVerifyToken = randomBytes(32).toString("hex");
 
     await User.create({
       name,
       email: normalizedEmail,
-      phone: normalizedPhone,
+      phone: "",
       passwordHash: await bcrypt.hash(password, 12),
       role: "customer",
-      emailVerified: true, // Auto-verified on registration for smooth shopping flow
+      emailVerified: true,
       phoneVerified: false,
     });
 
-    // Optionally send verification or welcome email in the background
     sendVerificationEmail({
       to: normalizedEmail,
       name,

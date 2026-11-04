@@ -106,6 +106,7 @@ const toGiftProduct = (p: ShopProduct): Product => ({
 
 const SIZE_STEPS = [
   { ml: 10, mult: 1 },
+  { ml: 15, mult: 1.35 },
   { ml: 30, mult: 2.25 },
   { ml: 50, mult: 3.4 },
   { ml: 100, mult: 5.6 },
@@ -512,14 +513,14 @@ function PerfumeCard({
         </p>
 
         {/* Sizes */}
-        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-between sm:justify-center gap-0.5 sm:gap-1 md:gap-1.5 lg:gap-2 border-0 p-0">
           <legend className="sr-only">Choose a size</legend>
           {sizeOptions(p).map((s) => {
             const checked = s.ml === ml;
             return (
               <label
                 key={s.ml}
-                className="flex cursor-pointer items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px]"
+                className="flex shrink-0 cursor-pointer items-center gap-[2px] sm:gap-[3px] md:gap-1 whitespace-nowrap text-[8.5px] sm:text-[9.5px] md:text-[10px] lg:text-[11.5px] lowercase"
                 style={{ color: checked ? INK : "#5F554B" }}
               >
                 <input
@@ -532,12 +533,12 @@ function PerfumeCard({
                 />
                 <span
                   aria-hidden
-                  className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
+                  className="flex h-[7px] w-[7px] sm:h-[8px] sm:w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[10px] md:w-[10px] md:rounded-[3px]"
                   style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
                 >
                   {checked && (
                     <span
-                      className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]"
+                      className="h-[3.5px] w-[3.5px] sm:h-[4px] sm:w-[4px] rounded-[1px] md:h-[5px] md:w-[5px] md:rounded-[2px]"
                       style={{ background: COPPER }}
                     />
                   )}
@@ -1214,7 +1215,7 @@ export default function GiftPage() {
           ref={builderRef}
           id="builder"
           aria-labelledby="builder-title"
-          className="mx-auto max-w-7xl scroll-mt-4 px-4 py-8 pb-28 sm:px-6 sm:py-12 sm:pb-32 lg:pb-16"
+          className="mx-auto max-w-[1600px] scroll-mt-4 px-3 sm:px-6 sm:py-12 pb-28 sm:pb-32 lg:px-12 lg:pb-16"
         >
           <ProgressIndicator step={step} maxReached={maxReached} onGo={goTo} />
           <div className="mt-10 text-center">

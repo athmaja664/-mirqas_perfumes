@@ -39,7 +39,7 @@ type WishItem = {
   image?: string;
   hoverImage?: string;
   notes?: string[];
-  sizes: SizeOption[]; // 10ml, 30ml, 50ml, 100ml
+  sizes: SizeOption[]; // 10ml, 15ml, 30ml, 50ml, 100ml
   soldOut?: boolean;
 };
 
@@ -221,7 +221,7 @@ function WishCard({ item, onRemove }: { item: WishItem; onRemove: (slug: string)
       </div>
 
       {/* text + buttons */}
-      <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
+      <div className="flex flex-1 flex-col items-center px-1.5 sm:px-2 md:px-3 pb-3 pt-3 text-center md:pb-5 md:pt-4">
         <h3
           className="m-0 line-clamp-2 font-medium leading-[1.2]"
           style={{
@@ -273,7 +273,7 @@ function WishCard({ item, onRemove }: { item: WishItem; onRemove: (slug: string)
 
         {/* Sizes in ONE line if multiple sizes exist */}
         {sizes.length > 1 ? (
-          <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-center gap-x-1.5 border-0 p-0 md:mt-3 md:gap-x-2.5 lg:gap-x-3">
+          <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-between sm:justify-center gap-0.5 sm:gap-1 md:gap-1.5 lg:gap-2 border-0 p-0">
             <legend className="sr-only">Choose a size</legend>
             {sizes.map((s) => {
               const checked = s.ml === selectedMl;
@@ -281,7 +281,7 @@ function WishCard({ item, onRemove }: { item: WishItem; onRemove: (slug: string)
               return (
                 <label
                   key={s.ml}
-                  className={`flex items-center gap-[3px] whitespace-nowrap text-[9px] lowercase md:gap-1 md:text-[10px] lg:text-[12px] ${
+                  className={`flex shrink-0 items-center gap-[2px] sm:gap-[3px] md:gap-1 whitespace-nowrap text-[8.5px] sm:text-[9.5px] md:text-[10px] lg:text-[11.5px] lowercase ${
                     disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
                   }`}
                   style={{ color: checked ? INK : "#5F554B" }}
@@ -297,12 +297,12 @@ function WishCard({ item, onRemove }: { item: WishItem; onRemove: (slug: string)
                   />
                   <span
                     aria-hidden
-                    className="flex h-[8px] w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[11px] md:w-[11px] md:rounded-[3px]"
+                    className="flex h-[7px] w-[7px] sm:h-[8px] sm:w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[10px] md:w-[10px] md:rounded-[3px]"
                     style={{ borderColor: checked ? COPPER : COPPER_SOFT }}
                   >
                     {checked && (
                       <span
-                        className="h-[4px] w-[4px] rounded-[1px] md:h-[6px] md:w-[6px] md:rounded-[2px]"
+                        className="h-[3.5px] w-[3.5px] sm:h-[4px] sm:w-[4px] rounded-[1px] md:h-[5px] md:w-[5px] md:rounded-[2px]"
                         style={{ background: COPPER }}
                       />
                     )}
@@ -398,7 +398,7 @@ export default function WishlistPage() {
         @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600&family=Inter:wght@400;500;600&display=swap");
       `}</style>
 
-      <div className="mx-auto max-w-[1400px]">
+      <div className="mx-auto max-w-[1600px]">
         <div className="mb-10 text-center">
           <h1
             className="m-0 text-4xl font-medium sm:text-5xl"

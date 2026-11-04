@@ -18,12 +18,16 @@ const COPPER = "#9C5A2B";
 const IVORY = "#FCF8F0";
 const sans = "Inter, system-ui, sans-serif";
 
-type Item = { src: string; poster?: string; href: string; alt: string };
+type Item = { src: string; fallbackSrc?: string; poster?: string; href: string; alt: string };
 
 const ITEMS: Item[] = [
   { src: "/videos/perfume-six.mp4", href: "/shopallperfume", alt: "Applying perfume to the wrist" },
   { src: "/videos/perfume-seven.mp4", href: "/shopallperfume", alt: "Holding a crystal perfume bottle" },
-  { src: "/videos/w-video.mp4", href: "/shopallperfume", alt: "Opening a perfume gift box" },
+  {
+    src: "/videos/perfume-five.mp4",
+    href: "/shopallperfume",
+    alt: "Opening a perfume gift box"
+  },
 ];
 
 const FOCUS =
@@ -110,7 +114,6 @@ function VideoCard({ item, centered }: { item: Item; centered: boolean }) {
           <video
             ref={ref}
             key={item.src}
-            src={item.src}
             poster={item.poster}
             muted
             loop
@@ -121,7 +124,10 @@ function VideoCard({ item, centered }: { item: Item; centered: boolean }) {
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             className="absolute inset-0 h-full w-full object-cover"
-          />
+          >
+            <source src={item.src} type="video/mp4" />
+            {item.fallbackSrc && <source src={item.fallbackSrc} type="video/mp4" />}
+          </video>
           <button
             type="button"
             onClick={toggle}

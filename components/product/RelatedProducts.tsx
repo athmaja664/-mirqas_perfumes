@@ -123,7 +123,7 @@ function RelatedCard({ p }: { p: ApiProduct }) {
       </div>
 
       {/* Text + sizes + button */}
-      <div className="flex flex-1 flex-col items-center px-2 pb-3 pt-3 text-center md:px-3 md:pb-5 md:pt-4">
+      <div className="flex flex-1 flex-col items-center px-1.5 sm:px-2 md:px-3 pb-3 pt-3 text-center md:pb-5 md:pt-4">
         <h3
           className="m-0 line-clamp-2 font-medium leading-[1.2]"
           style={{
@@ -157,28 +157,42 @@ function RelatedCard({ p }: { p: ApiProduct }) {
           )}
         </div>
 
-        {/* 4 sizes: square boxes, every corner curved */}
-        <div className="mt-2 grid w-full grid-cols-4 gap-1.5 md:mt-3 md:gap-2" role="radiogroup" aria-label="Choose a size">
+        {/* 5 sizes in ONE line: square shape curved 4 corners */}
+        <fieldset className="m-0 mt-2 flex w-full flex-nowrap items-center justify-between sm:justify-center gap-0.5 sm:gap-1 md:gap-1.5 lg:gap-2 border-0 p-0">
+          <legend className="sr-only">Choose a size</legend>
           {sizes.map((s, i) => {
-            const active = i === sizeIndex;
+            const checked = i === sizeIndex;
             return (
-              <button
+              <label
                 key={s.ml}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => setSizeIndex(i)}
-                className={`flex aspect-square items-center justify-center rounded-[8px] border text-[9px] font-medium lowercase transition-colors md:rounded-[10px] md:text-[11px] lg:text-[12px] ${
-                  active
-                    ? "border-[#9C5A2B] bg-[#9C5A2B]/10 text-[#9C5A2B]"
-                    : "border-[#EADFCC] bg-white text-[#5F554B] hover:border-[#9C5A2B]/50"
-                }`}
+                className="flex shrink-0 cursor-pointer items-center gap-[2px] sm:gap-[3px] md:gap-1 whitespace-nowrap text-[8.5px] sm:text-[9.5px] md:text-[10px] lg:text-[11.5px] lowercase"
+                style={{ color: checked ? INK : "#5F554B", fontFamily: sans }}
               >
+                <input
+                  type="radio"
+                  name={`related-${p.slug}`}
+                  value={s.ml}
+                  checked={checked}
+                  onChange={() => setSizeIndex(i)}
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden
+                  className="flex h-[7px] w-[7px] sm:h-[8px] sm:w-[8px] shrink-0 items-center justify-center rounded-[2px] border transition-colors peer-focus-visible:ring-1 md:h-[10px] md:w-[10px] md:rounded-[3px]"
+                  style={{ borderColor: checked ? COPPER : "rgba(156,90,43,0.45)" }}
+                >
+                  {checked && (
+                    <span
+                      className="h-[3.5px] w-[3.5px] sm:h-[4px] sm:w-[4px] rounded-[1px] md:h-[5px] md:w-[5px] md:rounded-[2px]"
+                      style={{ background: COPPER }}
+                    />
+                  )}
+                </span>
                 {s.ml}ml
-              </button>
+              </label>
             );
           })}
-        </div>
+        </fieldset>
 
         {/* Add to cart */}
         <div className="mt-auto w-full pt-3 md:pt-4">

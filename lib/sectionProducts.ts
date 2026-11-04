@@ -65,6 +65,7 @@ const SYNC_EVENT = "mirqas-storage";
 // Price of each size = the 10ml price x mult (same as the Shop All page)
 export const SIZE_STEPS = [
   { ml: 10, mult: 1 },
+  { ml: 15, mult: 1.35 },
   { ml: 30, mult: 2.25 },
   { ml: 50, mult: 3.4 },
   { ml: 100, mult: 5.6 },

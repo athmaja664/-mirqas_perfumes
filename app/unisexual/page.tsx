@@ -6,7 +6,7 @@ export default function UnisexShopPage() {
       section="unisex"
       pageLabel="UNISEX"
       anchorId="unisex-perfumes"
-      bannerImage="/images/forher2.png"
+      bannerImage="/images/hero-section2.png"
       bannerAlt="Unisex perfume campaign"
     />
   );

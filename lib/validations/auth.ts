@@ -12,7 +12,8 @@ export const password = z
 export const registerSchema = z
   .object({
     name: z.string().trim().min(2, "Please enter your full name.").max(80),
-    registrationMethod: z.enum(["email", "phone"]).optional().default("email"),
+    registrationMethod: z.enum(["email", "phone"]).optional(),
+    identifier: z.string().trim().optional(),
     email: z.string().trim().optional(),
     phone: z.string().trim().optional(),
     password,
@@ -21,14 +22,15 @@ export const registerSchema = z
   })
   .refine(
     (d) => {
-      if (d.registrationMethod === "phone") {
-        return Boolean(d.phone && /^\+?[0-9\s-]{7,15}$/.test(d.phone));
-      }
-      return Boolean(d.email && /^\S+@\S+\.\S+$/.test(d.email));
+      const val = d.identifier || (d.registrationMethod === "phone" ? d.phone : d.email);
+      if (!val) return false;
+      const isEmail = /^\S+@\S+\.\S+$/.test(val);
+      const isPhone = /^\+?[0-9\s-]{7,15}$/.test(val);
+      return isEmail || isPhone;
     },
     {
-      message: "Please provide a valid email or phone number for registration.",
-      path: ["email"],
+      message: "Please provide a valid email address or phone number for registration.",
+      path: ["identifier"],
     }
   )
   .refine((d) => d.password === d.confirmPassword, {

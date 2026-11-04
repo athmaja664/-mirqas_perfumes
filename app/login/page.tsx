@@ -21,7 +21,6 @@ const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const sans = "Inter, system-ui, sans-serif";
 
 type Tab = "login" | "register";
-type RegMethod = "email" | "phone";
 
 function EyeIcon({ off }: { off: boolean }) {
   return (
@@ -100,15 +99,13 @@ function Field({
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("login");
-  const [regMethod, setRegMethod] = useState<RegMethod>("email");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [name, setName] = useState("");
   const [identifier, setIdentifier] = useState(""); // For login: email or phone
-  const [email, setEmail] = useState(""); // For registration
-  const [phone, setPhone] = useState(""); // For registration
+  const [regIdentifier, setRegIdentifier] = useState(""); // For registration: email or phone
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -135,10 +132,12 @@ export default function LoginPage() {
 
     if (name.trim().length < 2) return "Please enter your full name.";
 
-    if (regMethod === "email") {
-      if (!/^\S+@\S+\.\S+$/.test(email.trim())) return "Please enter a valid email address.";
-    } else {
-      if (!/^\+?[0-9\s-]{7,15}$/.test(phone.trim())) return "Please enter a valid mobile number.";
+    const cleanRegId = regIdentifier.trim();
+    if (!cleanRegId) return "Please enter your email address or phone number.";
+    const isEmailAddress = /^\S+@\S+\.\S+$/.test(cleanRegId);
+    const isPhoneNumber = /^\+?[0-9\s-]{7,15}$/.test(cleanRegId);
+    if (!isEmailAddress && !isPhoneNumber) {
+      return "Please enter a valid email address or phone number.";
     }
 
     if (password.length < 8) return "Password must be at least 8 characters.";
@@ -170,16 +169,20 @@ export default function LoginPage() {
         router.push(data?.user?.role === "admin" ? "/admin/dashboard" : "/");
         router.refresh();
       } else {
+        const cleanRegId = regIdentifier.trim();
+        const isEmailAddress = /^\S+@\S+\.\S+$/.test(cleanRegId);
         await registerRequest({
           name: name.trim(),
-          registrationMethod: regMethod,
-          email: regMethod === "email" ? email.trim() : undefined,
-          phone: regMethod === "phone" ? phone.trim() : undefined,
+          registrationMethod: isEmailAddress ? "email" : "phone",
+          identifier: cleanRegId,
+          email: isEmailAddress ? cleanRegId : undefined,
+          phone: !isEmailAddress ? cleanRegId : undefined,
           password,
           confirmPassword: confirm,
         });
         setTab("login");
-        setIdentifier(regMethod === "email" ? email.trim() : phone.trim());
+        setIdentifier(cleanRegId);
+        setRegIdentifier("");
         setPassword("");
         setConfirm("");
         setTerms(false);
@@ -275,45 +278,6 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Registration Method Choice */}
-            {tab === "register" && (
-              <div>
-                <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em]" style={{ color: MUTED }}>
-                  Register With
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRegMethod("email");
-                      setError("");
-                    }}
-                    className={`h-10 rounded-[6px] border text-xs font-semibold uppercase tracking-wider transition-colors ${
-                      regMethod === "email"
-                        ? "border-[#9C5A2B] bg-[#9C5A2B]/10 text-[#9C5A2B]"
-                        : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
-                    }`}
-                  >
-                    Email Address
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRegMethod("phone");
-                      setError("");
-                    }}
-                    className={`h-10 rounded-[6px] border text-xs font-semibold uppercase tracking-wider transition-colors ${
-                      regMethod === "phone"
-                        ? "border-[#9C5A2B] bg-[#9C5A2B]/10 text-[#9C5A2B]"
-                        : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
-                    }`}
-                  >
-                    Phone Number
-                  </button>
-                </div>
-              </div>
-            )}
-
             {tab === "register" && (
               <Field label="Full name" id="name" value={name} onChange={setName} autoComplete="name" placeholder="e.g. Ayesha Khan" />
             )}
@@ -331,36 +295,17 @@ export default function LoginPage() {
               />
             )}
 
-            {/* Register: Email or Phone depending on chosen method */}
-            {tab === "register" && regMethod === "email" && (
+            {/* Register: Single unified input for Email or Phone */}
+            {tab === "register" && (
               <Field
-                label="Email Address"
-                id="email"
-                type="email"
-                inputMode="email"
-                value={email}
-                onChange={setEmail}
-                autoComplete="email"
-                placeholder="name@example.com"
+                label="Email Address or Phone Number"
+                id="reg-identifier"
+                type="text"
+                value={regIdentifier}
+                onChange={setRegIdentifier}
+                autoComplete="username"
+                placeholder="Enter email address or mobile number"
               />
-            )}
-
-            {tab === "register" && regMethod === "phone" && (
-              <div>
-                <Field
-                  label="Phone Number"
-                  id="phone"
-                  type="tel"
-                  inputMode="tel"
-                  value={phone}
-                  onChange={setPhone}
-                  autoComplete="tel"
-                  placeholder="+91 98765 43210"
-                />
-                <p className="mt-1 text-[11px] text-black/50">
-                  Includes international country code (e.g. +91 for India).
-                </p>
-              </div>
             )}
 
             <Field

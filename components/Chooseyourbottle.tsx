@@ -1,14 +1,11 @@
 "use client";
 
-// components/ChooseYourBottle.tsx
-// "Choose Your Bottle": a small carousel with 2 slides.
-//   Slide 1 = 10 ml and 30 ml,  Slide 2 = 50 ml and 100 ml.
+// components/Chooseyourbottle.tsx
+// "Choose Your Bottle": carousel with 3 slides:
+//   Slide 1 = 10 ml and 15 ml
+//   Slide 2 = 30 ml and 50 ml
+//   Slide 3 = 100 ml (centered)
 // The heading and the button stay fixed. Only the bottles change (swipe, dots or arrows).
-//
-// 1. Put your photos in public/images/ or change the `image` paths in SLIDES below.
-//    A square picture works best. Until a photo loads, a bottle sketch shows.
-// 2. The 10 ml and 30 ml photos and labels are PLACEHOLDERS. Replace them with your real ones.
-// 3. SHOP_HREF is the page the button opens.
 
 import Link from "next/link";
 import { useState, useRef } from "react";
@@ -23,18 +20,58 @@ const sans = "Inter, system-ui, sans-serif";
 
 const SHOP_HREF = "/shopallperfume";
 
-type Bottle = { ml: string; label: string; image: string; alt: string };
+type Bottle = {
+  ml: string;
+  label: string;
+  image: string;
+  alt: string;
+  objectPosition?: string;
+};
 
 const SLIDES: Bottle[][] = [
-  // Slide 1 (placeholder photos: put your own files in public/images/)
+  // Slide 1: 10 ml & 15 ml
   [
-    { ml: "10 ml", label: "Pocket size", image: "/images/choose1.png", alt: "Mirqas perfume in the 10 ml bottle" },
-    { ml: "30 ml", label: "Everyday size", image: "/images/choose2.png", alt: "Mirqas perfume in the 30 ml bottle" },
+    {
+      ml: "10 ml",
+      label: "Pocket size",
+      image: "/images/ml1.png",
+      alt: "Mirqas perfume in the 10 ml bottle",
+      objectPosition: "center 60%",
+    },
+    {
+      ml: "15 ml",
+      label: "Travel mini",
+      image: "/images/ml5.png",
+      alt: "Mirqas perfume in the 15 ml bottle",
+      objectPosition: "center 45%",
+    },
   ],
-  // Slide 2
+  // Slide 2: 30 ml & 50 ml
   [
-    { ml: "50 ml", label: "Travel size", image: "https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D", alt: "Mirqas perfume in the travel size bottle" },
-    { ml: "100 ml", label: "Signature size", image: "https://images.unsplash.com/photo-1763986665850-6e66549aa8e0?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D", alt: "Mirqas perfume in the signature size bottle" },
+    {
+      ml: "30 ml",
+      label: "Everyday size",
+      image: "/images/ml2.png",
+      alt: "Mirqas perfume in the 30 ml bottle",
+      objectPosition: "center 60%",
+    },
+    {
+      ml: "50 ml",
+      label: "Travel size",
+      image: "/images/ml3.png",
+      alt: "Mirqas perfume in the travel size bottle",
+      objectPosition: "center center",
+    },
+  ],
+  // Slide 3: 100 ml (centered in the screen)
+  [
+    {
+      ml: "100 ml",
+      label: "Signature size",
+      image: "/images/ml4.png",
+      alt: "Mirqas perfume in the signature size bottle",
+      objectPosition: "center center",
+    },
   ],
 ];
 
@@ -50,7 +87,15 @@ function BottleSketch() {
   );
 }
 
-function BottlePhoto({ src, alt }: { src: string; alt: string }) {
+function BottlePhoto({
+  src,
+  alt,
+  objectPosition = "center",
+}: {
+  src: string;
+  alt: string;
+  objectPosition?: string;
+}) {
   const [failed, setFailed] = useState(false);
   return (
     <div className="aspect-square w-full overflow-hidden bg-[#F6EEE0]">
@@ -64,6 +109,7 @@ function BottlePhoto({ src, alt }: { src: string; alt: string }) {
           loading="lazy"
           onError={() => setFailed(true)}
           className="h-full w-full object-cover"
+          style={{ objectPosition }}
         />
       )}
     </div>
@@ -116,12 +162,34 @@ function ArrowButton({ dir, onClick }: { dir: "prev" | "next"; onClick: () => vo
   );
 }
 
-function BottlePair({ pair }: { pair: Bottle[] }) {
+function BottleDisplay({ pair }: { pair: Bottle[] }) {
+  // If only 1 bottle (Slide 3: 100 ml), center it nicely
+  if (pair.length === 1) {
+    return (
+      <div className="mx-auto flex max-w-[1100px] flex-col items-center justify-center gap-6 md:gap-8">
+        <div className="w-full max-w-[240px] sm:max-w-[280px] md:max-w-[310px]">
+          <BottlePhoto
+            src={pair[0].image}
+            alt={pair[0].alt}
+            objectPosition={pair[0].objectPosition}
+          />
+        </div>
+        <div className="flex items-center justify-center">
+          <Size ml={pair[0].ml} label={pair[0].label} />
+        </div>
+      </div>
+    );
+  }
+
+  // 2 bottles: phones: side by side, sizes underneath. desktop: photo | sizes | photo
   return (
-    // phones: the two photos side by side, sizes underneath.  desktop: photo | sizes | photo
     <div className="mx-auto grid max-w-[1100px] grid-cols-2 items-center gap-x-4 gap-y-8 md:grid-cols-[minmax(0,310px)_1fr_minmax(0,310px)] md:gap-x-8">
       <div className="order-1">
-        <BottlePhoto src={pair[0].image} alt={pair[0].alt} />
+        <BottlePhoto
+          src={pair[0].image}
+          alt={pair[0].alt}
+          objectPosition={pair[0].objectPosition}
+        />
       </div>
 
       <div className="order-3 col-span-2 flex items-center justify-center gap-5 sm:gap-8 md:order-2 md:col-span-1 md:gap-5 lg:gap-8">
@@ -143,7 +211,11 @@ function BottlePair({ pair }: { pair: Bottle[] }) {
       </div>
 
       <div className="order-2 md:order-3">
-        <BottlePhoto src={pair[1].image} alt={pair[1].alt} />
+        <BottlePhoto
+          src={pair[1].image}
+          alt={pair[1].alt}
+          objectPosition={pair[1].objectPosition}
+        />
       </div>
     </div>
   );
@@ -189,7 +261,7 @@ export default function ChooseYourBottle() {
           >
             {SLIDES.map((pair, i) => (
               <div key={i} className="w-full shrink-0" aria-hidden={index !== i}>
-                <BottlePair pair={pair} />
+                <BottleDisplay pair={pair} />
               </div>
             ))}
           </div>
