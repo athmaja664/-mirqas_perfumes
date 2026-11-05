@@ -40,6 +40,15 @@ const GRID = "flex flex-wrap justify-center gap-3 sm:gap-4";
 const GRID_ITEM =
   "flex w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.667rem)]";
 
+/* ───────────────────────── Hero Image URLs (edit these to change images) ───────────────────────── */
+
+// Left side of the hero – "1. Choose your perfumes" (two images side by side)
+const HERO_PERFUME_IMAGE_1 = "/images/gifthero1.png";
+const HERO_PERFUME_IMAGE_2 = "/images/gifthero3.png";
+
+// Right side of the hero – "2. Choose a gift box / cover"
+const HERO_BOX_IMAGE = "/images/giftbox.png";
+
 /* ───────────────────────── Types ───────────────────────── */
 
 type StepId = 1 | 2;
@@ -327,7 +336,7 @@ function Hero({
                 <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow-xs">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/images/gifthero1.jpg"
+                    src={HERO_PERFUME_IMAGE_1}
                     alt="Choose your perfumes - Fragrance 1"
                     className="h-full w-full object-cover"
                   />
@@ -335,7 +344,7 @@ function Hero({
                 <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow-xs">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/images/gifthero3.png"
+                    src={HERO_PERFUME_IMAGE_2}
                     alt="Choose your perfumes - Fragrance 2"
                     className="h-full w-full object-cover"
                   />
@@ -355,7 +364,7 @@ function Hero({
             <div className="aspect-square w-full max-w-[16rem] overflow-hidden rounded-xl border border-[#EADFCC] bg-[#F6EEE0] transition-transform duration-300 group-hover:scale-105 group-hover:border-[#9C5A2B]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/gifthbox.png"
+                src={HERO_BOX_IMAGE}
                 alt="Choose a gift box / cover"
                 className="h-full w-full object-cover"
               />
