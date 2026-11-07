@@ -794,13 +794,14 @@ import { FRAGRANCE_FAMILIES } from "@/lib/validations/product";
 import { SHOP_SECTIONS, COLLECTION_SECTIONS } from "@/lib/sections";
 import MultiSelect from "@/components/MultiSelect";
 import AlertModal from "@/components/admin/AlertModal";
+import { calculatePercentagePrice } from "@/lib/pricing";
 
 const COPPER = "#9C5A2B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 const MAX_IMAGES = 10;
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB client check
 const COMPRESS_TARGET = 3 * 1024 * 1024; // auto-compress images above 3 MB
-const SIZES = ["10ml", "15ml", "30ml", "50ml", "100ml"] as const;
+const SIZES = ["5ml", "10ml", "15ml", "30ml", "50ml", "100ml"] as const;
 
 // Resize + JPEG-compress an image client-side so it easily fits within Vercel's 4.5 MB body limit.
 async function compressImage(file: File): Promise<File> {
@@ -868,6 +869,12 @@ export type ProductData = {
   collections?: string[];
   showInNewArrivals?: boolean;
   sizePrices?: Record<string, number>; // size -> price in paise
+  pricingMethod?: "manual" | "percentage";
+  baseSize?: number | null;
+  basePrice?: number | null;
+  sizeIncrement?: number | null;
+  percentageIncrease?: number | null;
+  priceOverrides?: Record<string, number> | null;
 };
 
 type CardMedia = "none" | "image";
@@ -912,11 +919,70 @@ export default function ProductForm({ product }: { product?: ProductData }) {
   const [price, setPrice] = useState(product ? toRupees(product.price) : "");
   const [salePrice, setSalePrice] = useState(product?.salePrice ? toRupees(product.salePrice) : "");
   const [stock, setStock] = useState(String(product?.stock ?? 0));
-  const [sizePrices, setSizePrices] = useState<Record<string, string>>(
-    Object.fromEntries(
-      SIZES.map((s) => [s, product?.sizePrices?.[s] ? toRupees(product.sizePrices[s]) : ""])
-    )
+
+  // Pricing Methods: Method A (Manual) vs Method B (Percentage-based)
+  const [pricingMethod, setPricingMethod] = useState<"manual" | "percentage">(
+    product?.pricingMethod === "percentage" ? "percentage" : "manual"
   );
+
+  // Method A: Manual list of sizes & prices
+  const initialSizesList = product?.sizePrices && Object.keys(product.sizePrices).length > 0
+    ? Array.from(new Set([...SIZES, ...Object.keys(product.sizePrices)]))
+    : [...SIZES];
+  const [manualSizes, setManualSizes] = useState<string[]>(initialSizesList);
+  const [customSizeInput, setCustomSizeInput] = useState("");
+  const [sizePrices, setSizePrices] = useState<Record<string, string>>(() => {
+    const res: Record<string, string> = {};
+    for (const s of initialSizesList) {
+      res[s] = product?.sizePrices?.[s] ? toRupees(product.sizePrices[s]) : "";
+    }
+    return res;
+  });
+
+  // Method B: Percentage-based parameters & overrides
+  const [baseSize, setBaseSize] = useState<string>(
+    product?.baseSize ? String(product.baseSize) : "10"
+  );
+  const [basePriceMethodB, setBasePriceMethodB] = useState<string>(
+    product?.basePrice ? toRupees(product.basePrice) : product ? toRupees(product.price) : ""
+  );
+  const [sizeIncrement, setSizeIncrement] = useState<string>(
+    product?.sizeIncrement ? String(product.sizeIncrement) : "10"
+  );
+  const [percentageIncrease, setPercentageIncrease] = useState<string>(
+    product?.percentageIncrease != null ? String(product.percentageIncrease) : "15"
+  );
+  const [priceOverrides, setPriceOverrides] = useState<Record<string, string>>(() => {
+    const res: Record<string, string> = {};
+    if (product?.priceOverrides) {
+      for (const [k, v] of Object.entries(product.priceOverrides)) {
+        res[k] = toRupees(v);
+      }
+    }
+    return res;
+  });
+
+  // Calculate live preview for Method B
+  const previewSizes = [5, 10, 15, 30, 50, 100];
+  const bSize = parseInt(baseSize, 10) || 10;
+  const bPrice = parseFloat(basePriceMethodB) || parseFloat(price) || 0;
+  const bIncr = parseInt(sizeIncrement, 10) || 10;
+  const bPct = parseFloat(percentageIncrease) || 0;
+
+  const calculatedPreview = previewSizes.map((sz) => {
+    const key = `${sz}ml`;
+    const calc = bPrice > 0 ? calculatePercentagePrice(bPrice, bSize, sz, bIncr, bPct) : 0;
+    const override = priceOverrides[key]?.trim();
+    const effective =
+      override && !isNaN(Number(override)) && Number(override) > 0 ? Number(override) : calc;
+    return {
+      size: key,
+      ml: sz,
+      calcPrice: calc,
+      overridePrice: override ?? "",
+      effectivePrice: effective,
+    };
+  });
   const [images, setImages] = useState<string[]>(product?.images ?? []);
 
   // Card hover image: either "none" or "image" (stored in product.video column, ignoring any legacy .mp4/.webm videos)
@@ -1103,15 +1169,51 @@ export default function ProductForm({ product }: { product?: ProductData }) {
     }
 
     const sizePricesPaise: Record<string, number> = {};
-    for (const s of SIZES) {
-      const raw = sizePrices[s].trim();
-      if (raw === "") continue;
-      const n = Number(raw);
-      if (!Number.isFinite(n) || n <= 0) {
-        showAlert(`Enter a valid price in rupees for ${s}, or leave it empty.`, "error");
+    const priceOverridesPaise: Record<string, number> = {};
+    let bSizeNum: number | null = null;
+    let bPriceNum: number | null = null;
+    let bIncrNum: number | null = null;
+    let bPctNum: number | null = null;
+
+    if (pricingMethod === "manual") {
+      for (const s of manualSizes) {
+        const raw = (sizePrices[s] || "").trim();
+        if (raw === "") continue;
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n <= 0) {
+          showAlert(`Enter a valid price in rupees for ${s}, or leave it empty.`, "error");
+          return;
+        }
+        sizePricesPaise[s] = Math.round(n * 100);
+      }
+    } else {
+      // Percentage-based
+      bSizeNum = parseInt(baseSize, 10);
+      bPriceNum = Number(basePriceMethodB || price);
+      bIncrNum = parseInt(sizeIncrement, 10);
+      bPctNum = Number(percentageIncrease);
+
+      if (!Number.isFinite(bPriceNum) || bPriceNum <= 0) {
+        showAlert("Enter a valid base price in rupees for percentage calculation.", "error");
         return;
       }
-      sizePricesPaise[s] = Math.round(n * 100);
+      if (!Number.isInteger(bSizeNum) || bSizeNum <= 0) {
+        showAlert("Enter a valid base size in ml.", "error");
+        return;
+      }
+      if (!Number.isInteger(bIncrNum) || bIncrNum <= 0) {
+        showAlert("Enter a valid size increment in ml.", "error");
+        return;
+      }
+
+      for (const item of calculatedPreview) {
+        if (item.overridePrice && Number(item.overridePrice) > 0) {
+          priceOverridesPaise[item.size] = Math.round(Number(item.overridePrice) * 100);
+        }
+        if (item.effectivePrice > 0) {
+          sizePricesPaise[item.size] = Math.round(item.effectivePrice * 100);
+        }
+      }
     }
 
     if (images.length === 0) {
@@ -1144,7 +1246,13 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       sections,
       collections,
       showInNewArrivals,
+      pricingMethod,
       sizePrices: sizePricesPaise,
+      baseSize: pricingMethod === "percentage" ? bSizeNum : null,
+      basePrice: pricingMethod === "percentage" ? Math.round(bPriceNum! * 100) : null,
+      sizeIncrement: pricingMethod === "percentage" ? bIncrNum : null,
+      percentageIncrease: pricingMethod === "percentage" ? bPctNum : null,
+      priceOverrides: pricingMethod === "percentage" ? priceOverridesPaise : null,
     };
 
     setSaving(true);
@@ -1412,29 +1520,219 @@ export default function ProductForm({ product }: { product?: ProductData }) {
           </div>
         </div>
 
-        {/* Price per size */}
-        <div>
-          <span className={label}>Price by size (₹)</span>
-          <p className={hint}>
-            Set the price for each bottle size. Leave a size empty if you don&apos;t sell it.
-          </p>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            {SIZES.map((s) => (
-              <div key={s}>
-                <label className={label} htmlFor={`size-${s}`}>
-                  {s}
-                </label>
-                <input
-                  id={`size-${s}`}
-                  inputMode="decimal"
-                  className={input}
-                  value={sizePrices[s]}
-                  onChange={(e) => setSizePrices((prev) => ({ ...prev, [s]: e.target.value }))}
-                  placeholder="Price"
-                />
-              </div>
-            ))}
+        {/* Flexible ML-wise Pricing Management */}
+        <div className="border border-black/10 bg-[#FCF8F0]/40 p-4 sm:p-5">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+            <div>
+              <span className={label} style={{ color: COPPER }}>Flexible ML-wise Perfume Pricing</span>
+              <p className={hint}>
+                Choose how you want to manage prices across different bottle sizes.
+              </p>
+            </div>
+            {/* Method Toggle Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPricingMethod("manual")}
+                className={`cursor-pointer px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] transition-colors ${
+                  pricingMethod === "manual"
+                    ? "bg-[#9C5A2B] text-white"
+                    : "border border-black/15 bg-white text-black/70 hover:bg-black/5"
+                }`}
+              >
+                Method A: Manual Entry
+              </button>
+              <button
+                type="button"
+                onClick={() => setPricingMethod("percentage")}
+                className={`cursor-pointer px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] transition-colors ${
+                  pricingMethod === "percentage"
+                    ? "bg-[#9C5A2B] text-white"
+                    : "border border-black/15 bg-white text-black/70 hover:bg-black/5"
+                }`}
+              >
+                Method B: Percentage Calculation
+              </button>
+            </div>
           </div>
+
+          {/* METHOD A: Manual Price Entry */}
+          {pricingMethod === "manual" && (
+            <div className="mt-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
+                {manualSizes.map((s) => (
+                  <div key={s} className="relative">
+                    <div className="flex items-center justify-between">
+                      <label className={label} htmlFor={`size-${s}`}>
+                        {s}
+                      </label>
+                      {!SIZES.includes(s as any) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setManualSizes((prev) => prev.filter((item) => item !== s));
+                            setSizePrices((prev) => {
+                              const next = { ...prev };
+                              delete next[s];
+                              return next;
+                            });
+                          }}
+                          className="text-[10px] text-red-600 hover:underline"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      id={`size-${s}`}
+                      inputMode="decimal"
+                      className={input}
+                      value={sizePrices[s] ?? ""}
+                      onChange={(e) => setSizePrices((prev) => ({ ...prev, [s]: e.target.value }))}
+                      placeholder="₹ Price"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Add Custom Size */}
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="text"
+                  placeholder="e.g. 20ml"
+                  value={customSizeInput}
+                  onChange={(e) => setCustomSizeInput(e.target.value)}
+                  className="w-32 border border-black/15 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#9C5A2B]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trimmed = customSizeInput.trim().toLowerCase();
+                    if (!trimmed) return;
+                    const formatted = trimmed.endsWith("ml") ? trimmed : `${trimmed}ml`;
+                    if (!manualSizes.includes(formatted)) {
+                      setManualSizes((prev) => [...prev, formatted]);
+                    }
+                    setCustomSizeInput("");
+                  }}
+                  className="cursor-pointer border border-black/20 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-black/70 hover:bg-black/5"
+                >
+                  + Add Custom Size
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* METHOD B: Percentage-based Automatic Calculation */}
+          {pricingMethod === "percentage" && (
+            <div className="mt-5 space-y-5">
+              <div className="grid gap-4 sm:grid-cols-4">
+                <div>
+                  <label className={label} htmlFor="base-size">
+                    Base Size (ML)
+                  </label>
+                  <input
+                    id="base-size"
+                    type="number"
+                    min="1"
+                    className={input}
+                    value={baseSize}
+                    onChange={(e) => setBaseSize(e.target.value)}
+                    placeholder="10"
+                  />
+                </div>
+                <div>
+                  <label className={label} htmlFor="base-price-b">
+                    Base Price (₹)
+                  </label>
+                  <input
+                    id="base-price-b"
+                    type="number"
+                    min="1"
+                    className={input}
+                    value={basePriceMethodB || price}
+                    onChange={(e) => setBasePriceMethodB(e.target.value)}
+                    placeholder="1499"
+                  />
+                </div>
+                <div>
+                  <label className={label} htmlFor="size-incr">
+                    Size Increment (ML)
+                  </label>
+                  <input
+                    id="size-incr"
+                    type="number"
+                    min="1"
+                    className={input}
+                    value={sizeIncrement}
+                    onChange={(e) => setSizeIncrement(e.target.value)}
+                    placeholder="10"
+                  />
+                </div>
+                <div>
+                  <label className={label} htmlFor="pct-incr">
+                    Percentage Increase (%)
+                  </label>
+                  <input
+                    id="pct-incr"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    className={input}
+                    value={percentageIncrease}
+                    onChange={(e) => setPercentageIncrease(e.target.value)}
+                    placeholder="15"
+                  />
+                </div>
+              </div>
+
+              {/* Live Price Preview Table with Manual Override */}
+              <div className="mt-4 border border-black/10 bg-white">
+                <div className="border-b border-black/10 bg-[#FCF8F0] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-black/70">
+                  Live Price Preview & Overrides
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-black/5 text-[11px] uppercase tracking-wider text-black/50">
+                      <tr>
+                        <th className="px-4 py-2.5">Size (ML)</th>
+                        <th className="px-4 py-2.5">Calculated Price</th>
+                        <th className="px-4 py-2.5">Manual Override (₹)</th>
+                        <th className="px-4 py-2.5 font-bold text-black">Final Effective Price</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black/5">
+                      {calculatedPreview.map((item) => (
+                        <tr key={item.size} className="hover:bg-black/[0.01]">
+                          <td className="px-4 py-2.5 font-medium text-black">{item.size}</td>
+                          <td className="px-4 py-2.5 text-black/60">
+                            ₹{item.calcPrice.toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <input
+                              type="number"
+                              placeholder="Override ₹"
+                              value={priceOverrides[item.size] ?? ""}
+                              onChange={(e) =>
+                                setPriceOverrides((prev) => ({
+                                  ...prev,
+                                  [item.size]: e.target.value,
+                                }))
+                              }
+                              className="w-28 border border-black/15 bg-white px-2 py-1 text-xs outline-none focus:border-[#9C5A2B]"
+                            />
+                          </td>
+                          <td className="px-4 py-2.5 font-bold text-[#9C5A2B]">
+                            ₹{item.effectivePrice.toLocaleString("en-IN")}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 1. Product images (many) */}

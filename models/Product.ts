@@ -25,6 +25,13 @@ export interface IProduct {
   sections: string[];
   collections: string[];
   showInNewArrivals: boolean;
+  sizePrices?: Record<string, number> | null;
+  pricingMethod?: "manual" | "percentage";
+  baseSize?: number | null;
+  basePrice?: number | null;
+  sizeIncrement?: number | null;
+  percentageIncrease?: number | null;
+  priceOverrides?: Record<string, number> | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -50,6 +57,13 @@ export type ProductCreationAttributes = Optional<
   | "sections"
   | "collections"
   | "showInNewArrivals"
+  | "sizePrices"
+  | "pricingMethod"
+  | "baseSize"
+  | "basePrice"
+  | "sizeIncrement"
+  | "percentageIncrease"
+  | "priceOverrides"
   | "createdAt"
   | "updatedAt"
 >;
@@ -91,6 +105,13 @@ export class Product extends Model<IProduct, ProductCreationAttributes> implemen
   declare sections: string[];
   declare collections: string[];
   declare showInNewArrivals: boolean;
+  declare sizePrices: Record<string, number> | null;
+  declare pricingMethod: "manual" | "percentage";
+  declare baseSize: number | null;
+  declare basePrice: number | null;
+  declare sizeIncrement: number | null;
+  declare percentageIncrease: number | null;
+  declare priceOverrides: Record<string, number> | null;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 
@@ -259,6 +280,45 @@ Product.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true,
+    },
+    sizePrices: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: null,
+    },
+    pricingMethod: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: "manual",
+    },
+    baseSize: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
+    },
+    basePrice: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
+    },
+    sizeIncrement: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
+    },
+    percentageIncrease: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      defaultValue: null,
+      get() {
+        const val = this.getDataValue("percentageIncrease");
+        return val != null ? Number(val) : null;
+      },
+    },
+    priceOverrides: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: null,
     },
   },
   {

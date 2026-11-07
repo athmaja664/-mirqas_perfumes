@@ -86,6 +86,13 @@ export function toProduct(p: Record<string, unknown> | IProduct | Product) {
     sections: sections.length ? sections : ["shop-all"],
     collections,
     showInNewArrivals: data.showInNewArrivals !== false,
+    sizePrices: (data.sizePrices as Record<string, number> | null) ?? null,
+    pricingMethod: (data.pricingMethod as string) || "manual",
+    baseSize: data.baseSize != null ? Number(data.baseSize) : null,
+    basePrice: data.basePrice != null ? Number(data.basePrice) : null,
+    sizeIncrement: data.sizeIncrement != null ? Number(data.sizeIncrement) : null,
+    percentageIncrease: data.percentageIncrease != null ? Number(data.percentageIncrease) : null,
+    priceOverrides: (data.priceOverrides as Record<string, number> | null) ?? null,
     createdAt: data.createdAt ? new Date(data.createdAt as string | number | Date) : undefined,
   };
 }

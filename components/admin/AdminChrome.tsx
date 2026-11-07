@@ -15,7 +15,8 @@ const sans = "Inter, system-ui, sans-serif";
 const NAV: { label: string; href?: string; manage?: boolean }[] = [
   { label: "Dashboard", href: "/admin/dashboard" },
   { label: "Products", href: "/admin/products" },
-   { label: "Gift Covers", href: "/admin/gift-covers" },
+  { label: "Offers & Discounts", href: "/admin/offers" },
+  { label: "Gift Covers", href: "/admin/gift-covers" },
   { label: "Customers", href: "/admin/customers" },
   { label: "Orders", href: "/admin/orders" },
   { label: "Admins", href: "/admin/admins", manage: true },

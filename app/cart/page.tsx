@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { readList, writeList, CART_KEY, SYNC_EVENT, type WrappedItemRef, type CartLine } from "@/lib/shopStorage";
 import GiftWrapConfirmModal from "@/components/gift/GiftWrapConfirmModal";
+import { evaluateOffersClient, type ClientActiveOffer } from "@/lib/offerClient";
 
 // Brand colours (same as Shop All)
 const COPPER = "#9C5A2B";
@@ -452,6 +453,15 @@ export default function CartPage() {
     };
   }, []);
 
+  const [activeOffers, setActiveOffers] = useState<ClientActiveOffer[]>([]);
+
+  useEffect(() => {
+    fetch("/api/offers/active")
+      .then((r) => (r.ok ? r.json() : { offers: [] }))
+      .then((d) => setActiveOffers(d.offers || []))
+      .catch(() => {});
+  }, []);
+
   const changeSize = (index: number, ml: number) => {
     const list = [...items];
     const target = list[index];
@@ -495,7 +505,18 @@ export default function CartPage() {
 
   const count = items.reduce((n, it) => n + it.qty, 0);
   const subtotal = items.reduce((n, it) => n + unitOf(it).price * it.qty, 0);
-  const total = subtotal;
+
+  // Evaluate active promotional offers on cart items
+  const offerLines = items.map((it) => ({
+    slug: it.slug,
+    name: it.name,
+    ml: it.ml,
+    qty: it.qty,
+    unitPrice: Math.round(unitOf(it).price * 100),
+  }));
+  const appliedOffer = evaluateOffersClient(offerLines, activeOffers);
+  const discountTotal = appliedOffer ? appliedOffer.discountTotal / 100 : 0;
+  const total = Math.max(0, subtotal - discountTotal);
 
   // const handleCheckout = () => {
   //   if (checkingOut) return;
@@ -590,6 +611,16 @@ export default function CartPage() {
                   </span>
                   <span style={{ color: INK }}>{formatPrice(subtotal)}</span>
                 </div>
+
+                {appliedOffer && (
+                  <div className="flex justify-between font-medium text-emerald-800">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                      <span>Special Offer ({appliedOffer.offerTitle})</span>
+                    </span>
+                    <span>- {formatPrice(discountTotal)}</span>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 flex items-baseline justify-between border-t pt-4" style={{ borderColor: CARD_LINE }}>

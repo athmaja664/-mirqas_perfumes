@@ -32,6 +32,8 @@ type ApiProduct = {
   gender: string;
   family: string;
   notes: string[];
+  sizePrices?: Record<string, number> | null;
+  pricingMethod?: string;
 };
 
 type Product = {
@@ -45,9 +47,25 @@ type Product = {
   description: string;
   images: string[];
   inStock: boolean;
+  sizePrices?: Record<string, number> | null;
+  pricingMethod?: string;
 };
 
-const SIZE_LABELS = ["10ml", "15ml", "30ml", "50ml", "100ml"];
+type ActiveOffer = {
+  id: string;
+  title: string;
+  description: string;
+  offerType: "quantity" | "percentage" | "fixed";
+  offerPrice: number | null; // paise
+  discountValue: number | null;
+  requiredQuantity: number;
+  eligibleSizes: string[];
+  allowMixedVariants: boolean;
+  applicableToAll: boolean;
+  products: { id: string; slug: string; name: string }[];
+};
+
+const SIZE_LABELS = ["5ml", "10ml", "15ml", "30ml", "50ml", "100ml"];
 
 const DEFAULT_DESCRIPTION =
   "A smooth and warm fragrance with a silky finish. Made for evenings and special occasions, it stays close to the skin and lasts for hours.";
@@ -66,6 +84,8 @@ function toPageProduct(a: ApiProduct): Product {
     description: a.description || DEFAULT_DESCRIPTION,
     images: a.images,
     inStock: a.inStock,
+    sizePrices: a.sizePrices,
+    pricingMethod: a.pricingMethod,
   };
 }
 
@@ -111,6 +131,7 @@ function ProductDetail() {
   const sizeParam = useSearchParams().get("size");
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [activeOffer, setActiveOffer] = useState<ActiveOffer | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "missing" | "error">("loading");
 
   const [activeImage, setActiveImage] = useState(0);
@@ -156,6 +177,18 @@ function ProductDetail() {
         if (!cancelled) setStatus("error");
       });
 
+    // Also fetch active offers that display on product details
+    fetch("/api/offers/active?placement=productDetails")
+      .then((r) => (r.ok ? r.json() : { offers: [] }))
+      .then((d) => {
+        if (cancelled) return;
+        const match = (d.offers || []).find((o: ActiveOffer) =>
+          o.applicableToAll || (o.products && o.products.some((p) => p.slug === slug))
+        );
+        setActiveOffer(match || null);
+      })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };
@@ -194,6 +227,21 @@ function ProductDetail() {
 
   const sizes = isGiftCover
     ? [{ ml: 0, price: product.basePrice, originalPrice: product.mrpBase, soldOut: !product.inStock }]
+    : product.sizePrices && Object.keys(product.sizePrices).length > 0
+    ? Object.entries(product.sizePrices)
+        .map(([k, paise]) => {
+          const mlNum = parseInt(k.replace(/[^0-9]/g, ""), 10) || 10;
+          return {
+            ml: mlNum,
+            price: Number(paise) / 100,
+            originalPrice:
+              product.mrpBase && product.basePrice
+                ? Math.round(product.mrpBase * (Number(paise) / 100 / product.basePrice))
+                : undefined,
+            soldOut: !product.inStock,
+          };
+        })
+        .sort((a, b) => a.ml - b.ml)
     : sizesFor(product.basePrice, product.mrpBase);
   const current = sizes[sizeIndex] ?? sizes[0];
   const price = current.price;
@@ -411,6 +459,58 @@ function ProductDetail() {
 
             {/* Overall rating (from the customer reviews) */}
             <RatingSummary slug={product.slug} />
+
+            {/* Special Offer Banner on Product Page */}
+            {activeOffer && (
+              <div className="mt-6 border border-[#9C5A2B]/40 bg-[#FCF8F0] p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block rounded bg-[#9C5A2B] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+                    Special Offer
+                  </span>
+                  <span className="font-semibold text-sm text-[#9C5A2B]">
+                    {activeOffer.title}
+                  </span>
+                </div>
+                {activeOffer.description && (
+                  <p className="mt-1 text-xs text-black/70">{activeOffer.description}</p>
+                )}
+                <div className="mt-2 text-xs font-medium text-black/85">
+                  {activeOffer.offerType === "quantity" && activeOffer.offerPrice != null
+                    ? `Buy ${activeOffer.requiredQuantity} bottle${activeOffer.requiredQuantity > 1 ? "s" : ""} for just ₹${(activeOffer.offerPrice / 100).toLocaleString("en-IN")}!`
+                    : activeOffer.offerType === "percentage" && activeOffer.discountValue != null
+                    ? `Get ${activeOffer.discountValue}% OFF on purchase of ${activeOffer.requiredQuantity} bottle${activeOffer.requiredQuantity > 1 ? "s" : ""}!`
+                    : `Flat ₹${((activeOffer.discountValue || 0) / 100).toLocaleString("en-IN")} OFF on ${activeOffer.requiredQuantity} bottle${activeOffer.requiredQuantity > 1 ? "s" : ""}!`}
+                </div>
+
+                {/* Dynamic eligibility for selected size */}
+                <div className="mt-3 pt-2.5 border-t border-[#9C5A2B]/15">
+                  {(() => {
+                    const reqSizes = activeOffer.eligibleSizes || [];
+                    const curSizeStr = `${current.ml}ml`.toLowerCase();
+                    const isEligible =
+                      reqSizes.length === 0 ||
+                      reqSizes.map((s) => s.toLowerCase()).includes(curSizeStr) ||
+                      reqSizes.map((s) => s.toLowerCase()).includes(String(current.ml));
+
+                    if (isEligible) {
+                      return (
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
+                          <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                          <span>This {current.ml}ml bottle qualifies for the offer!</span>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-amber-900">
+                          <span className="h-2 w-2 rounded-full bg-amber-600" />
+                          <span>Offer applies only to sizes: {reqSizes.join(", ")}</span>
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+              </div>
+            )}
 
             {/* Size */}
             {!isGiftCover ? (

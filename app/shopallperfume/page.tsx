@@ -67,6 +67,7 @@ type Perfume = {
   hoverImage?: string; // shown on hover / scroll (instead of a video)
   hoverVideo?: string; // plays on hover / scroll
   badge?: string;
+  hasSpecialOffer?: boolean;
   soldOut?: boolean;
   featured?: boolean;
   sales: number;
@@ -95,6 +96,7 @@ type ApiProduct = {
   notes: string[];
   category?: string;
   sections?: string[];
+  sizePrices?: Record<string, number> | null;
 };
 
 function isGiftCoverProduct(p: {
@@ -599,14 +601,21 @@ function ProductCard({
           )}
         </Link>
 
-        {p.badge && (
+        {p.hasSpecialOffer ? (
+          <span
+            className="pointer-events-none absolute left-0 top-2 max-w-[75%] px-1.5 py-0.5 text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-white md:top-3 md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]"
+            style={{ background: COPPER }}
+          >
+            Special Offer
+          </span>
+        ) : p.badge ? (
           <span
             className="pointer-events-none absolute left-0 top-2 max-w-[75%] px-1.5 py-0.5 text-[8px] font-semibold uppercase leading-tight tracking-[0.1em] text-white md:top-3 md:px-3 md:py-1.5 md:text-[10px] md:tracking-[0.12em]"
             style={{ background: COPPER }}
           >
             {p.badge}
           </span>
-        )}
+        ) : null}
         {p.soldOut && (
           <span
             className="pointer-events-none absolute bottom-2 left-2 rounded bg-white/90 px-2 py-1 text-[9px] uppercase tracking-[0.15em] md:text-[10px]"
@@ -807,14 +816,24 @@ function ShopAllPerfumes() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/products?${apiQueryString}`)
-      .then((r) => r.json())
-      .then((d: { items: ApiProduct[] }) => {
+
+    Promise.all([
+      fetch(`/api/products?${apiQueryString}`).then((r) => r.json()),
+      fetch("/api/offers/active?placement=listing").then((r) => (r.ok ? r.json() : { offers: [] })),
+    ])
+      .then(([d, offersData]: [{ items: ApiProduct[] }, { offers?: any[] }]) => {
         if (cancelled) return;
         const perfumeItems = (d.items || []).filter((item) => !isGiftCoverProduct(item));
+        const activeOffers = offersData?.offers || [];
+
         setPerfumes(
           perfumeItems.map((a): Perfume => {
             const onSale = a.salePrice != null;
+
+            // Check if this product is part of any active offer
+            const hasSpecialOffer = activeOffers.some((o) =>
+              o.applicableToAll || (o.products && o.products.some((p: any) => p.slug === a.slug))
+            );
 
             // Card media rule:
             //  - the admin chose a VIDEO  -> the card plays it
@@ -825,17 +844,36 @@ function ShopAllPerfumes() {
             const hoverVideo = mediaIsVideo ? media : undefined;
             const hoverImage = media === "" ? a.images[1] : mediaIsVideo ? undefined : media;
 
+            let mappedSizes: SizeOption[] | undefined = undefined;
+            if (a.sizePrices && typeof a.sizePrices === "object" && Object.keys(a.sizePrices).length > 0) {
+              mappedSizes = Object.entries(a.sizePrices)
+                .map(([key, paise]) => {
+                  const mlNum = parseInt(key.replace(/[^0-9]/g, ""), 10) || 10;
+                  return {
+                    ml: mlNum,
+                    price: Number(paise) / 100,
+                    originalPrice: onSale
+                      ? Math.round((a.price / 100) * (Number(paise) / a.salePrice!))
+                      : undefined,
+                    soldOut: !a.inStock,
+                  };
+                })
+                .sort((x, y) => x.ml - y.ml);
+            }
+
             return {
               slug: a.slug,
               name: a.name,
               size: "100ML",
               price: (onSale ? a.salePrice! : a.price) / 100,
               originalPrice: onSale ? a.price / 100 : undefined,
+              sizes: mappedSizes,
               notes: a.notes.length ? a.notes : undefined,
               image: a.images[0],
               hoverImage,
               hoverVideo,
               badge: a.badge || undefined,
+              hasSpecialOffer,
               soldOut: !a.inStock,
               featured: a.isFeatured,
               sales: a.sales,

@@ -4,6 +4,7 @@ import { Product } from "@/models/Product";
 import { Order, OrderItem, OrderStatusHistory } from "@/models/Order";
 import { Cart, CartItem, MAX_QTY_PER_LINE } from "@/models/Cart";
 import { unitPricePaise } from "@/lib/pricing";
+import { getActivePublishedOffers, evaluateOffers } from "@/lib/services/offers";
 import type { OrderCreateInput } from "@/lib/validations/order";
 
 const SHIPPING_FEE_PAISE = 0;
@@ -131,9 +132,24 @@ export async function createOrder(userId: string, input: OrderCreateInput): Prom
         await product.save({ transaction: t });
       }
 
-      // 5. Calculate total
+      // 5. Calculate total and apply any active offers
       const subtotal = items.reduce((n, i) => n + i.lineTotal, 0);
-      const total = subtotal + SHIPPING_FEE_PAISE;
+
+      const activeOffers = await getActivePublishedOffers();
+      const offerEvaluation = evaluateOffers(
+        items.map((it) => ({
+          productId: it.productId,
+          slug: it.slug,
+          name: it.name,
+          ml: it.ml,
+          qty: it.qty,
+          unitPrice: it.unitPrice,
+        })),
+        activeOffers
+      );
+
+      const discountTotalPaise = offerEvaluation ? offerEvaluation.discountTotal : 0;
+      const total = Math.max(0, subtotal - discountTotalPaise) + SHIPPING_FEE_PAISE;
       const orderId = randomUUID();
 
       const order = await Order.create(
@@ -142,6 +158,9 @@ export async function createOrder(userId: string, input: OrderCreateInput): Prom
           orderNumber: newOrderNumber(),
           userId,
           subtotal,
+          discountTotal: discountTotalPaise,
+          offerId: offerEvaluation?.offerId || null,
+          offerTitle: offerEvaluation?.offerTitle || null,
           shippingFee: SHIPPING_FEE_PAISE,
           total,
           status: "pending",

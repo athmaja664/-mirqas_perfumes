@@ -9,6 +9,7 @@ import VideoShowcase from "@/components/VideoShowcase";
 import ChooseYourBottle from "@/components/Chooseyourbottle";
 import FaqSection from "@/components/FaqSection";
 import HeroCarousel from "@/components/HeroCarousel";
+import SpecialOffers from "@/components/SpecialOffers";
 
 const sans = "Inter, system-ui, sans-serif";
 
@@ -21,7 +22,7 @@ export default function Home() {
       `}</style>
 
       <HeroCarousel />
-
+      <SpecialOffers />
       
       <PerfumeCategorySection />
       <CollectionShowcase />

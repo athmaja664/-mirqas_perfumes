@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { CART_KEY, formatPrice, readList, writeList, type CartLine } from "@/lib/shopStorage";
+import { evaluateOffersClient, type ClientActiveOffer } from "@/lib/offerClient";
 
 const COPPER = "#9C5A2B";
 const CREAM = "#FFF9F3";
@@ -146,10 +147,31 @@ export default function CheckoutPage() {
     };
   }, []);
 
+  const [activeOffers, setActiveOffers] = useState<ClientActiveOffer[]>([]);
+
+  useEffect(() => {
+    fetch("/api/offers/active")
+      .then((r) => (r.ok ? r.json() : { offers: [] }))
+      .then((d) => setActiveOffers(d.offers || []))
+      .catch(() => {});
+  }, []);
+
   const set = (name: keyof Form, value: string) => setForm((f) => ({ ...f, [name]: value }));
 
   const count = items.reduce((n, l) => n + l.qty, 0);
   const subtotal = items.reduce((n, l) => n + unitOf(l).price * l.qty, 0);
+
+  // Evaluate active promotional offers on checkout items
+  const offerLines = items.map((it) => ({
+    slug: it.slug,
+    name: it.name,
+    ml: it.ml,
+    qty: it.qty,
+    unitPrice: Math.round(unitOf(it).price * 100),
+  }));
+  const appliedOffer = evaluateOffersClient(offerLines, activeOffers);
+  const discountTotal = appliedOffer ? appliedOffer.discountTotal / 100 : 0;
+  const total = Math.max(0, subtotal - discountTotal);
 
   const placeOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -442,6 +464,15 @@ export default function CheckoutPage() {
               <span>Subtotal ({count} {count === 1 ? "item" : "items"})</span>
               <span style={{ color: INK }}>{formatPrice(subtotal)}</span>
             </div>
+            {appliedOffer && (
+              <div className="flex justify-between font-medium text-emerald-800">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                  <span>Special Offer ({appliedOffer.offerTitle})</span>
+                </span>
+                <span>- {formatPrice(discountTotal)}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span>Shipping</span>
               <span style={{ color: INK }}>Free</span>
@@ -450,7 +481,7 @@ export default function CheckoutPage() {
 
           <div className="mt-4 flex items-baseline justify-between border-t pt-4" style={{ borderColor: CARD_LINE }}>
             <span className="text-xl" style={{ fontFamily: serif }}>Total</span>
-            <span className="text-2xl font-semibold" style={{ color: COPPER }}>{formatPrice(subtotal)}</span>
+            <span className="text-2xl font-semibold" style={{ color: COPPER }}>{formatPrice(total)}</span>
           </div>
           <p className="m-0 mt-1 text-xs" style={{ color: MUTED }}>
             The final price is checked again when you place the order.

@@ -47,6 +47,9 @@ export interface IOrder {
   orderNumber: string;
   userId: string;
   subtotal: number;
+  discountTotal?: number;
+  offerId?: string | null;
+  offerTitle?: string | null;
   shippingFee: number;
   total: number;
   status: OrderStatus;
@@ -79,6 +82,9 @@ export interface IOrder {
 export type OrderCreationAttributes = Optional<
   IOrder,
   | "id"
+  | "discountTotal"
+  | "offerId"
+  | "offerTitle"
   | "shippingFee"
   | "status"
   | "paymentMethod"
@@ -100,6 +106,9 @@ export class Order extends Model<IOrder, OrderCreationAttributes> implements IOr
   declare orderNumber: string;
   declare userId: string;
   declare subtotal: number;
+  declare discountTotal: number;
+  declare offerId: string | null;
+  declare offerTitle: string | null;
   declare shippingFee: number;
   declare total: number;
   declare status: OrderStatus;
@@ -236,6 +245,21 @@ Order.init(
       subtotal: {
         type: DataTypes.INTEGER,
         allowNull: false,
+      },
+      discountTotal: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
+      offerId: {
+        type: DataTypes.STRING(36),
+        allowNull: true,
+        defaultValue: null,
+      },
+      offerTitle: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        defaultValue: null,
       },
       shippingFee: {
         type: DataTypes.INTEGER,

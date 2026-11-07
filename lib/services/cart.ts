@@ -2,6 +2,7 @@ import { connectDB, Op } from "@/lib/db";
 import { Cart, CartItem, MAX_QTY_PER_LINE } from "@/models/Cart";
 import { Product } from "@/models/Product";
 import { SIZE_STEPS, sizePricePaise, unitPricePaise } from "@/lib/pricing";
+import { getActivePublishedOffers, evaluateOffers, type AppliedOfferResult } from "@/lib/services/offers";
 
 export type CartResult = { ok: true } | { ok: false; status: number; message: string };
 
@@ -22,6 +23,9 @@ export type CartView = {
   items: CartLineView[];
   count: number;
   subtotal: number;
+  discountTotal: number;
+  total: number;
+  appliedOffer?: AppliedOfferResult | null;
 };
 
 const limitFor = (stock: number) => Math.min(MAX_QTY_PER_LINE, stock);
@@ -42,7 +46,7 @@ export async function getCartView(userId: string): Promise<CartView> {
   });
 
   const lines = cart?.items ?? [];
-  if (lines.length === 0) return { items: [], count: 0, subtotal: 0 };
+  if (lines.length === 0) return { items: [], count: 0, subtotal: 0, discountTotal: 0, total: 0 };
 
   const productIds = lines.map((l) => l.productId);
   const products = await Product.findAll({
@@ -55,6 +59,7 @@ export async function getCartView(userId: string): Promise<CartView> {
   const byId = new Map(products.map((p) => [String(p.id), p]));
 
   const items: CartLineView[] = [];
+  const offerLines: { productId: string; slug: string; ml: number; qty: number; unitPrice: number }[] = [];
   let subtotalPaise = 0;
   let count = 0;
 
@@ -62,33 +67,69 @@ export async function getCartView(userId: string): Promise<CartView> {
     const p = byId.get(String(line.productId));
     if (!p) continue;
 
+    const unitPaise = unitPricePaise(p, line.ml) ?? 0;
     const soldOut = p.stock < 1;
     if (!soldOut) {
-      subtotalPaise += (unitPricePaise(p, line.ml) ?? 0) * line.qty;
+      subtotalPaise += unitPaise * line.qty;
       count += line.qty;
+      offerLines.push({
+        productId: p.id,
+        slug: p.slug,
+        ml: line.ml,
+        qty: line.qty,
+        unitPrice: unitPaise,
+      });
     }
 
     const images = Array.isArray(p.images) ? p.images : [];
     const notes = Array.isArray(p.notes) ? p.notes : [];
+
+    // Derive available sizes: if product has sizePrices, use them; otherwise use default steps
+    let availableSizes: { ml: number; price: number; originalPrice?: number; soldOut?: boolean }[] = [];
+    if (p.sizePrices && typeof p.sizePrices === "object" && Object.keys(p.sizePrices).length > 0) {
+      availableSizes = Object.entries(p.sizePrices).map(([key, paise]) => {
+        const mlNum = parseInt(key.replace(/[^0-9]/g, ""), 10) || 10;
+        return {
+          ml: mlNum,
+          price: (Number(paise) || 0) / 100,
+          originalPrice: undefined,
+          soldOut,
+        };
+      }).sort((a, b) => a.ml - b.ml);
+    } else {
+      availableSizes = SIZE_STEPS.map(({ ml }) => ({
+        ml,
+        price: (sizePricePaise(p.salePrice ?? p.price, ml) ?? 0) / 100,
+        originalPrice: p.salePrice != null ? (sizePricePaise(p.price, ml) ?? 0) / 100 : undefined,
+        soldOut,
+      }));
+    }
 
     items.push({
       slug: p.slug,
       name: p.name,
       image: images[0],
       notes: notes.length ? notes : undefined,
-      sizes: SIZE_STEPS.map(({ ml }) => ({
-        ml,
-        price: (sizePricePaise(p.salePrice ?? p.price, ml) ?? 0) / 100,
-        originalPrice: p.salePrice != null ? (sizePricePaise(p.price, ml) ?? 0) / 100 : undefined,
-        soldOut,
-      })),
+      sizes: availableSizes,
       ml: line.ml,
       qty: line.qty,
       soldOut,
     });
   }
 
-  return { items, count, subtotal: subtotalPaise / 100 };
+  const activeOffers = await getActivePublishedOffers();
+  const appliedOffer = evaluateOffers(offerLines, activeOffers);
+  const discountPaise = appliedOffer ? appliedOffer.discountTotal : 0;
+  const totalPaise = Math.max(0, subtotalPaise - discountPaise);
+
+  return {
+    items,
+    count,
+    subtotal: subtotalPaise / 100,
+    discountTotal: discountPaise / 100,
+    total: totalPaise / 100,
+    appliedOffer,
+  };
 }
 
 export async function addToCart(userId: string, slug: string, ml: number, qty: number): Promise<CartResult> {

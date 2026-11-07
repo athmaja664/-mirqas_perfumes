@@ -49,6 +49,13 @@ const shape = {
     .max(12)
     .optional(),
   showInNewArrivals: z.boolean().optional(),
+  sizePrices: z.record(z.string(), z.number().int().min(1)).nullable().optional(),
+  pricingMethod: z.enum(["manual", "percentage"]).optional(),
+  baseSize: z.number().int().min(1).nullable().optional(),
+  basePrice: z.number().int().min(1).nullable().optional(),
+  sizeIncrement: z.number().int().min(1).nullable().optional(),
+  percentageIncrease: z.number().min(0).max(1000).nullable().optional(),
+  priceOverrides: z.record(z.string(), z.number().int().min(1)).nullable().optional(),
 };
 
 export const SALE_MESSAGE = "Sale price must be lower than the price.";
