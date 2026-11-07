@@ -46,12 +46,28 @@ export async function requestPasswordReset(
       user.resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_TTL_MS);
       await user.save();
 
-      await sendPasswordResetEmail({
+      const emailResult = await sendPasswordResetEmail({
         to: user.email,
         name: user.name,
         token: rawToken,
         isAdmin: isAdminRequest,
       });
+
+      if (!emailResult.ok) {
+        // Roll back the token so an unusable token isn't left in the database
+        user.resetTokenHash = null;
+        user.resetTokenExpiry = null;
+        await user.save().catch(() => {});
+
+        console.error(`[PasswordReset] Resend delivery failed for ${user.email}:`, emailResult.error);
+        return {
+          ok: false,
+          method: "email",
+          message:
+            emailResult.error ||
+            "Unable to deliver password reset email. Please try again later or contact support.",
+        };
+      }
     }
 
     return {

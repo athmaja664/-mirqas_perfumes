@@ -44,3 +44,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# database dumps and backups (never commit large sql dumps to git)
+/scripts/data-dump.sql
+*.sql.gz
+*.sql.bak
+*.sql.dump
+!scripts/schema.sql

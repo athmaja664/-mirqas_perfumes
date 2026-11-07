@@ -193,19 +193,27 @@ export async function ensureUserAuthColumns() {
   if (userColumnsChecked) return;
   try {
     const seq = getSequelize();
-    const columns = [
-      "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `emailVerified` TINYINT(1) NOT NULL DEFAULT 0",
-      "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `phoneVerified` TINYINT(1) NOT NULL DEFAULT 0",
-      "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `resetTokenHash` VARCHAR(64) NULL DEFAULT NULL",
-      "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `resetTokenExpiry` DATETIME(3) NULL DEFAULT NULL",
-      "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `phoneOtpHash` VARCHAR(64) NULL DEFAULT NULL",
-      "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `phoneOtpExpiry` DATETIME(3) NULL DEFAULT NULL",
-      "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `phoneOtpAttempts` INT NOT NULL DEFAULT 0",
-      "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `verificationTokenHash` VARCHAR(64) NULL DEFAULT NULL",
-      "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `verificationTokenExpiry` DATETIME(3) NULL DEFAULT NULL",
+    const [existingCols] = (await seq
+      .query("SHOW COLUMNS FROM `users`")
+      .catch(() => [[]])) as unknown as [Array<{ Field: string }>];
+    const existingColNames = new Set((existingCols || []).map((c) => c.Field));
+
+    const columnsToAdd: Array<{ name: string; sql: string }> = [
+      { name: "emailVerified", sql: "ALTER TABLE `users` ADD COLUMN `emailVerified` TINYINT(1) NOT NULL DEFAULT 0" },
+      { name: "phoneVerified", sql: "ALTER TABLE `users` ADD COLUMN `phoneVerified` TINYINT(1) NOT NULL DEFAULT 0" },
+      { name: "resetTokenHash", sql: "ALTER TABLE `users` ADD COLUMN `resetTokenHash` VARCHAR(64) NULL DEFAULT NULL" },
+      { name: "resetTokenExpiry", sql: "ALTER TABLE `users` ADD COLUMN `resetTokenExpiry` DATETIME(3) NULL DEFAULT NULL" },
+      { name: "phoneOtpHash", sql: "ALTER TABLE `users` ADD COLUMN `phoneOtpHash` VARCHAR(64) NULL DEFAULT NULL" },
+      { name: "phoneOtpExpiry", sql: "ALTER TABLE `users` ADD COLUMN `phoneOtpExpiry` DATETIME(3) NULL DEFAULT NULL" },
+      { name: "phoneOtpAttempts", sql: "ALTER TABLE `users` ADD COLUMN `phoneOtpAttempts` INT NOT NULL DEFAULT 0" },
+      { name: "verificationTokenHash", sql: "ALTER TABLE `users` ADD COLUMN `verificationTokenHash` VARCHAR(64) NULL DEFAULT NULL" },
+      { name: "verificationTokenExpiry", sql: "ALTER TABLE `users` ADD COLUMN `verificationTokenExpiry` DATETIME(3) NULL DEFAULT NULL" },
     ];
-    for (const sql of columns) {
-      await seq.query(sql).catch(() => {});
+
+    for (const col of columnsToAdd) {
+      if (!existingColNames.has(col.name)) {
+        await seq.query(col.sql).catch(() => {});
+      }
     }
     userColumnsChecked = true;
   } catch {

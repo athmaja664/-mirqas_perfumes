@@ -12,6 +12,8 @@
     "seed:shop": "tsx --env-file=.env.local scripts/seed-shop.ts",
     "db:init": "tsx --env-file=.env.local scripts/init-db.ts",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate-data.ts",
+    "db:migrate-tidb": "tsx --env-file=.env.local scripts/migrate-tidb-to-mysql.ts",
+    "db:import-dump": "tsx --env-file=.env.local scripts/import-data-dump.ts",
     "db:verify": "tsx --env-file=.env.local scripts/verify-migration.ts"
   },
   "dependencies": {

@@ -34,7 +34,14 @@ export default async function AccountPage() {
         >
           My Account
         </h1>
-        <p className="mb-10 mt-3 text-center text-[15px] text-black/60">Your details with Mirqas Perfumes.</p>
+        <p className="mb-6 mt-3 text-center text-[15px] text-black/60">Your details with Mirqas Perfumes.</p>
+
+        <div className="mb-8 flex items-center justify-center gap-2 rounded-[8px] border border-[#B7DBC0] bg-[#EBF5ED] px-4 py-2.5 text-center text-[13px] text-[#1F7A3A]">
+          <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span>Login saved permanently — you stay signed in automatically without re-entering your password.</span>
+        </div>
 
         <dl className="m-0 border border-black/10 bg-white">
           {rows.map((r) => (

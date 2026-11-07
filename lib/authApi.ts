@@ -15,18 +15,15 @@ async function post(path: string, body: unknown) {
   return data;
 }
 
-export const loginRequest = (identifier: string, password: string, remember: boolean = false) =>
+export const loginRequest = (identifier: string, password: string, remember: boolean = true) =>
   post("/api/auth/login", { identifier, password, remember });
 
 export const registerRequest = (d: {
   name: string;
-  registrationMethod?: "email" | "phone";
-  identifier?: string;
   email?: string;
   phone?: string;
   password: string;
   confirmPassword: string;
-  otp?: string;
 }) => post("/api/auth/register", d);
 
 export const logoutRequest = () => post("/api/auth/logout", {});

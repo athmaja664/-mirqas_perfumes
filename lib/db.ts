@@ -10,13 +10,14 @@ const clean = (val?: string) => (val || "").trim().replace(/^["']|["']$/g, "");
 export function getSequelize(): Sequelize {
   if (cache.sequelize) return cache.sequelize;
 
-  const host = clean(process.env.DB_HOST) || "localhost";
-  const port = Number(clean(process.env.DB_PORT)) || 3306;
-  const database = clean(process.env.DB_NAME) || "mirqas";
-  const username = clean(process.env.DB_USER) || "root";
-  const password = clean(process.env.DB_PASSWORD) || "";
-  const sslVal = clean(process.env.DB_SSL).toLowerCase();
-  const useSSL = sslVal === "true" || host.includes("tidbcloud.com");
+  const host = clean(process.env.DB_HOST || process.env.MYSQL_HOST) || "localhost";
+  const port = Number(clean(process.env.DB_PORT || process.env.MYSQL_PORT)) || 3306;
+  const database = clean(process.env.DB_NAME || process.env.MYSQL_DATABASE || process.env.MYSQL_DB) || "mirqasperfumes_db";
+  const username = clean(process.env.DB_USER || process.env.MYSQL_USER || process.env.MYSQL_USERNAME) || "root";
+  const password = clean(process.env.DB_PASSWORD || process.env.DB_PASS || process.env.MYSQL_PASSWORD || process.env.MYSQL_PWD) || "";
+  const sslVal = clean(process.env.DB_SSL || process.env.MYSQL_SSL).toLowerCase();
+  const useSSL = sslVal === "true";
+  const rejectUnauthorized = clean(process.env.DB_SSL_REJECT_UNAUTHORIZED).toLowerCase() !== "false";
 
   cache.sequelize = new Sequelize(database, username, password, {
     host,
@@ -30,7 +31,14 @@ export function getSequelize(): Sequelize {
       acquire: 30000,
       idle: 10000,
     },
-    dialectOptions: useSSL ? { ssl: { minVersion: "TLSv1.2", rejectUnauthorized: true } } : {},
+    dialectOptions: useSSL
+      ? {
+          ssl: {
+            minVersion: "TLSv1.2",
+            rejectUnauthorized,
+          },
+        }
+      : {},
   });
 
   return cache.sequelize;

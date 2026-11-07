@@ -5,10 +5,10 @@ import { Sequelize } from "sequelize";
 export async function initDatabase() {
   const host = process.env.DB_HOST || "localhost";
   const port = Number(process.env.DB_PORT) || 3306;
-  const database = process.env.DB_NAME || "mirqas";
+  const database = process.env.DB_NAME || "mirqasperfumes_db";
   const username = process.env.DB_USER || "root";
   const password = process.env.DB_PASSWORD || "";
-  const useSSL = process.env.DB_SSL === "true" || host.includes("tidbcloud.com");
+  const useSSL = process.env.DB_SSL === "true";
 
   console.log(`Connecting to MySQL ${host}:${port}/${database}...`);
   const sequelize = new Sequelize(database, username, password, {
@@ -16,7 +16,14 @@ export async function initDatabase() {
     port,
     dialect: "mysql",
     logging: false,
-    dialectOptions: useSSL ? { ssl: { minVersion: "TLSv1.2", rejectUnauthorized: true } } : {},
+    dialectOptions: useSSL
+      ? {
+          ssl: {
+            minVersion: "TLSv1.2",
+            rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false",
+          },
+        }
+      : {},
   });
 
   await sequelize.authenticate();

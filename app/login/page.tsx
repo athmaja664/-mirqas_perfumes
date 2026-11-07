@@ -105,12 +105,26 @@ export default function LoginPage() {
 
   const [name, setName] = useState("");
   const [identifier, setIdentifier] = useState(""); // For login: email or phone
-  const [regIdentifier, setRegIdentifier] = useState(""); // For registration: email or phone
+  const [regEmail, setRegEmail] = useState("");     // Separate email input for register
+  const [regPhone, setRegPhone] = useState("");     // Separate phone input for register
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [terms, setTerms] = useState(false);
+  const [alreadyLoggedIn, setAlreadyLoggedIn] = useState<{ name: string; email: string; role: string } | null>(null);
+
+  // Check if user is already signed in with a saved 30-day session
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.user) {
+          setAlreadyLoggedIn(d.user);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Allow /login?tab=register to open the Register tab
   useEffect(() => {
@@ -132,12 +146,20 @@ export default function LoginPage() {
 
     if (name.trim().length < 2) return "Please enter your full name.";
 
-    const cleanRegId = regIdentifier.trim();
-    if (!cleanRegId) return "Please enter your email address or phone number.";
-    const isEmailAddress = /^\S+@\S+\.\S+$/.test(cleanRegId);
-    const isPhoneNumber = /^\+?[0-9\s-]{7,15}$/.test(cleanRegId);
-    if (!isEmailAddress && !isPhoneNumber) {
-      return "Please enter a valid email address or phone number.";
+    const cleanEmail = regEmail.trim();
+    const cleanPhone = regPhone.trim();
+
+    // At least one of email or phone must be filled
+    if (!cleanEmail && !cleanPhone) {
+      return "Please enter either an email address or a phone number.";
+    }
+
+    if (cleanEmail && !/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+      return "Please enter a valid email address.";
+    }
+
+    if (cleanPhone && !/^\+?[0-9\s-]{7,15}$/.test(cleanPhone)) {
+      return "Please enter a valid phone number.";
     }
 
     if (password.length < 8) return "Password must be at least 8 characters.";
@@ -161,28 +183,30 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (tab === "login") {
-        // One login form for everyone: supports email or phone
-        const data = await loginRequest(identifier.trim(), password, false);
+        // One login form for everyone: supports email or phone with permanent persistent session
+        const data = await loginRequest(identifier.trim(), password, true);
         if (data?.user?.id) {
           setActiveUserId(String(data.user.id));
         }
-        router.push(data?.user?.role === "admin" ? "/admin/dashboard" : "/");
-        router.refresh();
+        setSuccess("Signed in successfully! Your login is saved permanently — you won't have to enter your email and password again.");
+        setTimeout(() => {
+          router.push(data?.user?.role === "admin" ? "/admin/dashboard" : "/");
+          router.refresh();
+        }, 1200);
       } else {
-        const cleanRegId = regIdentifier.trim();
-        const isEmailAddress = /^\S+@\S+\.\S+$/.test(cleanRegId);
+        const cleanEmail = regEmail.trim();
+        const cleanPhone = regPhone.trim();
         await registerRequest({
           name: name.trim(),
-          registrationMethod: isEmailAddress ? "email" : "phone",
-          identifier: cleanRegId,
-          email: isEmailAddress ? cleanRegId : undefined,
-          phone: !isEmailAddress ? cleanRegId : undefined,
+          email: cleanEmail || undefined,
+          phone: cleanPhone || undefined,
           password,
           confirmPassword: confirm,
         });
         setTab("login");
-        setIdentifier(cleanRegId);
-        setRegIdentifier("");
+        setIdentifier(cleanEmail || cleanPhone);
+        setRegEmail("");
+        setRegPhone("");
         setPassword("");
         setConfirm("");
         setTerms(false);
@@ -248,6 +272,39 @@ export default function LoginPage() {
               : "Join Mirqas to save favourites and check out faster."}
           </p>
 
+          {alreadyLoggedIn && (
+            <div
+              role="status"
+              className="mb-6 rounded-[10px] border p-4 text-[13px] leading-relaxed"
+              style={{ background: "#EBF5ED", borderColor: "#B7DBC0", color: "#1F7A3A" }}
+            >
+              <div className="flex items-center gap-2 text-[14px] font-semibold">
+                <svg className="h-5 w-5 flex-shrink-0 text-[#1F7A3A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>You are already signed in as {alreadyLoggedIn.name || alreadyLoggedIn.email}!</span>
+              </div>
+              <p className="mt-1 text-black/75">
+                Your login is saved permanently. You do not need to re-enter your email and password.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  href={alreadyLoggedIn.role === "admin" ? "/admin/dashboard" : "/account"}
+                  className="rounded-[6px] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
+                  style={{ background: COPPER }}
+                >
+                  {alreadyLoggedIn.role === "admin" ? "Admin Dashboard" : "Go to My Account"}
+                </Link>
+                <Link
+                  href="/"
+                  className="rounded-[6px] border border-black/20 bg-white px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#111] transition-colors hover:bg-black/5"
+                >
+                  Continue Shopping
+                </Link>
+              </div>
+            </div>
+          )}
+
           <div
             role="tablist"
             aria-label="Login or register"
@@ -295,17 +352,31 @@ export default function LoginPage() {
               />
             )}
 
-            {/* Register: Single unified input for Email or Phone */}
+            {/* Register: Separate inputs for Email Address and Phone Number */}
             {tab === "register" && (
-              <Field
-                label="Email Address or Phone Number"
-                id="reg-identifier"
-                type="text"
-                value={regIdentifier}
-                onChange={setRegIdentifier}
-                autoComplete="username"
-                placeholder="Enter email address or mobile number"
-              />
+              <>
+                <Field
+                  label="Email Address"
+                  id="reg-email"
+                  type="email"
+                  inputMode="email"
+                  value={regEmail}
+                  onChange={setRegEmail}
+                  autoComplete="email"
+                  placeholder="Enter email address"
+                />
+
+                <Field
+                  label="Phone Number"
+                  id="reg-phone"
+                  type="tel"
+                  inputMode="tel"
+                  value={regPhone}
+                  onChange={setRegPhone}
+                  autoComplete="tel"
+                  placeholder="Enter phone number"
+                />
+              </>
             )}
 
             <Field
@@ -316,17 +387,6 @@ export default function LoginPage() {
               autoComplete={tab === "login" ? "current-password" : "new-password"}
               placeholder="Enter your password"
               toggle={{ shown: showPw, onToggle: () => setShowPw((v) => !v) }}
-              headerRight={
-                tab === "login" ? (
-                  <Link
-                    href="/forgot-password"
-                    className="text-[12px] font-medium underline underline-offset-4 transition-colors hover:text-[#7d4720]"
-                    style={{ color: COPPER }}
-                  >
-                    Forgot Password?
-                  </Link>
-                ) : undefined
-              }
             />
 
             {tab === "register" && (

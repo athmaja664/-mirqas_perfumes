@@ -1,5 +1,5 @@
--- Mirqas Perfumes Database Schema for MySQL
--- Compatible with MySQL 8.0+ / TiDB Cloud
+-- Mirqas Perfumes Database Schema for MySQL 8.0+
+-- Database: mirqasperfumes_db
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id` VARCHAR(36) NOT NULL,
@@ -13,6 +13,15 @@ CREATE TABLE IF NOT EXISTS `users` (
   `isActive` TINYINT(1) NOT NULL DEFAULT 1,
   `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `emailVerified` TINYINT(1) NOT NULL DEFAULT 0,
+  `phoneVerified` TINYINT(1) NOT NULL DEFAULT 0,
+  `resetTokenHash` VARCHAR(64) NULL DEFAULT NULL,
+  `resetTokenExpiry` DATETIME(3) NULL DEFAULT NULL,
+  `phoneOtpHash` VARCHAR(64) NULL DEFAULT NULL,
+  `phoneOtpExpiry` DATETIME(3) NULL DEFAULT NULL,
+  `phoneOtpAttempts` INT NOT NULL DEFAULT 0,
+  `verificationTokenHash` VARCHAR(64) NULL DEFAULT NULL,
+  `verificationTokenExpiry` DATETIME(3) NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_users_email` (`email`),
   KEY `idx_users_role` (`role`),
@@ -214,4 +223,24 @@ CREATE TABLE IF NOT EXISTS `wishlist_items` (
   KEY `idx_wishlist_items_product_id` (`productId`),
   CONSTRAINT `fk_wishlist_items_wishlist` FOREIGN KEY (`wishlistId`) REFERENCES `wishlists` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_wishlist_items_product` FOREIGN KEY (`productId`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `media_uploads` (
+  `name` VARCHAR(64) NOT NULL,
+  `mimeType` VARCHAR(64) NOT NULL,
+  `data` LONGBLOB NOT NULL,
+  `size` INT NOT NULL DEFAULT 0,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `media_chunks` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `uploadId` VARCHAR(64) NOT NULL,
+  `chunkIndex` INT NOT NULL,
+  `data` MEDIUMBLOB NOT NULL,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_media_chunks_upload_chunk` (`uploadId`, `chunkIndex`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
