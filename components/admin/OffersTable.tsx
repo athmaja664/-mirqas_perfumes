@@ -177,7 +177,18 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
                 return (
                   <tr key={offer.id} className="hover:bg-black/[0.01]">
                     <td className="px-4 py-4">
-                      <div className="font-medium text-black">{offer.title}</div>
+                      <Link
+                        href={`/admin/offers/${offer.id}`}
+                        className="group inline-flex items-center gap-2 text-black hover:text-[#9C5A2B]"
+                        title="Click to edit this offer"
+                      >
+                        <span className="font-semibold underline decoration-transparent transition-colors group-hover:decoration-current">
+                          {offer.title}
+                        </span>
+                        <span className="rounded border border-[#9C5A2B]/30 bg-[#9C5A2B]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#9C5A2B] transition-colors group-hover:bg-[#9C5A2B] group-hover:text-white">
+                          ✎ Edit
+                        </span>
+                      </Link>
                       {offer.description && (
                         <p className="mt-0.5 line-clamp-1 max-w-xs text-xs text-black/55">
                           {offer.description}
@@ -281,9 +292,9 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
                         </button>
                         <Link
                           href={`/admin/offers/${offer.id}`}
-                          className="border border-[#9C5A2B] bg-white px-2.5 py-1 text-[11px] font-medium text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B]/10"
+                          className="inline-flex items-center gap-1 rounded border border-[#9C5A2B] bg-[#9C5A2B] px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#7d4720]"
                         >
-                          Edit
+                          ✎ Edit
                         </Link>
                         <button
                           type="button"

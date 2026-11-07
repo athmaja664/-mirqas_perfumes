@@ -307,7 +307,7 @@ export function evaluateOffers(
     const offerProductIds = new Set((offer.products || []).map((p) => p.id));
     const offerProductSlugs = new Set((offer.products || []).map((p) => p.slug));
 
-    const eligibleLines: { unitPrice: number; count: number }[] = [];
+    const eligibleLines: { unitPrice: number; count: number; slug: string }[] = [];
 
     for (const it of items) {
       // Check product match
@@ -331,6 +331,7 @@ export function evaluateOffers(
       eligibleLines.push({
         unitPrice: it.unitPrice,
         count: it.qty,
+        slug: it.slug,
       });
     }
 
@@ -342,40 +343,56 @@ export function evaluateOffers(
 
     if (totalEligibleQty < reqQty) continue;
 
-    // Expand into individual unit prices for exact bundle calculations
-    const units: number[] = [];
-    for (const l of eligibleLines) {
-      for (let i = 0; i < l.count; i++) {
-        units.push(l.unitPrice);
-      }
-    }
-    // Sort units ascending or descending to apply bundle predictably
-    units.sort((a, b) => b - a);
-
-    const bundleCount = Math.floor(units.length / reqQty);
-    if (bundleCount < 1) continue;
-
+    const allowMixed = offer.allowMixedVariants !== false;
     let discountTotal = 0;
 
-    if (offer.offerType === "quantity" && offer.offerPrice != null) {
-      // "Buy X bottles for special price ₹Y"
-      // For each bundle of reqQty bottles, sum their prices and subtract offerPrice
-      for (let b = 0; b < bundleCount; b++) {
-        const bundleUnits = units.slice(b * reqQty, (b + 1) * reqQty);
-        const regularTotal = bundleUnits.reduce((acc, p) => acc + p, 0);
-        if (regularTotal > offer.offerPrice) {
-          discountTotal += regularTotal - offer.offerPrice;
+    const unitGroups: number[][] = [];
+    if (allowMixed) {
+      const units: number[] = [];
+      for (const l of eligibleLines) {
+        for (let i = 0; i < l.count; i++) {
+          units.push(l.unitPrice);
         }
       }
-    } else if (offer.offerType === "percentage" && offer.discountValue != null) {
-      // "X% off on purchase of Y bottles"
-      const discountedUnits = units.slice(0, bundleCount * reqQty);
-      const sum = discountedUnits.reduce((acc, p) => acc + p, 0);
-      discountTotal = Math.round(sum * (offer.discountValue / 100));
-    } else if (offer.offerType === "fixed" && offer.discountValue != null) {
-      // "₹X off on purchase of Y bottles"
-      // offer.discountValue is in paise
-      discountTotal = Math.round(offer.discountValue * bundleCount);
+      units.sort((a, b) => b - a);
+      unitGroups.push(units);
+    } else {
+      const bySlug = new Map<string, number[]>();
+      for (const l of eligibleLines) {
+        if (!bySlug.has(l.slug)) bySlug.set(l.slug, []);
+        for (let i = 0; i < l.count; i++) {
+          bySlug.get(l.slug)!.push(l.unitPrice);
+        }
+      }
+      for (const [, units] of bySlug.entries()) {
+        units.sort((a, b) => b - a);
+        unitGroups.push(units);
+      }
+    }
+
+    for (const units of unitGroups) {
+      const bundleCount = Math.floor(units.length / reqQty);
+      if (bundleCount < 1) continue;
+
+      if (offer.offerType === "quantity" && offer.offerPrice != null) {
+        // "Buy X bottles for special price ₹Y"
+        for (let b = 0; b < bundleCount; b++) {
+          const bundleUnits = units.slice(b * reqQty, (b + 1) * reqQty);
+          const regularTotal = bundleUnits.reduce((acc, p) => acc + p, 0);
+          if (regularTotal > offer.offerPrice) {
+            discountTotal += regularTotal - offer.offerPrice;
+          }
+        }
+      } else if (offer.offerType === "percentage" && offer.discountValue != null) {
+        // "X% off on purchase of Y bottles"
+        const discountedUnits = units.slice(0, bundleCount * reqQty);
+        const sum = discountedUnits.reduce((acc, p) => acc + p, 0);
+        discountTotal += Math.round(sum * (offer.discountValue / 100));
+      } else if (offer.offerType === "fixed" && offer.discountValue != null) {
+        // "₹X off on purchase of Y bottles"
+        // offer.discountValue is in paise
+        discountTotal += Math.round(offer.discountValue * bundleCount);
+      }
     }
 
     if (discountTotal > 0) {

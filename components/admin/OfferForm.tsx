@@ -71,7 +71,7 @@ export default function OfferForm({
   );
 
   const [applicableToAll, setApplicableToAll] = useState(
-    initialOffer?.applicableToAll ?? false
+    initialOffer ? (initialOffer.applicableToAll ?? false) : true
   );
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>(
     initialOffer?.productIds ?? []
@@ -472,23 +472,37 @@ export default function OfferForm({
 
           {/* 3. Product Selection */}
           <div className="space-y-4 border-t border-black/10 pt-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold uppercase tracking-wider text-black">
-                3. Eligible Product(s)
-              </h2>
-              <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-black/80">
+            <h2 className="text-base font-semibold uppercase tracking-wider text-black">
+              3. Applicable Products
+            </h2>
+
+            <div className="rounded border border-black/10 bg-[#FCF8F0] p-4">
+              <label className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
                   checked={applicableToAll}
-                  onChange={(e) => setApplicableToAll(e.target.checked)}
-                  className="h-4 w-4 accent-[#9C5A2B]"
+                  onChange={(e) => {
+                    setApplicableToAll(e.target.checked);
+                    if (e.target.checked) setSelectedProductIds([]);
+                  }}
+                  className="mt-0.5 h-4 w-4 accent-[#9C5A2B]"
                 />
-                Apply to ALL Products
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-black">
+                    Apply to All Products (Storewide Offer — customer can mix any perfumes)
+                  </span>
+                  <p className="mt-0.5 text-[11px] text-black/60">
+                    When enabled, this offer applies to every perfume in the store. Uncheck if you want this deal to apply only to specific perfumes.
+                  </p>
+                </div>
               </label>
             </div>
 
             {!applicableToAll && (
-              <div className="space-y-3">
+              <div className="space-y-3 pt-1">
+                <p className="text-xs font-medium text-black/70">
+                  Select which specific perfumes qualify for this offer:
+                </p>
                 <input
                   type="text"
                   placeholder="Search products to include in this offer..."
@@ -604,6 +618,11 @@ export default function OfferForm({
               <p className="mt-1 pl-6 text-[11px] text-black/50">
                 When checked, customer can satisfy the {requiredQuantity}-bottle requirement with different eligible perfumes/sizes.
               </p>
+              {!applicableToAll && selectedProductIds.length <= 1 && (
+                <p className="mt-1 pl-6 text-[11px] font-medium text-amber-700">
+                  Note: To allow customers to mix different perfumes, make sure &quot;Apply to All Products&quot; is enabled above or select multiple perfumes in section 3.
+                </p>
+              )}
             </div>
           </div>
 
