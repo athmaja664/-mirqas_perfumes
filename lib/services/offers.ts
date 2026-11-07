@@ -200,7 +200,7 @@ export async function createOffer(data: {
     status: data.status || "draft",
   });
 
-  if (Array.isArray(data.productIds) && data.productIds.length > 0 && !data.applicableToAll) {
+  if (Array.isArray(data.productIds) && data.productIds.length > 0) {
     const pairs = data.productIds.map((pId) => ({
       id: randomUUID(),
       offerId,
@@ -261,14 +261,16 @@ export async function updateOffer(
   await offer.update(updates);
 
   if (Array.isArray(data.productIds)) {
-    await OfferProduct.destroy({ where: { offerId: id } });
-    if (data.productIds.length > 0 && !data.applicableToAll) {
+    if (data.productIds.length > 0) {
+      await OfferProduct.destroy({ where: { offerId: id } });
       const pairs = data.productIds.map((pId) => ({
         id: randomUUID(),
         offerId: id,
         productId: pId,
       }));
       await OfferProduct.bulkCreate(pairs);
+    } else if (data.applicableToAll === false) {
+      await OfferProduct.destroy({ where: { offerId: id } });
     }
   }
 

@@ -268,7 +268,7 @@ export default function OfferForm({
       startDate: startDate ? new Date(startDate).toISOString() : null,
       endDate: noExpiry || !endDate ? null : new Date(endDate).toISOString(),
       status: finalStatus,
-      productIds: applicableToAll ? [] : selectedProductIds,
+      productIds: selectedProductIds,
     };
 
     setSaving(true);
@@ -552,7 +552,6 @@ export default function OfferForm({
                   checked={applicableToAll}
                   onChange={(e) => {
                     setApplicableToAll(e.target.checked);
-                    if (e.target.checked) setSelectedProductIds([]);
                   }}
                   className="mt-0.5 h-4 w-4 accent-[#9C5A2B]"
                 />
@@ -567,68 +566,68 @@ export default function OfferForm({
               </label>
             </div>
 
-            {!applicableToAll && (
-              <div className="space-y-3 pt-1">
-                <p className="text-xs font-medium text-black/70">
-                  Select which specific perfumes qualify for this offer:
-                </p>
-                <input
-                  type="text"
-                  placeholder="Search products to include in this offer..."
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  className={inputStyle}
-                />
+            <div className="space-y-3 pt-1">
+              <p className="text-xs font-medium text-black/70">
+                {applicableToAll
+                  ? "Featured Perfume(s) (Select perfumes to showcase the image with this offer):"
+                  : "Select which specific perfumes qualify for this offer:"}
+              </p>
+              <input
+                type="text"
+                placeholder="Search products to include in this offer..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className={inputStyle}
+              />
 
-                <div className="max-h-60 overflow-y-auto border border-black/15 divide-y divide-black/5">
-                  {filteredProducts.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-black/50">
-                      No matching products found.
-                    </div>
-                  ) : (
-                    filteredProducts.map((p) => {
-                      const checked = selectedProductIds.includes(p.id);
-                      return (
-                        <label
-                          key={p.id}
-                          className={`flex cursor-pointer items-center justify-between p-3 transition-colors ${
-                            checked ? "bg-[#FCF8F0]" : "hover:bg-black/[0.02]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleProduct(p.id)}
-                              className="h-4 w-4 accent-[#9C5A2B]"
+              <div className="max-h-60 overflow-y-auto border border-black/15 divide-y divide-black/5">
+                {filteredProducts.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-black/50">
+                    No matching products found.
+                  </div>
+                ) : (
+                  filteredProducts.map((p) => {
+                    const checked = selectedProductIds.includes(p.id);
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex cursor-pointer items-center justify-between p-3 transition-colors ${
+                          checked ? "bg-[#FCF8F0]" : "hover:bg-black/[0.02]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleProduct(p.id)}
+                            className="h-4 w-4 accent-[#9C5A2B]"
+                          />
+                          {p.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={p.image}
+                              alt=""
+                              className="h-8 w-8 object-cover border border-black/10"
                             />
-                            {p.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={p.image}
-                                alt=""
-                                className="h-8 w-8 object-cover border border-black/10"
-                              />
-                            ) : (
-                              <div className="h-8 w-8 bg-black/5 flex items-center justify-center text-[10px]">
-                                —
-                              </div>
-                            )}
-                            <span className="text-sm font-medium text-black">{p.name}</span>
-                          </div>
-                          <span className="text-xs text-black/55">
-                            ₹{(p.price / 100).toLocaleString("en-IN")}
-                          </span>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-                <div className="text-xs text-black/60">
-                  {selectedProductIds.length} product(s) selected for this offer.
-                </div>
+                          ) : (
+                            <div className="h-8 w-8 bg-black/5 flex items-center justify-center text-[10px]">
+                              —
+                            </div>
+                          )}
+                          <span className="text-sm font-medium text-black">{p.name}</span>
+                        </div>
+                        <span className="text-xs text-black/55">
+                          ₹{(p.price / 100).toLocaleString("en-IN")}
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
               </div>
-            )}
+              <div className="text-xs text-black/60">
+                {selectedProductIds.length} product(s) selected for this offer.
+              </div>
+            </div>
           </div>
 
           {/* 4. Eligible Sizes / Variants */}

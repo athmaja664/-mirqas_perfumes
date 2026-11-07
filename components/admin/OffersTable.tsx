@@ -177,18 +177,7 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
                 return (
                   <tr key={offer.id} className="hover:bg-black/[0.01]">
                     <td className="px-4 py-4">
-                      <Link
-                        href={`/admin/offers/${offer.id}`}
-                        className="group inline-flex items-center gap-2 text-black hover:text-[#9C5A2B]"
-                        title="Click to edit this offer"
-                      >
-                        <span className="font-semibold underline decoration-transparent transition-colors group-hover:decoration-current">
-                          {offer.title}
-                        </span>
-                        <span className="rounded border border-[#9C5A2B]/30 bg-[#9C5A2B]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#9C5A2B] transition-colors group-hover:bg-[#9C5A2B] group-hover:text-white">
-                          ✎ Edit
-                        </span>
-                      </Link>
+                      <div className="font-medium text-black">{offer.title}</div>
                       {offer.description && (
                         <p className="mt-0.5 line-clamp-1 max-w-xs text-xs text-black/55">
                           {offer.description}
@@ -196,38 +185,54 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
                       )}
                     </td>
                     <td className="px-4 py-4">
-                      {offer.applicableToAll ? (
-                        <span className="inline-block rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
-                          All Products
-                        </span>
-                      ) : offer.products.length > 0 ? (
-                        <div className="flex items-center gap-2">
-                          {offer.products[0].image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={offer.products[0].image}
-                              alt=""
-                              className="h-10 w-10 border border-black/10 object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-10 w-10 items-center justify-center bg-black/5 text-[10px]">
-                              None
-                            </div>
-                          )}
-                          <div className="text-xs">
-                            <span className="font-medium text-black line-clamp-1">
-                              {offer.products[0].name}
-                            </span>
-                            {offer.products.length > 1 && (
-                              <span className="text-[11px] text-black/50">
-                                +{offer.products.length - 1} more
-                              </span>
-                            )}
+                      <div className="flex items-center gap-2.5">
+                        {offer.products.length > 0 && offer.products[0].image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={offer.products[0].image}
+                            alt=""
+                            className="h-10 w-10 border border-black/10 object-cover"
+                          />
+                        ) : offer.bannerImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={offer.bannerImage}
+                            alt=""
+                            className="h-10 w-10 border border-black/10 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center border border-black/10 bg-[#FCF8F0] text-[10px] font-semibold text-[#9C5A2B]">
+                            Offer
                           </div>
+                        )}
+                        <div className="text-xs">
+                          {offer.applicableToAll ? (
+                            <div>
+                              <span className="inline-block rounded bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                                All Products
+                              </span>
+                              {offer.products.length > 0 && (
+                                <span className="block text-[11px] text-black/50 line-clamp-1">
+                                  {offer.products[0].name}
+                                </span>
+                              )}
+                            </div>
+                          ) : offer.products.length > 0 ? (
+                            <div>
+                              <span className="font-medium text-black line-clamp-1">
+                                {offer.products[0].name}
+                              </span>
+                              {offer.products.length > 1 && (
+                                <span className="text-[11px] text-black/50">
+                                  +{offer.products.length - 1} more
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-black/40">None selected</span>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-xs text-black/40">None selected</span>
-                      )}
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-xs">
                       <div className="font-medium capitalize text-black">
@@ -292,9 +297,9 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
                         </button>
                         <Link
                           href={`/admin/offers/${offer.id}`}
-                          className="inline-flex items-center gap-1 rounded border border-[#9C5A2B] bg-[#9C5A2B] px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#7d4720]"
+                          className="border border-[#9C5A2B] bg-white px-2.5 py-1 text-[11px] font-medium text-[#9C5A2B] transition-colors hover:bg-[#9C5A2B]/10"
                         >
-                          ✎ Edit
+                          Edit
                         </Link>
                         <button
                           type="button"
