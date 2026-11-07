@@ -63,21 +63,21 @@ async function runTests() {
   const sampleProduct = {
     price: 149900,
     sizePrices: {
-      "5ml": 49900,
       "10ml": 89900,
+      "15ml": 119900,
       "50ml": 249900,
     },
-    pricingMethod: "manual",
+    pricingMethod: "percentage",
   };
 
-  const price5 = unitPricePaise(sampleProduct, 5);
   const price10 = unitPricePaise(sampleProduct, 10);
+  const price15 = unitPricePaise(sampleProduct, 15);
   const price50 = unitPricePaise(sampleProduct, 50);
 
-  if (price5 !== 49900 || price10 !== 89900 || price50 !== 249900) {
-    throw new Error(`Manual sizePrices lookup failed: 5ml=${price5}, 10ml=${price10}, 50ml=${price50}`);
+  if (price10 !== 89900 || price15 !== 119900 || price50 !== 249900) {
+    throw new Error(`Manual sizePrices lookup failed: 10ml=${price10}, 15ml=${price15}, 50ml=${price50}`);
   }
-  console.log("✓ Manual sizePrices correctly resolved: 5ml=₹499, 10ml=₹899, 50ml=₹2499");
+  console.log("✓ Manual sizePrices correctly resolved: 10ml=₹899, 15ml=₹1199, 50ml=₹2499");
 
   // 3. Test Database Persistence of Product with Pricing Methods
   console.log("\n[TEST 3] Testing Product Model with Database Persistence...");
@@ -94,10 +94,10 @@ async function runTests() {
     category: "Woody",
     stock: 50,
     isActive: true,
-    pricingMethod: "manual",
+    pricingMethod: "percentage",
     sizePrices: {
-      "5ml": 59900,
       "10ml": 99900,
+      "15ml": 129900,
       "30ml": 189900,
       "50ml": 279900,
       "100ml": 459900,

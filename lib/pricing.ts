@@ -1,8 +1,7 @@
-// Size prices. Supports standard perfume sizes, custom sizes (5ml, 10ml, 15ml, 30ml, 50ml, 100ml, etc.),
+// Size prices. Supports standard perfume sizes (10ml, 15ml, 30ml, 50ml, 100ml)
 // and single-size products like Gift Covers (ml: 0).
 
 export const SIZE_STEPS = [
-  { ml: 5, mult: 0.65 },
   { ml: 10, mult: 1 },
   { ml: 15, mult: 1.35 },
   { ml: 30, mult: 2.25 },
@@ -10,7 +9,7 @@ export const SIZE_STEPS = [
   { ml: 100, mult: 5.6 },
 ] as const;
 
-export const VALID_SIZES: number[] = [0, 5, 10, 15, 30, 50, 100];
+export const VALID_SIZES: number[] = [0, 10, 15, 30, 50, 100];
 
 export function isValidSize(ml: number): boolean {
   return typeof ml === "number" && !isNaN(ml) && ml >= 0;

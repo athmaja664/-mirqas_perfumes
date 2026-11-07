@@ -1134,9 +1134,7 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       const p30 = Math.round(p15 * (1 + r));
       const p50 = Math.round(p30 * (1 + r));
       const p100 = Math.round(p50 * (1 + r));
-      const p5 = Math.round(p10 / (1 + r));
       sizePricesPaise = {
-        "5ml": p5,
         "10ml": p10,
         "15ml": p15,
         "30ml": p30,
@@ -1145,7 +1143,6 @@ export default function ProductForm({ product }: { product?: ProductData }) {
       };
     } else {
       sizePricesPaise = {
-        "5ml": Math.round((base10mlPaise / 100) * 0.65) * 100,
         "10ml": base10mlPaise,
         "15ml": Math.round((base10mlPaise / 100) * 1.35) * 100,
         "30ml": Math.round((base10mlPaise / 100) * 2.25) * 100,

@@ -8,7 +8,7 @@ import AlertModal from "@/components/admin/AlertModal";
 const COPPER = "#9C5A2B";
 const serif = '"Cormorant Garamond", "Playfair Display", Georgia, serif';
 
-const STANDARD_SIZES = ["5ml", "10ml", "15ml", "30ml", "50ml", "100ml"] as const;
+const STANDARD_SIZES = ["10ml", "15ml", "30ml", "50ml", "100ml"] as const;
 
 export type ProductOption = {
   id: string;

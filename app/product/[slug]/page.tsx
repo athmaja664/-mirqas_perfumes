@@ -65,7 +65,7 @@ type ActiveOffer = {
   products: { id: string; slug: string; name: string }[];
 };
 
-const SIZE_LABELS = ["5ml", "10ml", "15ml", "30ml", "50ml", "100ml"];
+const SIZE_LABELS = ["10ml", "15ml", "30ml", "50ml", "100ml"];
 
 const DEFAULT_DESCRIPTION =
   "A smooth and warm fragrance with a silky finish. Made for evenings and special occasions, it stays close to the skin and lasts for hours.";
