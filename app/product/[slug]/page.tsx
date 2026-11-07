@@ -58,6 +58,7 @@ type ActiveOffer = {
   offerType: "quantity" | "percentage" | "fixed";
   offerPrice: number | null; // paise
   discountValue: number | null;
+  percentageIncrease?: number | null;
   requiredQuantity: number;
   eligibleSizes: string[];
   allowMixedVariants: boolean;
@@ -475,11 +476,32 @@ function ProductDetail() {
                   <p className="mt-1 text-xs text-black/70">{activeOffer.description}</p>
                 )}
                 <div className="mt-2 text-xs font-medium text-black/85">
-                  {activeOffer.offerType === "quantity" && activeOffer.offerPrice != null
-                    ? `Buy ${activeOffer.requiredQuantity} bottle${activeOffer.requiredQuantity > 1 ? "s" : ""} for just ₹${(activeOffer.offerPrice / 100).toLocaleString("en-IN")}!`
-                    : activeOffer.offerType === "percentage" && activeOffer.discountValue != null
-                    ? `Get ${activeOffer.discountValue}% OFF on purchase of ${activeOffer.requiredQuantity} bottle${activeOffer.requiredQuantity > 1 ? "s" : ""}!`
-                    : `Flat ₹${((activeOffer.discountValue || 0) / 100).toLocaleString("en-IN")} OFF on ${activeOffer.requiredQuantity} bottle${activeOffer.requiredQuantity > 1 ? "s" : ""}!`}
+                  {activeOffer.offerType === "quantity" && activeOffer.offerPrice != null ? (
+                    (() => {
+                      const basePaise = activeOffer.offerPrice;
+                      const pct = activeOffer.percentageIncrease;
+                      let effectivePaise = basePaise;
+                      if (pct && pct > 0 && current.ml > 10) {
+                        const r = pct / 100;
+                        let p = basePaise;
+                        if (current.ml >= 15) p = Math.round(p * (1 + r));
+                        if (current.ml >= 30) p = Math.round(p * (1 + r));
+                        if (current.ml >= 50) p = Math.round(p * (1 + r));
+                        if (current.ml >= 100) p = Math.round(p * (1 + r));
+                        effectivePaise = p;
+                      }
+                      const reqSizes = activeOffer.eligibleSizes || [];
+                      const sizeNotice =
+                        (!pct || pct <= 0) && reqSizes.length > 0
+                          ? ` (Offer on ${reqSizes.join(", ")} only)`
+                          : "";
+                      return `Buy ${activeOffer.requiredQuantity} bottle${activeOffer.requiredQuantity > 1 ? "s" : ""} (${current.ml}ml) for just ₹${(effectivePaise / 100).toLocaleString("en-IN")}!${sizeNotice}`;
+                    })()
+                  ) : activeOffer.offerType === "percentage" && activeOffer.discountValue != null ? (
+                    `Get ${activeOffer.discountValue}% OFF on purchase of ${activeOffer.requiredQuantity} bottle${activeOffer.requiredQuantity > 1 ? "s" : ""}!`
+                  ) : (
+                    `Flat ₹${((activeOffer.discountValue || 0) / 100).toLocaleString("en-IN")} OFF on ${activeOffer.requiredQuantity} bottle${activeOffer.requiredQuantity > 1 ? "s" : ""}!`
+                  )}
                 </div>
 
                 {/* Dynamic eligibility for selected size */}
@@ -487,7 +509,9 @@ function ProductDetail() {
                   {(() => {
                     const reqSizes = activeOffer.eligibleSizes || [];
                     const curSizeStr = `${current.ml}ml`.toLowerCase();
+                    const hasPct = Boolean(activeOffer.percentageIncrease && activeOffer.percentageIncrease > 0);
                     const isEligible =
+                      hasPct ||
                       reqSizes.length === 0 ||
                       reqSizes.map((s) => s.toLowerCase()).includes(curSizeStr) ||
                       reqSizes.map((s) => s.toLowerCase()).includes(String(current.ml));
@@ -503,7 +527,7 @@ function ProductDetail() {
                       return (
                         <div className="flex items-center gap-1.5 text-xs font-medium text-amber-900">
                           <span className="h-2 w-2 rounded-full bg-amber-600" />
-                          <span>Offer applies only to sizes: {reqSizes.join(", ")}</span>
+                          <span>Offer applies only to sizes: {reqSizes.join(", ")} (this {current.ml}ml bottle is regular price)</span>
                         </div>
                       );
                     }

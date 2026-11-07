@@ -12,6 +12,7 @@ export interface IOffer {
   offerType: OfferType;
   offerPrice: number | null; // in paise (for quantity-based bundle price)
   discountValue: number | null; // percentage e.g. 15 for 15%, or fixed amount in paise
+  percentageIncrease: number | null; // percentage price scaling for each subsequent bottle size (15ml, 30ml, 50ml, 100ml)
   requiredQuantity: number;
   eligibleSizes: string[];
   allowMixedVariants: boolean;
@@ -34,6 +35,7 @@ export type OfferCreationAttributes = Optional<
   | "description"
   | "offerPrice"
   | "discountValue"
+  | "percentageIncrease"
   | "requiredQuantity"
   | "eligibleSizes"
   | "allowMixedVariants"
@@ -70,6 +72,7 @@ export class Offer extends Model<IOffer, OfferCreationAttributes> implements IOf
   declare offerType: OfferType;
   declare offerPrice: number | null;
   declare discountValue: number | null;
+  declare percentageIncrease: number | null;
   declare requiredQuantity: number;
   declare eligibleSizes: string[];
   declare allowMixedVariants: boolean;
@@ -136,6 +139,15 @@ Offer.init(
       defaultValue: null,
       get() {
         const val = this.getDataValue("discountValue");
+        return val != null ? Number(val) : null;
+      },
+    },
+    percentageIncrease: {
+      type: DataTypes.DOUBLE,
+      allowNull: true,
+      defaultValue: null,
+      get() {
+        const val = this.getDataValue("percentageIncrease");
         return val != null ? Number(val) : null;
       },
     },

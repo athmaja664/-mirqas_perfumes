@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
       offerType,
       offerPrice,
       discountValue,
+      percentageIncrease: body.percentageIncrease != null ? Number(body.percentageIncrease) : null,
       requiredQuantity,
       eligibleSizes: Array.isArray(body.eligibleSizes) ? body.eligibleSizes : [],
       allowMixedVariants: body.allowMixedVariants !== false,

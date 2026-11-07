@@ -36,6 +36,7 @@ export function toOffer(o: Offer) {
     offerType: json.offerType,
     offerPrice: json.offerPrice,
     discountValue: json.discountValue != null ? Number(json.discountValue) : null,
+    percentageIncrease: json.percentageIncrease != null ? Number(json.percentageIncrease) : null,
     requiredQuantity: json.requiredQuantity,
     eligibleSizes: Array.isArray(json.eligibleSizes) ? json.eligibleSizes : [],
     allowMixedVariants: Boolean(json.allowMixedVariants),
@@ -161,6 +162,7 @@ export async function createOffer(data: {
   offerType: OfferType;
   offerPrice?: number | null; // in paise
   discountValue?: number | null;
+  percentageIncrease?: number | null;
   requiredQuantity: number;
   eligibleSizes: string[];
   allowMixedVariants?: boolean;
@@ -184,6 +186,7 @@ export async function createOffer(data: {
     offerType: data.offerType,
     offerPrice: data.offerPrice ?? null,
     discountValue: data.discountValue ?? null,
+    percentageIncrease: data.percentageIncrease ?? null,
     requiredQuantity: Math.max(1, data.requiredQuantity || 1),
     eligibleSizes: data.eligibleSizes || [],
     allowMixedVariants: data.allowMixedVariants !== false,
@@ -217,6 +220,7 @@ export async function updateOffer(
     offerType?: OfferType;
     offerPrice?: number | null;
     discountValue?: number | null;
+    percentageIncrease?: number | null;
     requiredQuantity?: number;
     eligibleSizes?: string[];
     allowMixedVariants?: boolean;
@@ -241,6 +245,7 @@ export async function updateOffer(
   if (data.offerType !== undefined) updates.offerType = data.offerType;
   if (data.offerPrice !== undefined) updates.offerPrice = data.offerPrice;
   if (data.discountValue !== undefined) updates.discountValue = data.discountValue;
+  if (data.percentageIncrease !== undefined) updates.percentageIncrease = data.percentageIncrease;
   if (data.requiredQuantity !== undefined) updates.requiredQuantity = Math.max(1, data.requiredQuantity);
   if (data.eligibleSizes !== undefined) updates.eligibleSizes = data.eligibleSizes;
   if (data.allowMixedVariants !== undefined) updates.allowMixedVariants = data.allowMixedVariants;
@@ -289,6 +294,20 @@ export async function toggleOfferStatus(id: string, status: OfferStatus) {
  * Calculates the best offer discount for the given items in cart or order.
  * Items contain { productId, slug, ml, qty, unitPrice (in paise) }.
  */
+function getUnitOfferPrice(base10mlPrice: number, ml: number, pct: number | null | undefined): number {
+  if (!pct || pct <= 0 || ml <= 10) return base10mlPrice;
+  const r = pct / 100;
+  const p10 = base10mlPrice;
+  const p15 = Math.round(p10 * (1 + r));
+  if (ml <= 15) return p15;
+  const p30 = Math.round(p15 * (1 + r));
+  if (ml <= 30) return p30;
+  const p50 = Math.round(p30 * (1 + r));
+  if (ml <= 50) return p50;
+  const p100 = Math.round(p50 * (1 + r));
+  return p100;
+}
+
 export function evaluateOffers(
   items: OfferLineItem[],
   activeOffers: ReturnType<typeof toOffer>[]
@@ -307,7 +326,7 @@ export function evaluateOffers(
     const offerProductIds = new Set((offer.products || []).map((p) => p.id));
     const offerProductSlugs = new Set((offer.products || []).map((p) => p.slug));
 
-    const eligibleLines: { unitPrice: number; count: number; slug: string }[] = [];
+    const eligibleLines: { unitPrice: number; ml: number; count: number; slug: string }[] = [];
 
     for (const it of items) {
       // Check product match
@@ -330,6 +349,7 @@ export function evaluateOffers(
 
       eligibleLines.push({
         unitPrice: it.unitPrice,
+        ml: it.ml,
         count: it.qty,
         slug: it.slug,
       });
@@ -346,26 +366,27 @@ export function evaluateOffers(
     const allowMixed = offer.allowMixedVariants !== false;
     let discountTotal = 0;
 
-    const unitGroups: number[][] = [];
+    type UnitItem = { unitPrice: number; ml: number };
+    const unitGroups: UnitItem[][] = [];
     if (allowMixed) {
-      const units: number[] = [];
+      const units: UnitItem[] = [];
       for (const l of eligibleLines) {
         for (let i = 0; i < l.count; i++) {
-          units.push(l.unitPrice);
+          units.push({ unitPrice: l.unitPrice, ml: l.ml });
         }
       }
-      units.sort((a, b) => b - a);
+      units.sort((a, b) => b.unitPrice - a.unitPrice);
       unitGroups.push(units);
     } else {
-      const bySlug = new Map<string, number[]>();
+      const bySlug = new Map<string, UnitItem[]>();
       for (const l of eligibleLines) {
         if (!bySlug.has(l.slug)) bySlug.set(l.slug, []);
         for (let i = 0; i < l.count; i++) {
-          bySlug.get(l.slug)!.push(l.unitPrice);
+          bySlug.get(l.slug)!.push({ unitPrice: l.unitPrice, ml: l.ml });
         }
       }
       for (const [, units] of bySlug.entries()) {
-        units.sort((a, b) => b - a);
+        units.sort((a, b) => b.unitPrice - a.unitPrice);
         unitGroups.push(units);
       }
     }
@@ -375,18 +396,23 @@ export function evaluateOffers(
       if (bundleCount < 1) continue;
 
       if (offer.offerType === "quantity" && offer.offerPrice != null) {
-        // "Buy X bottles for special price ₹Y"
+        // "Buy X bottles for special price ₹Y" (scales with size percentage if set)
+        const baseUnitOfferPrice = Math.round(offer.offerPrice / reqQty);
         for (let b = 0; b < bundleCount; b++) {
           const bundleUnits = units.slice(b * reqQty, (b + 1) * reqQty);
-          const regularTotal = bundleUnits.reduce((acc, p) => acc + p, 0);
-          if (regularTotal > offer.offerPrice) {
-            discountTotal += regularTotal - offer.offerPrice;
+          const regularTotal = bundleUnits.reduce((acc, p) => acc + p.unitPrice, 0);
+          const bundleOfferPrice = bundleUnits.reduce(
+            (acc, p) => acc + getUnitOfferPrice(baseUnitOfferPrice, p.ml, offer.percentageIncrease),
+            0
+          );
+          if (regularTotal > bundleOfferPrice) {
+            discountTotal += regularTotal - bundleOfferPrice;
           }
         }
       } else if (offer.offerType === "percentage" && offer.discountValue != null) {
         // "X% off on purchase of Y bottles"
         const discountedUnits = units.slice(0, bundleCount * reqQty);
-        const sum = discountedUnits.reduce((acc, p) => acc + p, 0);
+        const sum = discountedUnits.reduce((acc, p) => acc + p.unitPrice, 0);
         discountTotal += Math.round(sum * (offer.discountValue / 100));
       } else if (offer.offerType === "fixed" && offer.discountValue != null) {
         // "₹X off on purchase of Y bottles"

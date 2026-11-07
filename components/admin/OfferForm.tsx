@@ -25,6 +25,7 @@ export type OfferInitialData = {
   offerType: "quantity" | "percentage" | "fixed";
   offerPrice?: number | null; // paise
   discountValue?: number | null;
+  percentageIncrease?: number | null;
   requiredQuantity: number;
   eligibleSizes: string[];
   allowMixedVariants: boolean;
@@ -69,6 +70,24 @@ export default function OfferForm({
         : String(initialOffer.discountValue)
       : ""
   );
+
+  const [percentageIncrease, setPercentageIncrease] = useState<string>(
+    initialOffer?.percentageIncrease != null ? String(initialOffer.percentageIncrease) : "10"
+  );
+
+  // Live preview helpers for quantity offer size scaling
+  const parsedOfferPriceNum = parseFloat(offerPrice) || 0;
+  const parsedPctNum = parseFloat(percentageIncrease) || 0;
+  const calc15 =
+    parsedOfferPriceNum > 0 && parsedPctNum > 0
+      ? Math.round(parsedOfferPriceNum * (1 + parsedPctNum / 100))
+      : 0;
+  const calc30 =
+    parsedOfferPriceNum > 0 && parsedPctNum > 0 ? Math.round(calc15 * (1 + parsedPctNum / 100)) : 0;
+  const calc50 =
+    parsedOfferPriceNum > 0 && parsedPctNum > 0 ? Math.round(calc30 * (1 + parsedPctNum / 100)) : 0;
+  const calc100 =
+    parsedOfferPriceNum > 0 && parsedPctNum > 0 ? Math.round(calc50 * (1 + parsedPctNum / 100)) : 0;
 
   const [applicableToAll, setApplicableToAll] = useState(
     initialOffer ? (initialOffer.applicableToAll ?? false) : true
@@ -234,6 +253,10 @@ export default function OfferForm({
       offerType,
       offerPrice: parsedOfferPrice,
       discountValue: parsedDiscountValue,
+      percentageIncrease:
+        offerType === "quantity" && percentageIncrease.trim() !== ""
+          ? Number(percentageIncrease)
+          : null,
       requiredQuantity: reqQtyNum,
       eligibleSizes: allSizes ? [] : eligibleSizes,
       allowMixedVariants,
@@ -402,25 +425,71 @@ export default function OfferForm({
               </div>
 
               {offerType === "quantity" && (
-                <div>
-                  <label className={labelStyle} htmlFor="offer-price">
-                    Special Total Price (₹) *
-                  </label>
-                  <input
-                    id="offer-price"
-                    type="number"
-                    min="1"
-                    step="1"
-                    className={inputStyle}
-                    value={offerPrice}
-                    onChange={(e) => setOfferPrice(e.target.value)}
-                    placeholder="2599"
-                    required
-                  />
-                  <p className="mt-1 text-[11px] text-black/50">
-                    The combined special price customer pays for the required quantity.
-                  </p>
-                </div>
+                <>
+                  <div>
+                    <label className={labelStyle} htmlFor="offer-price">
+                      Special Total Price for 10ml Base Size (₹) *
+                    </label>
+                    <input
+                      id="offer-price"
+                      type="number"
+                      min="1"
+                      step="1"
+                      className={inputStyle}
+                      value={offerPrice}
+                      onChange={(e) => setOfferPrice(e.target.value)}
+                      placeholder="2000"
+                      required
+                    />
+                    <p className="mt-1 text-[11px] text-black/50">
+                      Combined bundle price the customer pays for {requiredQuantity} bottles of 10ml.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={labelStyle} htmlFor="offer-pct">
+                      Bottle Size Price Increase (%)
+                    </label>
+                    <input
+                      id="offer-pct"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      className={inputStyle}
+                      value={percentageIncrease}
+                      onChange={(e) => setPercentageIncrease(e.target.value)}
+                      placeholder="10"
+                    />
+                    <p className="mt-1 text-[11px] text-black/50">
+                      Percentage increase for larger sizes (15ml, 30ml, 50ml, 100ml). If 0%, the offer applies strictly to the selected size below.
+                    </p>
+                  </div>
+
+                  {parsedOfferPriceNum > 0 && (
+                    <div className="border border-black/10 bg-[#FCF8F0] p-3 text-xs text-black/75 sm:col-span-2">
+                      <span className="font-semibold uppercase tracking-wider text-[#9C5A2B]">
+                        Calculated Offer Prices for {requiredQuantity} Bottles ({parsedPctNum}% increase per size):
+                      </span>
+                      <div className="mt-2 flex flex-wrap gap-2.5 font-mono text-[12px]">
+                        <span className="rounded border border-black/10 bg-white px-2.5 py-1">
+                          10ml: <strong>₹{parsedOfferPriceNum}</strong>
+                        </span>
+                        <span className="rounded border border-black/10 bg-white px-2.5 py-1">
+                          15ml: <strong>₹{calc15 || parsedOfferPriceNum}</strong> (+{parsedPctNum}%)
+                        </span>
+                        <span className="rounded border border-black/10 bg-white px-2.5 py-1">
+                          30ml: <strong>₹{calc30 || parsedOfferPriceNum}</strong> (+{parsedPctNum}%)
+                        </span>
+                        <span className="rounded border border-black/10 bg-white px-2.5 py-1">
+                          50ml: <strong>₹{calc50 || parsedOfferPriceNum}</strong> (+{parsedPctNum}%)
+                        </span>
+                        <span className="rounded border border-black/10 bg-white px-2.5 py-1">
+                          100ml: <strong>₹{calc100 || parsedOfferPriceNum}</strong> (+{parsedPctNum}%)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {offerType === "percentage" && (

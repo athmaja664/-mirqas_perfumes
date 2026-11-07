@@ -52,6 +52,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       offerType: body.offerType,
       offerPrice,
       discountValue,
+      percentageIncrease:
+        body.percentageIncrease !== undefined
+          ? body.percentageIncrease != null
+            ? Number(body.percentageIncrease)
+            : null
+          : undefined,
       requiredQuantity: body.requiredQuantity != null ? Number(body.requiredQuantity) : undefined,
       eligibleSizes: body.eligibleSizes,
       allowMixedVariants: body.allowMixedVariants,

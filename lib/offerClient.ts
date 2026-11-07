@@ -14,6 +14,7 @@ export type ClientActiveOffer = {
   offerType: "quantity" | "percentage" | "fixed";
   offerPrice: number | null; // in paise
   discountValue: number | null;
+  percentageIncrease?: number | null;
   requiredQuantity: number;
   eligibleSizes: string[];
   allowMixedVariants: boolean;
@@ -28,6 +29,20 @@ export type ClientAppliedOffer = {
   discountTotal: number; // in paise
   savingsText: string;
 };
+
+export function getUnitOfferPrice(base10mlPrice: number, ml: number, pct: number | null | undefined): number {
+  if (!pct || pct <= 0 || ml <= 10) return base10mlPrice;
+  const r = pct / 100;
+  const p10 = base10mlPrice;
+  const p15 = Math.round(p10 * (1 + r));
+  if (ml <= 15) return p15;
+  const p30 = Math.round(p15 * (1 + r));
+  if (ml <= 30) return p30;
+  const p50 = Math.round(p30 * (1 + r));
+  if (ml <= 50) return p50;
+  const p100 = Math.round(p50 * (1 + r));
+  return p100;
+}
 
 export function evaluateOffersClient(
   items: ClientOfferLine[],
@@ -46,7 +61,7 @@ export function evaluateOffersClient(
     const offerProductIds = new Set((offer.products || []).map((p) => p.id));
     const offerProductSlugs = new Set((offer.products || []).map((p) => p.slug));
 
-    const eligibleLines: { unitPrice: number; count: number; slug: string }[] = [];
+    const eligibleLines: { unitPrice: number; ml: number; count: number; slug: string }[] = [];
 
     for (const it of items) {
       const productMatches =
@@ -67,6 +82,7 @@ export function evaluateOffersClient(
 
       eligibleLines.push({
         unitPrice: it.unitPrice,
+        ml: it.ml,
         count: it.qty,
         slug: it.slug,
       });
@@ -82,26 +98,27 @@ export function evaluateOffersClient(
     const allowMixed = offer.allowMixedVariants !== false;
     let discountTotal = 0;
 
-    const unitGroups: number[][] = [];
+    type UnitItem = { unitPrice: number; ml: number };
+    const unitGroups: UnitItem[][] = [];
     if (allowMixed) {
-      const units: number[] = [];
+      const units: UnitItem[] = [];
       for (const l of eligibleLines) {
         for (let i = 0; i < l.count; i++) {
-          units.push(l.unitPrice);
+          units.push({ unitPrice: l.unitPrice, ml: l.ml });
         }
       }
-      units.sort((a, b) => b - a);
+      units.sort((a, b) => b.unitPrice - a.unitPrice);
       unitGroups.push(units);
     } else {
-      const bySlug = new Map<string, number[]>();
+      const bySlug = new Map<string, UnitItem[]>();
       for (const l of eligibleLines) {
         if (!bySlug.has(l.slug)) bySlug.set(l.slug, []);
         for (let i = 0; i < l.count; i++) {
-          bySlug.get(l.slug)!.push(l.unitPrice);
+          bySlug.get(l.slug)!.push({ unitPrice: l.unitPrice, ml: l.ml });
         }
       }
       for (const [, units] of bySlug.entries()) {
-        units.sort((a, b) => b - a);
+        units.sort((a, b) => b.unitPrice - a.unitPrice);
         unitGroups.push(units);
       }
     }
@@ -111,19 +128,23 @@ export function evaluateOffersClient(
       if (bundleCount < 1) continue;
 
       if (offer.offerType === "quantity" && offer.offerPrice != null) {
+        const baseUnitOfferPrice = Math.round(offer.offerPrice / reqQty);
         for (let b = 0; b < bundleCount; b++) {
           const bundleUnits = units.slice(b * reqQty, (b + 1) * reqQty);
-          const regularTotal = bundleUnits.reduce((acc, p) => acc + p, 0);
-          if (regularTotal > offer.offerPrice) {
-            discountTotal += regularTotal - offer.offerPrice;
+          const regularTotal = bundleUnits.reduce((acc, p) => acc + p.unitPrice, 0);
+          const bundleOfferPrice = bundleUnits.reduce(
+            (acc, p) => acc + getUnitOfferPrice(baseUnitOfferPrice, p.ml, offer.percentageIncrease),
+            0
+          );
+          if (regularTotal > bundleOfferPrice) {
+            discountTotal += regularTotal - bundleOfferPrice;
           }
         }
       } else if (offer.offerType === "percentage" && offer.discountValue != null) {
         const discountedUnits = units.slice(0, bundleCount * reqQty);
-        const sum = discountedUnits.reduce((acc, p) => acc + p, 0);
+        const sum = discountedUnits.reduce((acc, p) => acc + p.unitPrice, 0);
         discountTotal += Math.round(sum * (offer.discountValue / 100));
       } else if (offer.offerType === "fixed" && offer.discountValue != null) {
-        // offer.discountValue is in paise
         discountTotal += Math.round(offer.discountValue * bundleCount);
       }
     }
