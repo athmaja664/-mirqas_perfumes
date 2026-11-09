@@ -12,11 +12,11 @@ export function getSequelize(): Sequelize {
 
   const host = clean(process.env.DB_HOST || process.env.MYSQL_HOST) || "localhost";
   const port = Number(clean(process.env.DB_PORT || process.env.MYSQL_PORT)) || 3306;
-  const database = clean(process.env.DB_NAME || process.env.MYSQL_DATABASE || process.env.MYSQL_DB) || "mirqasperfumes_db";
+  const database = clean(process.env.DB_NAME || process.env.MYSQL_DATABASE || process.env.MYSQL_DB) || "mirqas";
   const username = clean(process.env.DB_USER || process.env.MYSQL_USER || process.env.MYSQL_USERNAME) || "root";
   const password = clean(process.env.DB_PASSWORD || process.env.DB_PASS || process.env.MYSQL_PASSWORD || process.env.MYSQL_PWD) || "";
   const sslVal = clean(process.env.DB_SSL || process.env.MYSQL_SSL).toLowerCase();
-  const useSSL = sslVal === "true";
+  const useSSL = sslVal === "true" || host.includes("tidbcloud.com");
   const rejectUnauthorized = clean(process.env.DB_SSL_REJECT_UNAUTHORIZED).toLowerCase() !== "false";
 
   cache.sequelize = new Sequelize(database, username, password, {
