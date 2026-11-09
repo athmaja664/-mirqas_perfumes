@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import AlertModal from "@/components/admin/AlertModal";
 
 export type AdminOfferItem = {
   id: string;
@@ -39,6 +40,17 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [alertData, setAlertData] = useState<{
+    open: boolean;
+    title?: string;
+    message: string;
+    type?: "info" | "error" | "success";
+  }>({ open: false, message: "" });
+  const [deleteTarget, setDeleteTarget] = useState<AdminOfferItem | null>(null);
+
+  const showAlert = (message: string, type: "info" | "error" | "success" = "error", title?: string) => {
+    setAlertData({ open: true, message, type, title });
+  };
 
   const filtered = offers.filter((o) => {
     if (statusFilter !== "all" && o.status !== statusFilter) return false;
@@ -67,17 +79,19 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
         );
         router.refresh();
       } else {
-        alert("Could not update offer status.");
+        showAlert("Could not update offer status.", "error");
       }
     } catch {
-      alert("Error updating offer status.");
+      showAlert("Error updating offer status.", "error");
     } finally {
       setBusyId(null);
     }
   };
 
-  const deleteOffer = async (offer: AdminOfferItem) => {
-    if (!window.confirm(`Are you sure you want to delete the offer "${offer.title}"?`)) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const offer = deleteTarget;
+    setDeleteTarget(null);
     setBusyId(offer.id);
     try {
       const res = await fetch(`/api/admin/offers/${offer.id}`, { method: "DELETE" });
@@ -85,13 +99,17 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
         setOffers((prev) => prev.filter((item) => item.id !== offer.id));
         router.refresh();
       } else {
-        alert("Could not delete offer.");
+        showAlert("Could not delete offer.", "error");
       }
     } catch {
-      alert("Error deleting offer.");
+      showAlert("Error deleting offer.", "error");
     } finally {
       setBusyId(null);
     }
+  };
+
+  const deleteOffer = (offer: AdminOfferItem) => {
+    setDeleteTarget(offer);
   };
 
   const formatOfferPrice = (o: AdminOfferItem) => {
@@ -120,7 +138,29 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
   };
 
   return (
-    <div className="border border-black/10 bg-white">
+    <>
+      {/* ── Custom Alert Modal Box ──────────────────────────────────── */}
+      <AlertModal
+        open={alertData.open}
+        title={alertData.title}
+        message={alertData.message}
+        type={alertData.type}
+        onClose={() => setAlertData((prev) => ({ ...prev, open: false }))}
+      />
+
+      {/* ── Delete Confirmation Modal ───────────────────────────────── */}
+      <AlertModal
+        open={Boolean(deleteTarget)}
+        title="Delete Offer"
+        message={deleteTarget ? `Are you sure you want to permanently delete the offer "${deleteTarget.title}"?\nThis cannot be undone.` : ""}
+        type="confirm"
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      <div className="border border-black/10 bg-white">
       {/* Search & Filter Toolbar */}
       <div className="flex flex-col gap-4 border-b border-black/10 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 sm:max-w-xs">
@@ -319,6 +359,7 @@ export default function OffersTable({ initialOffers }: { initialOffers: AdminOff
         </table>
       </div>
     </div>
+    </>
   );
 }
 

@@ -7,7 +7,10 @@ type AlertModalProps = {
   open: boolean;
   title?: string;
   message: string;
-  type?: "info" | "error" | "success";
+  type?: "info" | "error" | "success" | "confirm";
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm?: () => void;
   onClose: () => void;
 };
 
@@ -19,16 +22,19 @@ export default function AlertModal({
   title,
   message,
   type = "info",
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  onConfirm,
   onClose,
 }: AlertModalProps) {
-  const okBtnRef = useRef<HTMLButtonElement>(null);
+  const primaryBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    okBtnRef.current?.focus();
+    primaryBtnRef.current?.focus();
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Enter") {
+      if (e.key === "Escape") {
         onClose();
       }
     };
@@ -46,7 +52,15 @@ export default function AlertModal({
   if (!open || !message) return null;
 
   const defaultTitle =
-    type === "error" ? "Notice" : type === "success" ? "Success" : "Information";
+    type === "error"
+      ? "Notice"
+      : type === "success"
+      ? "Success"
+      : type === "confirm"
+      ? "Confirmation"
+      : "Information";
+
+  const isConfirm = Boolean(onConfirm || type === "confirm");
 
   return createPortal(
     <div
@@ -65,7 +79,12 @@ export default function AlertModal({
             className="m-0 text-2xl font-medium"
             style={{
               fontFamily: serif,
-              color: type === "error" ? "#A32A1F" : type === "success" ? "#1F7A3A" : COPPER,
+              color:
+                type === "error" || type === "confirm"
+                  ? "#A32A1F"
+                  : type === "success"
+                  ? "#1F7A3A"
+                  : COPPER,
             }}
           >
             {title || defaultTitle}
@@ -86,17 +105,32 @@ export default function AlertModal({
           {message}
         </p>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex justify-end gap-2.5">
+          {isConfirm && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="cursor-pointer border border-black/20 bg-white px-5 py-2 text-[12px] font-semibold uppercase tracking-[0.15em] text-black/70 transition-colors hover:bg-black/5"
+            >
+              {cancelText}
+            </button>
+          )}
+
           <button
-            ref={okBtnRef}
+            ref={primaryBtnRef}
             type="button"
-            onClick={onClose}
+            onClick={isConfirm && onConfirm ? onConfirm : onClose}
             className="cursor-pointer px-6 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:opacity-90"
             style={{
-              background: type === "error" ? "#A32A1F" : type === "success" ? "#1F7A3A" : COPPER,
+              background:
+                type === "error" || type === "confirm"
+                  ? "#A32A1F"
+                  : type === "success"
+                  ? "#1F7A3A"
+                  : COPPER,
             }}
           >
-            OK
+            {isConfirm ? confirmText : "OK"}
           </button>
         </div>
       </div>
@@ -104,4 +138,3 @@ export default function AlertModal({
     document.body
   );
 }
-

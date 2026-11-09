@@ -969,7 +969,6 @@ export default function ProductForm({ product }: { product?: ProductData }) {
 
   // Used only for actual errors
   function showAlert(message: string, type: "info" | "error" | "success" = "error", title?: string) {
-    setError(type === "error" ? message : "");
     setAlertData({ open: true, message, type, title });
   }
 
@@ -1307,11 +1306,6 @@ export default function ProductForm({ product }: { product?: ProductData }) {
         onSubmit={onSubmit}
         className="mt-6 grid max-w-[760px] gap-6 border border-black/10 bg-white p-4 sm:p-6 md:mt-8 md:p-8 [&>*]:min-w-0"
       >
-        {error && (
-          <p role="alert" className="m-0 border border-red-300 bg-red-50 px-4 py-3 text-[14px] text-red-800">
-            {error}
-          </p>
-        )}
 
         <div>
           <label className={label} htmlFor="name">
