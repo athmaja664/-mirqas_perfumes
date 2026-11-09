@@ -10,6 +10,7 @@ import {
 import {
   FaFacebookF,
   FaInstagram,
+  FaWhatsapp,
 } from "react-icons/fa";
 
 // ---- Fonts and colours: same as the "Choose Your Bottle" section ----
@@ -116,13 +117,23 @@ export default function Footer() {
               </a>
 
               <a
-                href="https://www.instagram.com/"
+                href="https://www.instagram.com/mirqas.in?obrf=MWp2MWphMmp5bGY4Mw=="
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Instagram"
                 className="transition-colors hover:text-[#7D4720]"
               >
                 <FaInstagram size={18} />
+              </a>
+
+              <a
+                href="https://wa.me/919946185557"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="WhatsApp"
+                className="transition-colors hover:text-[#7D4720]"
+              >
+                <FaWhatsapp size={19} />
               </a>
             </div>
           </div>
@@ -187,7 +198,7 @@ export default function Footer() {
               </a>
 
               <a
-                href="https://wa.me/YOUR_WHATSAPP_NUMBER"
+                href="https://wa.me/919946185557"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-start gap-1.5 transition-colors hover:text-[#9C5A2B] md:items-center md:gap-2"
@@ -237,7 +248,7 @@ export default function Footer() {
         {/* Copyright */}
         <div className="flex flex-col gap-2 pt-4 text-[11px] tracking-[0.03em] md:gap-4 md:pt-6 md:text-[13px] md:tracking-[0.04em] lg:flex-row lg:items-center lg:justify-between">
           <p className="m-0 text-center lg:text-left">
-            © {new Date().getFullYear()} Mirqas Perfumes. All rights reserved.
+            © {new Date().getFullYear()} Empire Ae IT Services. All rights reserved.
           </p>
 
           <nav
