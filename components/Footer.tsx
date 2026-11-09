@@ -8,7 +8,6 @@ import {
   Phone,
 } from "lucide-react";
 import {
-  FaFacebookF,
   FaInstagram,
   FaWhatsapp,
 } from "react-icons/fa";
@@ -106,16 +105,6 @@ export default function Footer() {
             </p>
 
             <div className="mt-3 flex items-center gap-5 md:mt-5" style={{ color: COPPER }}>
-              <a
-                href="https://www.facebook.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Facebook"
-                className="transition-colors hover:text-[#7D4720]"
-              >
-                <FaFacebookF size={18} />
-              </a>
-
               <a
                 href="https://www.instagram.com/mirqas.in?obrf=MWp2MWphMmp5bGY4Mw=="
                 target="_blank"
