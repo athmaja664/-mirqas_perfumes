@@ -274,12 +274,11 @@ function ProductDetail() {
   };
 
   const handleBuyNow = () => {
-    if (!product.inStock || cartStatus !== "idle") return;
+    if (!product.inStock || busy) return;
     setCartStatus("going");
-    setTimeout(() => {
-      addLineToCart(item, current.ml, qty);
-      router.push("/cart");
-    }, 700);
+    router.push(
+      `/buy-now?slug=${encodeURIComponent(product.slug)}&ml=${current.ml}&qty=${qty}`
+    );
   };
 
   const busy = cartStatus === "adding" || cartStatus === "going";
@@ -616,6 +615,7 @@ function ProductDetail() {
                 type="button"
                 onClick={handleBuyNow}
                 disabled={!product.inStock || busy}
+                aria-busy={cartStatus === "going"}
                 className="inline-flex items-center justify-center gap-2 rounded-[6px] bg-[#9C5A2B] px-6 py-3 text-xs font-medium uppercase tracking-[0.16em] text-white transition hover:bg-[#7d4720] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {cartStatus === "going" ? (
